@@ -16,6 +16,7 @@ import Premium from "./pages/Premium";
 import Corporate from "./pages/Corporate";
 import Sponsor from "./pages/Sponsor";
 import NotFound from "./pages/NotFound";
+import PublicProfile from "./pages/PublicProfile";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +39,7 @@ const App = () => (
             <Route path="/premium" element={<Premium />} />
             <Route path="/corporate" element={<Corporate />} />
             <Route path="/sponsor" element={<Sponsor />} />
+            <Route path="/u/:username" element={<PublicProfile />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Layout>

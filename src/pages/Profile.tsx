@@ -1,16 +1,124 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Bookmark, Heart, History, ExternalLink, Calendar, Eye } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const Profile = () => {
   const [activeTab, setActiveTab] = useState("saved");
+  const [savedItems, setSavedItems] = useState<any[]>([]);
+  const [likedItems, setLikedItems] = useState<any[]>([]);
+  const [historyItems, setHistoryItems] = useState<any[]>([]);
+  const [profile, setProfile] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  // TODO: Connect to user's saved/liked/history data from Supabase
-  
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Fetch user profile
+        const { data: userProfile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (userProfile) {
+          setProfile(userProfile);
+        }
+
+        // Fetch saved items (bookmarks)
+        const { data: bookmarks } = await supabase
+          .from('bookmarks')
+          .select(`
+            created_at,
+            drops (
+              id,
+              title,
+              tags,
+              sources (name)
+            )
+          `)
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (bookmarks) {
+          setSavedItems(bookmarks.map(bookmark => ({
+            id: bookmark.drops?.id,
+            title: bookmark.drops?.title,
+            source: bookmark.drops?.sources?.name || 'Unknown',
+            tags: bookmark.drops?.tags || [],
+            savedAt: new Date(bookmark.created_at).toLocaleDateString()
+          })));
+        }
+
+        // Fetch liked items (engagement events with action='like')
+        const { data: likes } = await supabase
+          .from('engagement_events')
+          .select(`
+            created_at,
+            drops (
+              id,
+              title,
+              tags,
+              sources (name)
+            )
+          `)
+          .eq('user_id', user.id)
+          .eq('action', 'like')
+          .order('created_at', { ascending: false });
+
+        if (likes) {
+          setLikedItems(likes.map(like => ({
+            id: like.drops?.id,
+            title: like.drops?.title,
+            source: like.drops?.sources?.name || 'Unknown',
+            tags: like.drops?.tags || [],
+            likedAt: new Date(like.created_at).toLocaleDateString()
+          })));
+        }
+
+        // Fetch history (all engagement events)
+        const { data: history } = await supabase
+          .from('engagement_events')
+          .select(`
+            id,
+            action,
+            channel,
+            created_at,
+            drops (
+              title,
+              sources (name)
+            )
+          `)
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(20);
+
+        if (history) {
+          setHistoryItems(history.map(event => ({
+            id: event.id,
+            action: event.action,
+            title: event.drops?.title || 'Unknown',
+            source: event.drops?.sources?.name || 'Unknown',
+            timestamp: new Date(event.created_at).toLocaleString()
+          })));
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
   const mockSavedItems = [
     {
       id: 1,
@@ -179,36 +287,52 @@ const Profile = () => {
     </div>
   );
 
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <div className="text-center py-12">
+          <div className="text-muted-foreground">Loading profile...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
       <div className="mb-8">
         <div className="flex items-center gap-4 mb-4">
           <Avatar className="h-16 w-16">
-            <AvatarFallback className="text-lg">JD</AvatarFallback>
+            <AvatarFallback className="text-lg">
+              {profile?.display_name?.charAt(0)?.toUpperCase() || profile?.email?.charAt(0)?.toUpperCase() || 'U'}
+            </AvatarFallback>
           </Avatar>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">John Doe</h1>
-            <p className="text-muted-foreground">john@example.com</p>
-            <p className="text-sm text-muted-foreground">Member since January 2024</p>
+            <h1 className="text-3xl font-bold text-foreground">
+              {profile?.display_name || 'User'}
+            </h1>
+            <p className="text-muted-foreground">{profile?.email}</p>
+            <p className="text-sm text-muted-foreground">
+              Member since {profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : 'Unknown'}
+            </p>
           </div>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-primary">{mockSavedItems.length}</div>
+              <div className="text-2xl font-bold text-primary">{savedItems.length}</div>
               <div className="text-sm text-muted-foreground">Saved Items</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-destructive">{mockLikedItems.length}</div>
+              <div className="text-2xl font-bold text-destructive">{likedItems.length}</div>
               <div className="text-sm text-muted-foreground">Liked Items</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-success">{mockHistory.length}</div>
+              <div className="text-2xl font-bold text-success">{historyItems.length}</div>
               <div className="text-sm text-muted-foreground">Total Actions</div>
             </CardContent>
           </Card>
@@ -241,7 +365,7 @@ const Profile = () => {
             </CardHeader>
             <CardContent>
               <ContentGrid 
-                items={mockSavedItems} 
+                items={savedItems} 
                 emptyMessage="No saved content yet" 
               />
             </CardContent>
@@ -258,7 +382,7 @@ const Profile = () => {
             </CardHeader>
             <CardContent>
               <ContentGrid 
-                items={mockLikedItems} 
+                items={likedItems} 
                 emptyMessage="No liked content yet" 
               />
             </CardContent>
@@ -274,7 +398,7 @@ const Profile = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <HistoryTable items={mockHistory} />
+              <HistoryTable items={historyItems} />
             </CardContent>
           </Card>
         </TabsContent>

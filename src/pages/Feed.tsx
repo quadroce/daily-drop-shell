@@ -1,12 +1,106 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Heart, Bookmark, X, ThumbsDown, ExternalLink, Star } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 const Feed = () => {
-  // TODO: Connect to backend for personalized content ranking
-  // TODO: Implement save/dismiss/like/dislike actions
-  
+  const [drops, setDrops] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCandidateDrops = async () => {
+      try {
+        const { data, error } = await supabase.rpc('get_candidate_drops', { limit_n: 10 });
+        
+        if (error) {
+          console.error('Error fetching candidate drops:', error);
+          return;
+        }
+
+        if (data) {
+          // Fetch source names for each drop
+          const dropsWithSources = await Promise.all(
+            data.map(async (drop) => {
+              if (drop.source_id) {
+                const { data: source } = await supabase
+                  .from('sources')
+                  .select('name')
+                  .eq('id', drop.source_id)
+                  .single();
+                
+                return {
+                  ...drop,
+                  source: source?.name || 'Unknown Source',
+                  favicon: drop.type === 'video' ? '📺' : '📄'
+                };
+              }
+              return {
+                ...drop,
+                source: 'Unknown Source',
+                favicon: drop.type === 'video' ? '📺' : '📄'
+              };
+            })
+          );
+
+          setDrops(dropsWithSources);
+        }
+      } catch (error) {
+        console.error('Error fetching drops:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCandidateDrops();
+  }, []);
+
+  const handleSave = async (dropId: number) => {
+    try {
+      const { error } = await supabase
+        .from('bookmarks')
+        .insert({ user_id: (await supabase.auth.getUser()).data.user?.id, drop_id: dropId })
+        .select();
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Saved to your profile",
+        description: "Content has been added to your saved items.",
+      });
+    } catch (error) {
+      console.error('Error saving bookmark:', error);
+      toast({
+        title: "Couldn't save content",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEngagement = async (dropId: number, action: string) => {
+    try {
+      const { error } = await supabase
+        .from('engagement_events')
+        .insert({
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+          drop_id: dropId,
+          action,
+          channel: 'web'
+        });
+
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error recording engagement:', error);
+    }
+  };
+
   const mockDrops = [
     {
       id: 1,
@@ -84,7 +178,12 @@ const Feed = () => {
               )}
             </div>
           </div>
-          <Button variant="ghost" size="icon" className="shrink-0">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="shrink-0"
+            onClick={() => handleEngagement(drop.id, 'open')}
+          >
             <ExternalLink className="h-4 w-4" />
           </Button>
         </div>
@@ -93,7 +192,7 @@ const Feed = () => {
       <CardContent className="pt-0">
         <div className="flex items-center justify-between">
           <div className="flex flex-wrap gap-1">
-            {drop.tags.slice(0, 3).map((tag: string) => (
+            {drop.tags?.slice(0, 3).map((tag: string) => (
               <Badge key={tag} variant="secondary" className="text-xs">
                 {tag}
               </Badge>
@@ -105,7 +204,7 @@ const Feed = () => {
               variant="ghost" 
               size="icon" 
               className="h-8 w-8 hover:bg-success/10 hover:text-success" 
-              disabled
+              onClick={() => handleSave(drop.id)}
             >
               <Bookmark className="h-4 w-4" />
             </Button>
@@ -113,7 +212,7 @@ const Feed = () => {
               variant="ghost" 
               size="icon" 
               className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive" 
-              disabled
+              onClick={() => handleEngagement(drop.id, 'dismiss')}
             >
               <X className="h-4 w-4" />
             </Button>
@@ -121,7 +220,7 @@ const Feed = () => {
               variant="ghost" 
               size="icon" 
               className="h-8 w-8 hover:bg-primary/10 hover:text-primary" 
-              disabled
+              onClick={() => handleEngagement(drop.id, 'like')}
             >
               <Heart className="h-4 w-4" />
             </Button>
@@ -129,7 +228,7 @@ const Feed = () => {
               variant="ghost" 
               size="icon" 
               className="h-8 w-8 hover:bg-muted" 
-              disabled
+              onClick={() => handleEngagement(drop.id, 'dislike')}
             >
               <ThumbsDown className="h-4 w-4" />
             </Button>
@@ -138,6 +237,16 @@ const Feed = () => {
       </CardContent>
     </Card>
   );
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="text-center py-12">
+          <div className="text-muted-foreground">Your Daily Drop is being prepared.</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -154,23 +263,32 @@ const Feed = () => {
       </div>
 
       <div className="space-y-4">
-        {mockDrops.map((drop) => (
-          <DropCard key={drop.id} drop={drop} />
-        ))}
-        
-        {/* Sponsored content */}
-        <DropCard drop={sponsoredContent} isSponsored />
-        
-        {/* End of feed message */}
-        <div className="text-center py-8">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-muted rounded-full">
-            <span className="text-sm text-muted-foreground">That's it for today.</span>
-            <span className="text-lg">✨</span>
+        {drops.length > 0 ? (
+          <>
+            {drops.map((drop) => (
+              <DropCard key={drop.id} drop={drop} />
+            ))}
+            
+            {/* Sponsored content */}
+            <DropCard drop={sponsoredContent} isSponsored />
+            
+            {/* End of feed message */}
+            <div className="text-center py-8">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-muted rounded-full">
+                <span className="text-sm text-muted-foreground">That's it for today.</span>
+                <span className="text-lg">✨</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Check back tomorrow for fresh content
+              </p>
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-12">
+            <div className="text-muted-foreground">Your Daily Drop is being prepared.</div>
+            <p className="text-sm text-muted-foreground mt-2">Set your preferences to get personalized content</p>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            Check back tomorrow for fresh content
-          </p>
-        </div>
+        )}
       </div>
     </div>
   );

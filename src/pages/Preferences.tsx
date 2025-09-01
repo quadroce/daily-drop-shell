@@ -1,44 +1,116 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertCircle, Check, X } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 const Preferences = () => {
-  const [selectedTopics, setSelectedTopics] = useState<string[]>(["Technology", "AI"]);
-  const [selectedLanguages, setSelectedLanguages] = useState<string[]>(["English"]);
+  const navigate = useNavigate();
+  const [selectedTopicIds, setSelectedTopicIds] = useState<bigint[]>([]);
+  const [selectedLanguageIds, setSelectedLanguageIds] = useState<bigint[]>([]);
+  const [availableTopics, setAvailableTopics] = useState<Array<{id: bigint, label: string}>>([]);
+  const [availableLanguages, setAvailableLanguages] = useState<Array<{id: bigint, label: string}>>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  // TODO: Connect to user preferences in Supabase
-  // TODO: Implement preference saving functionality
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch topics and languages from database
+        const [topicsResult, languagesResult] = await Promise.all([
+          supabase.from('topics').select('id, label').order('label'),
+          supabase.from('languages').select('id, label').order('label')
+        ]);
 
-  const availableTopics = [
-    "Technology", "AI", "Science", "Business", "Design", "Programming", 
-    "Marketing", "Finance", "Health", "Politics", "Climate", "Education",
-    "Psychology", "Philosophy", "Art", "Music", "Gaming", "Sports"
-  ];
+        if (topicsResult.data) {
+          setAvailableTopics(topicsResult.data.map(t => ({ id: BigInt(t.id), label: t.label })));
+        }
+        if (languagesResult.data) {
+          setAvailableLanguages(languagesResult.data.map(l => ({ id: BigInt(l.id), label: l.label })));
+        }
 
-  const availableLanguages = [
-    "English", "Spanish", "French", "German", "Italian", "Portuguese",
-    "Dutch", "Russian", "Chinese", "Japanese", "Korean", "Arabic"
-  ];
+        // Fetch user's current preferences
+        const { data: userPrefs } = await supabase
+          .from('preferences')
+          .select('selected_topic_ids, selected_language_ids')
+          .single();
 
-  const toggleTopic = (topic: string) => {
-    setSelectedTopics(prev => 
-      prev.includes(topic) 
-        ? prev.filter(t => t !== topic)
-        : [...prev, topic]
+        if (userPrefs) {
+          setSelectedTopicIds(userPrefs.selected_topic_ids.map((id: number) => BigInt(id)));
+          setSelectedLanguageIds(userPrefs.selected_language_ids.map((id: number) => BigInt(id)));
+        }
+      } catch (error) {
+        console.error('Error fetching preferences data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const toggleTopic = (topicId: bigint) => {
+    setSelectedTopicIds(prev => 
+      prev.some(id => id === topicId)
+        ? prev.filter(id => id !== topicId)
+        : [...prev, topicId]
     );
   };
 
-  const toggleLanguage = (language: string) => {
-    if (selectedLanguages.includes(language)) {
-      setSelectedLanguages(prev => prev.filter(l => l !== language));
-    } else if (selectedLanguages.length < 3) {
-      setSelectedLanguages(prev => [...prev, language]);
+  const toggleLanguage = (languageId: bigint) => {
+    if (selectedLanguageIds.some(id => id === languageId)) {
+      setSelectedLanguageIds(prev => prev.filter(id => id !== languageId));
+    } else if (selectedLanguageIds.length < 3) {
+      setSelectedLanguageIds(prev => [...prev, languageId]);
     }
   };
+
+  const handleSavePreferences = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase.rpc('upsert_preferences', {
+        _topics: selectedTopicIds.map(id => Number(id)),
+        _langs: selectedLanguageIds.map(id => Number(id))
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Preferences saved",
+        description: "Your preferences have been updated successfully.",
+      });
+
+      navigate('/feed');
+    } catch (error) {
+      console.error('Error saving preferences:', error);
+      toast({
+        title: "Couldn't save preferences",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const canSave = selectedTopicIds.length >= 1 && selectedLanguageIds.length <= 3;
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="text-center py-12">
+          <div className="text-muted-foreground">Loading preferences...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -61,24 +133,24 @@ const Preferences = () => {
               <div className="flex flex-wrap gap-2">
                 {availableTopics.map((topic) => (
                   <Badge
-                    key={topic}
-                    variant={selectedTopics.includes(topic) ? "default" : "outline"}
+                    key={topic.id.toString()}
+                    variant={selectedTopicIds.some(id => id === topic.id) ? "default" : "outline"}
                     className={`cursor-pointer transition-all hover:scale-105 ${
-                      selectedTopics.includes(topic) 
+                      selectedTopicIds.some(id => id === topic.id)
                         ? "bg-primary text-primary-foreground" 
                         : "hover:bg-secondary"
                     }`}
-                    onClick={() => toggleTopic(topic)}
+                    onClick={() => toggleTopic(topic.id)}
                   >
-                    {selectedTopics.includes(topic) && (
+                    {selectedTopicIds.some(id => id === topic.id) && (
                       <Check className="w-3 h-3 mr-1" />
                     )}
-                    {topic}
+                    {topic.label}
                   </Badge>
                 ))}
               </div>
               
-              {selectedTopics.length === 0 && (
+              {selectedTopicIds.length === 0 && (
                 <div className="flex items-center gap-2 p-3 bg-accent rounded-lg">
                   <AlertCircle className="h-4 w-4 text-warning" />
                   <p className="text-sm text-accent-foreground">
@@ -101,29 +173,32 @@ const Preferences = () => {
           <CardContent>
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span>Selected: {selectedLanguages.length}/3</span>
+                <span>Selected: {selectedLanguageIds.length}/3</span>
+                {selectedLanguageIds.length > 3 && (
+                  <span className="text-warning">Max 3 languages</span>
+                )}
               </div>
               
               <div className="flex flex-wrap gap-2">
                 {availableLanguages.map((language) => (
                   <Badge
-                    key={language}
-                    variant={selectedLanguages.includes(language) ? "default" : "outline"}
+                    key={language.id.toString()}
+                    variant={selectedLanguageIds.some(id => id === language.id) ? "default" : "outline"}
                     className={`cursor-pointer transition-all hover:scale-105 ${
-                      selectedLanguages.includes(language) 
+                      selectedLanguageIds.some(id => id === language.id)
                         ? "bg-primary text-primary-foreground" 
-                        : selectedLanguages.length >= 3 
+                        : selectedLanguageIds.length >= 3 
                           ? "opacity-50 cursor-not-allowed" 
                           : "hover:bg-secondary"
                     }`}
-                    onClick={() => toggleLanguage(language)}
+                    onClick={() => toggleLanguage(language.id)}
                   >
-                    {selectedLanguages.includes(language) ? (
+                    {selectedLanguageIds.some(id => id === language.id) ? (
                       <X className="w-3 h-3 mr-1" />
                     ) : (
-                      selectedLanguages.length < 3 && <Check className="w-3 h-3 mr-1" />
+                      selectedLanguageIds.length < 3 && <Check className="w-3 h-3 mr-1" />
                     )}
-                    {language}
+                    {language.label}
                   </Badge>
                 ))}
               </div>
@@ -180,13 +255,18 @@ const Preferences = () => {
 
         {/* Save Button */}
         <div className="flex justify-end">
-          <Button disabled className="min-w-32">
-            Save Preferences
+          <Button 
+            onClick={handleSavePreferences}
+            disabled={!canSave || saving}
+            aria-disabled={!canSave}
+            className="min-w-32"
+          >
+            {saving ? "Saving..." : "Save Preferences"}
           </Button>
         </div>
 
         {/* Empty State Helper */}
-        {selectedTopics.length === 0 && (
+        {selectedTopicIds.length === 0 && (
           <Card className="border-dashed">
             <CardContent className="text-center py-8">
               <div className="text-muted-foreground space-y-2">
