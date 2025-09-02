@@ -105,13 +105,14 @@ const Feed = () => {
             prefs.selected_topic_ids && 
             prefs.selected_topic_ids.length > 0;
           
-          setHasPreferences(hasValidPrefs);
-          
           if (!hasValidPrefs) {
             console.log('[Feed] No valid preferences found - showing setup message');
+            setHasPreferences(false);
             setLoading(false);
             return;
           }
+          
+          setHasPreferences(true);
         } else {
           setHasPreferences(false);
           setLoading(false);
