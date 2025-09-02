@@ -93,17 +93,23 @@ async function fetchDropsToTag(limit: number): Promise<Drop[]> {
 async function classifyDrop(drop: Drop, topicSlugs: string[]): Promise<ClassificationResult> {
   const systemPrompt = `You are a taxonomy classifier. Given a title and summary, pick 1–3 topics from THIS EXACT LIST ONLY: ${topicSlugs.join(', ')}. Also detect the content language (2-letter code like 'en', 'es', 'fr', etc.).
 
+IMPORTANT TOPIC GROUPINGS - Use related tags when content fits:
+- AI content should get: "ai" and possibly "datasci", "dev" if technical
+- HealthTech content should get: "healthtech" and possibly "medicine", "biotech"  
+- Dev content should get: "dev" and possibly related tech tags
+- Business content should get multiple relevant business tags
+
 Return JSON in this exact format:
 {
-  "topics": ["topic1", "topic2"],
+  "topics": ["topic1", "topic2", "topic3"],
   "language": "en"
 }
 
 Rules:
 - Topics MUST be from the provided list only
-- Maximum 3 topics
+- Use 2-3 related topics when content spans multiple areas
 - Language should be 2-letter ISO code
-- Be concise and accurate`;
+- Be comprehensive and accurate`;
 
   const userPrompt = `Title: ${drop.title}\n\nSummary: ${drop.summary || 'No summary available'}`;
 
