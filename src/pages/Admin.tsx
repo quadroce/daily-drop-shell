@@ -68,7 +68,12 @@ const Admin = () => {
   const runRSSFetcher = async () => {
     setActionLoading('rss');
     try {
-      const response = await fetch('/functions/v1/fetch-rss', { method: 'POST' });
+      const response = await fetch('https://qimelntuxquptqqynxzv.supabase.co/functions/v1/fetch-rss', { 
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
       const result = await response.json();
       
       toast({
@@ -76,6 +81,7 @@ const Admin = () => {
         description: `Processed ${result.sources} sources, enqueued ${result.enqueued} items`,
       });
     } catch (error) {
+      console.error('RSS Fetcher error:', error);
       toast({
         title: "RSS Fetcher Error",
         description: error instanceof Error ? error.message : 'Unknown error',
@@ -89,7 +95,12 @@ const Admin = () => {
   const runIngestWorker = async () => {
     setActionLoading('ingest');
     try {
-      const response = await fetch('/functions/v1/ingest-queue', { method: 'POST' });
+      const response = await fetch('https://qimelntuxquptqqynxzv.supabase.co/functions/v1/ingest-queue', { 
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
       const result = await response.json();
       
       toast({
@@ -97,6 +108,7 @@ const Admin = () => {
         description: `Processed ${result.processed} items, ${result.done} successful, ${result.errors} errors`,
       });
     } catch (error) {
+      console.error('Ingest Worker error:', error);
       toast({
         title: "Ingest Worker Error",
         description: error instanceof Error ? error.message : 'Unknown error',
@@ -110,7 +122,12 @@ const Admin = () => {
   const runTagger = async () => {
     setActionLoading('tagger');
     try {
-      const response = await fetch('/functions/v1/tag-drops', { method: 'POST' });
+      const response = await fetch('https://qimelntuxquptqqynxzv.supabase.co/functions/v1/tag-drops', { 
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
       const result = await response.json();
       
       toast({
@@ -118,6 +135,7 @@ const Admin = () => {
         description: `Processed ${result.processed} drops, ${result.tagged} tagged successfully`,
       });
     } catch (error) {
+      console.error('Tagger error:', error);
       toast({
         title: "Tagger Error",
         description: error instanceof Error ? error.message : 'Unknown error',
