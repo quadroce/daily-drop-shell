@@ -20,6 +20,18 @@ interface DashboardStats {
   usersCount: number;
 }
 
+interface TaggingStats {
+  totalDrops: number;
+  taggedDrops: number;
+  untaggedDrops: number;
+  taggedPercentage: number;
+}
+
+interface TopTag {
+  tag: string;
+  frequency: number;
+}
+
 interface CronJob {
   name: string;
   enabled: boolean;
@@ -39,6 +51,13 @@ const Admin = () => {
     usersCount: 0,
   });
   const [cronJobs, setCronJobs] = useState<CronJob[]>([]);
+  const [taggingStats, setTaggingStats] = useState<TaggingStats>({
+    totalDrops: 0,
+    taggedDrops: 0,
+    untaggedDrops: 0,
+    taggedPercentage: 0,
+  });
+  const [topTags, setTopTags] = useState<TopTag[]>([]);
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -76,6 +95,7 @@ const Admin = () => {
         if (isAdmin) {
           await fetchDashboardStats();
           await fetchCronJobs();
+          await fetchTaggingStats();
         }
         
         setLoading(false);
@@ -125,6 +145,57 @@ const Admin = () => {
       setCronJobs(cronJobsData || []);
     } catch (error) {
       console.error('Error fetching cron jobs:', error);
+    }
+  };
+
+  const fetchTaggingStats = async () => {
+    try {
+      // Fetch tagging stats with direct query
+      const { data: statsData, error: statsError } = await supabase
+        .from('drops')
+        .select('tag_done')
+        .limit(1000);
+
+      if (statsError) throw statsError;
+
+      const totalDrops = statsData?.length || 0;
+      const taggedDrops = statsData?.filter(d => d.tag_done === true).length || 0;
+      const untaggedDrops = totalDrops - taggedDrops;
+      const taggedPercentage = totalDrops > 0 ? (taggedDrops / totalDrops) * 100 : 0;
+
+      setTaggingStats({
+        totalDrops,
+        taggedDrops,
+        untaggedDrops,
+        taggedPercentage,
+      });
+
+      // Fetch top tags with direct query
+      const { data: dropsWithTags, error: tagsError } = await supabase
+        .from('drops')
+        .select('tags')
+        .eq('tag_done', true)
+        .not('tags', 'eq', '{}');
+
+      if (tagsError) throw tagsError;
+
+      // Count tag frequencies
+      const tagCounts: Record<string, number> = {};
+      dropsWithTags?.forEach(drop => {
+        drop.tags?.forEach(tag => {
+          tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+        });
+      });
+
+      // Convert to TopTag array and sort
+      const topTagsArray = Object.entries(tagCounts)
+        .map(([tag, frequency]) => ({ tag, frequency }))
+        .sort((a, b) => b.frequency - a.frequency)
+        .slice(0, 15);
+
+      setTopTags(topTagsArray);
+    } catch (error) {
+      console.error('Error fetching tagging stats:', error);
     }
   };
 
@@ -238,6 +309,9 @@ const Admin = () => {
           title: "Tagger Complete",
           description: `Processed ${processed} drops, ${tagged} tagged successfully${errors > 0 ? `, ${errors} errors` : ''}`,
         });
+        
+        // Refresh tagging stats after processing
+        await fetchTaggingStats();
       }
     } catch (error) {
       console.error('Tagger error:', error);
@@ -340,7 +414,7 @@ const Admin = () => {
       </div>
 
       {/* Dashboard cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Sources</CardTitle>
@@ -379,7 +453,72 @@ const Admin = () => {
             </p>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Articles Tagged</CardTitle>
+            <Tags className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{taggingStats.taggedDrops}/{taggingStats.totalDrops}</div>
+            <p className="text-xs text-muted-foreground">
+              {taggingStats.taggedPercentage.toFixed(1)}% completed
+            </p>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Tagging Statistics */}
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle>Tagging Statistics</CardTitle>
+          <CardDescription>
+            Content tagging and analysis overview
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Progress Stats */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium">Progress Overview</h4>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Total Articles</span>
+                  <span className="font-medium">{taggingStats.totalDrops}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Tagged</span>
+                  <span className="font-medium text-green-600">{taggingStats.taggedDrops}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Remaining</span>
+                  <span className="font-medium text-orange-600">{taggingStats.untaggedDrops}</span>
+                </div>
+                <div className="flex justify-between items-center pt-2 border-t">
+                  <span className="text-sm font-medium">Completion</span>
+                  <span className="font-bold text-primary">{taggingStats.taggedPercentage.toFixed(1)}%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Top Tags */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium">Most Popular Tags</h4>
+              <div className="space-y-2">
+                {topTags.slice(0, 8).map((tag, index) => (
+                  <div key={tag.tag} className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-4">#{index + 1}</span>
+                      <Badge variant="outline" className="text-xs">{tag.tag}</Badge>
+                    </div>
+                    <span className="text-sm font-medium">{tag.frequency}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Admin Actions */}
       <Card className="mb-8">
