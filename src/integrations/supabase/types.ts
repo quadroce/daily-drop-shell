@@ -152,11 +152,14 @@ export type Database = {
           created_at: string
           id: number
           image_url: string | null
+          lang_code: string | null
           lang_id: number | null
+          og_scraped: boolean
           published_at: string | null
           score: number | null
           source_id: number | null
           summary: string | null
+          tag_done: boolean
           tags: string[]
           title: string
           type: Database["public"]["Enums"]["drop_type"]
@@ -167,11 +170,14 @@ export type Database = {
           created_at?: string
           id?: number
           image_url?: string | null
+          lang_code?: string | null
           lang_id?: number | null
+          og_scraped?: boolean
           published_at?: string | null
           score?: number | null
           source_id?: number | null
           summary?: string | null
+          tag_done?: boolean
           tags?: string[]
           title: string
           type: Database["public"]["Enums"]["drop_type"]
@@ -182,11 +188,14 @@ export type Database = {
           created_at?: string
           id?: number
           image_url?: string | null
+          lang_code?: string | null
           lang_id?: number | null
+          og_scraped?: boolean
           published_at?: string | null
           score?: number | null
           source_id?: number | null
           summary?: string | null
+          tag_done?: boolean
           tags?: string[]
           title?: string
           type?: Database["public"]["Enums"]["drop_type"]
@@ -414,6 +423,7 @@ export type Database = {
           name: string
           official: boolean
           status: string
+          type: string
         }
         Insert: {
           created_at?: string
@@ -423,6 +433,7 @@ export type Database = {
           name: string
           official?: boolean
           status?: string
+          type?: string
         }
         Update: {
           created_at?: string
@@ -432,6 +443,7 @@ export type Database = {
           name?: string
           official?: boolean
           status?: string
+          type?: string
         }
         Relationships: []
       }
@@ -545,11 +557,14 @@ export type Database = {
           created_at: string
           id: number
           image_url: string | null
+          lang_code: string | null
           lang_id: number | null
+          og_scraped: boolean
           published_at: string | null
           score: number | null
           source_id: number | null
           summary: string | null
+          tag_done: boolean
           tags: string[]
           title: string
           type: Database["public"]["Enums"]["drop_type"]
