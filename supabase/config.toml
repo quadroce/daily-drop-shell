@@ -9,5 +9,8 @@ verify_jwt = false
 [functions.fetch-rss]
 verify_jwt = false
 
+[functions.tag-drops]
+verify_jwt = false
+
 [functions.admin-api]
 verify_jwt = true
