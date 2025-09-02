@@ -54,6 +54,23 @@ function resolveUrl(baseUrl: string, relativeUrl: string): string {
   return new URL(relativeUrl, baseUrl).href;
 }
 
+// Check if YouTube thumbnail exists and fallback if needed
+async function getYouTubeThumbnail(videoId: string): Promise<string> {
+  const maxresUrl = `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
+  const hqdefaultUrl = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+  
+  try {
+    const response = await fetch(maxresUrl, { method: 'HEAD' });
+    if (response.ok && response.headers.get('content-length') !== '0') {
+      return maxresUrl;
+    }
+  } catch (error) {
+    console.log('Maxresdefault not available, using hqdefault fallback');
+  }
+  
+  return hqdefaultUrl;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -124,8 +141,8 @@ serve(async (req) => {
                 $('meta[name="description"]').attr('content') || 
                 '';
 
-      // Use YouTube thumbnail URLs (maxresdefault with hqdefault fallback)
-      image_url = `https://i.ytimg.com/vi/${youtubeVideoId}/maxresdefault.jpg`;
+      // Use YouTube thumbnail with fallback
+      image_url = await getYouTubeThumbnail(youtubeVideoId);
       
     } else {
       // Regular article parsing
@@ -160,6 +177,7 @@ serve(async (req) => {
       tags,
       lang_id,
       published_at,
+      og_scraped: true,
       created_at: new Date().toISOString(),
     };
 
@@ -202,3 +220,28 @@ serve(async (req) => {
     });
   }
 });
+
+/*
+CURL EXAMPLE:
+
+curl -X POST https://qimelntuxquptqqynxzv.supabase.co/functions/v1/scrape-og \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_ANON_KEY" \
+  -d '{
+    "url": "https://example.com/article",
+    "source_id": 1,
+    "tags": ["tech", "news"],
+    "lang_id": 1,
+    "published_at": "2024-01-01T00:00:00Z"
+  }'
+
+For YouTube:
+curl -X POST https://qimelntuxquptqqynxzv.supabase.co/functions/v1/scrape-og \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_ANON_KEY" \
+  -d '{
+    "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "source_id": 2,
+    "tags": ["video", "music"]
+  }'
+*/
