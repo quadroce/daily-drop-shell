@@ -170,13 +170,17 @@ export type Database = {
       }
       drops: {
         Row: {
+          authority_score: number | null
           created_at: string
+          embeddings: string | null
           id: number
           image_url: string | null
           lang_code: string | null
           lang_id: number | null
           og_scraped: boolean
+          popularity_score: number | null
           published_at: string | null
+          quality_score: number | null
           score: number | null
           source_id: number | null
           summary: string | null
@@ -188,13 +192,17 @@ export type Database = {
           url_hash: string | null
         }
         Insert: {
+          authority_score?: number | null
           created_at?: string
+          embeddings?: string | null
           id?: number
           image_url?: string | null
           lang_code?: string | null
           lang_id?: number | null
           og_scraped?: boolean
+          popularity_score?: number | null
           published_at?: string | null
+          quality_score?: number | null
           score?: number | null
           source_id?: number | null
           summary?: string | null
@@ -206,13 +214,17 @@ export type Database = {
           url_hash?: string | null
         }
         Update: {
+          authority_score?: number | null
           created_at?: string
+          embeddings?: string | null
           id?: number
           image_url?: string | null
           lang_code?: string | null
           lang_id?: number | null
           og_scraped?: boolean
+          popularity_score?: number | null
           published_at?: string | null
+          quality_score?: number | null
           score?: number | null
           source_id?: number | null
           summary?: string | null
@@ -445,6 +457,7 @@ export type Database = {
           display_name: string | null
           email: string
           id: string
+          preference_embeddings: string | null
           role: Database["public"]["Enums"]["app_role"]
           subscription_tier: Database["public"]["Enums"]["subscription_tier"]
           username: string | null
@@ -455,6 +468,7 @@ export type Database = {
           display_name?: string | null
           email: string
           id: string
+          preference_embeddings?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           subscription_tier?: Database["public"]["Enums"]["subscription_tier"]
           username?: string | null
@@ -465,6 +479,7 @@ export type Database = {
           display_name?: string | null
           email?: string
           id?: string
+          preference_embeddings?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           subscription_tier?: Database["public"]["Enums"]["subscription_tier"]
           username?: string | null
@@ -600,9 +615,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      binary_quantize: {
+        Args: { "": string } | { "": unknown }
+        Returns: unknown
+      }
       bookmark_upsert: {
         Args: { _drop_id: number }
         Returns: undefined
+      }
+      calculate_popularity_score: {
+        Args: { raw_popularity: number }
+        Returns: number
+      }
+      calculate_recency_score: {
+        Args: { published_date: string }
+        Returns: number
       }
       ensure_profile: {
         Args: Record<PropertyKey, never>
@@ -611,13 +638,17 @@ export type Database = {
       get_candidate_drops: {
         Args: { limit_n?: number }
         Returns: {
+          authority_score: number | null
           created_at: string
+          embeddings: string | null
           id: number
           image_url: string | null
           lang_code: string | null
           lang_id: number | null
           og_scraped: boolean
+          popularity_score: number | null
           published_at: string | null
+          quality_score: number | null
           score: number | null
           source_id: number | null
           summary: string | null
@@ -628,6 +659,67 @@ export type Database = {
           url: string
           url_hash: string | null
         }[]
+      }
+      get_user_feedback_score: {
+        Args: {
+          _drop_id: number
+          _source_id: number
+          _tags: string[]
+          _user_id: string
+        }
+        Returns: number
+      }
+      halfvec_avg: {
+        Args: { "": number[] }
+        Returns: unknown
+      }
+      halfvec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      halfvec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      halfvec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
+      hnsw_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_sparsevec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnswhandler: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflat_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflat_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflathandler: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      l2_norm: {
+        Args: { "": unknown } | { "": unknown }
+        Returns: number
+      }
+      l2_normalize: {
+        Args: { "": string } | { "": unknown } | { "": unknown }
+        Returns: unknown
       }
       public_profile_feed: {
         Args: { _username: string }
@@ -644,9 +736,45 @@ export type Database = {
         Args: { _action: string; _channel?: string; _drop_id: number }
         Returns: undefined
       }
+      sparsevec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      sparsevec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      sparsevec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
       upsert_preferences: {
         Args: { _langs: number[]; _topics: number[] }
         Returns: undefined
+      }
+      vector_avg: {
+        Args: { "": number[] }
+        Returns: string
+      }
+      vector_dims: {
+        Args: { "": string } | { "": unknown }
+        Returns: number
+      }
+      vector_norm: {
+        Args: { "": string }
+        Returns: number
+      }
+      vector_out: {
+        Args: { "": string }
+        Returns: unknown
+      }
+      vector_send: {
+        Args: { "": string }
+        Returns: string
+      }
+      vector_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
       }
     }
     Enums: {
