@@ -114,12 +114,12 @@ Rules:
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-5-nano-2025-08-07',
+      model: 'gpt-5-mini-2025-08-07',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
-      max_completion_tokens: 200,
+      max_completion_tokens: 300,
     }),
   });
 
