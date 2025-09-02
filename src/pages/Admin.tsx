@@ -14,6 +14,12 @@ interface Profile {
   role: string;
 }
 
+interface DashboardStats {
+  sourcesCount: number;
+  queueCount: number;
+  usersCount: number;
+}
+
 const Admin = () => {
   const { user, session, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -22,6 +28,11 @@ const Admin = () => {
   const [loading, setLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [stats, setStats] = useState<DashboardStats>({
+    sourcesCount: 0,
+    queueCount: 0,
+    usersCount: 0,
+  });
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -54,6 +65,12 @@ const Admin = () => {
         // Check if user is admin or superadmin
         const isAdmin = profileData?.role === 'admin' || profileData?.role === 'superadmin';
         setIsAuthorized(isAdmin);
+        
+        // Fetch dashboard stats if user is authorized
+        if (isAdmin) {
+          await fetchDashboardStats();
+        }
+        
         setLoading(false);
       } catch (error) {
         console.error("Access check error:", error);
@@ -63,6 +80,34 @@ const Admin = () => {
 
     checkAccess();
   }, [authLoading, navigate]);
+
+  const fetchDashboardStats = async () => {
+    try {
+      // Fetch sources count
+      const { count: sourcesCount } = await supabase
+        .from('sources')
+        .select('*', { count: 'exact', head: true });
+
+      // Fetch queue count (pending items)
+      const { count: queueCount } = await supabase
+        .from('ingestion_queue')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
+
+      // Fetch users count
+      const { count: usersCount } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true });
+
+      setStats({
+        sourcesCount: sourcesCount || 0,
+        queueCount: queueCount || 0,
+        usersCount: usersCount || 0,
+      });
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+    }
+  };
 
   // Admin action handlers
   const runRSSFetcher = async () => {
@@ -222,7 +267,7 @@ const Admin = () => {
             <Database className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">-</div>
+            <div className="text-2xl font-bold">{stats.sourcesCount}</div>
             <p className="text-xs text-muted-foreground">
               Content sources management
             </p>
@@ -235,9 +280,9 @@ const Admin = () => {
             <List className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">-</div>
+            <div className="text-2xl font-bold">{stats.queueCount}</div>
             <p className="text-xs text-muted-foreground">
-              Ingestion queue status
+              Pending items in queue
             </p>
           </CardContent>
         </Card>
@@ -248,7 +293,7 @@ const Admin = () => {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">-</div>
+            <div className="text-2xl font-bold">{stats.usersCount}</div>
             <p className="text-xs text-muted-foreground">
               Registered users
             </p>
