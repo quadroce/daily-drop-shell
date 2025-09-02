@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Heart, Bookmark, X, ThumbsDown, ExternalLink, Star, Play, Image } from "lucide-react";
+import { Heart, Bookmark, X, ThumbsDown, ExternalLink, Star, Play, Image, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { usePreferences } from "@/contexts/PreferencesContext";
@@ -11,9 +12,11 @@ import { getYouTubeThumbnailFromUrl, getYouTubeFallbackThumbnail } from "@/lib/y
 import { requireSession } from "@/lib/auth";
 
 const Feed = () => {
+  const navigate = useNavigate();
   const { fallbackPrefs, isFallbackActive } = usePreferences();
   const [drops, setDrops] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasPreferences, setHasPreferences] = useState<boolean | null>(null);
 
   const mockDrops = [
     {
@@ -87,7 +90,7 @@ const Feed = () => {
           userIdLength: user?.id?.length 
         });
         
-        // Debug: Check user preferences
+        // Check user preferences
         if (user?.id) {
           const { data: prefs } = await supabase
             .from('preferences')
@@ -95,6 +98,23 @@ const Feed = () => {
             .eq('user_id', user.id)
             .single();
           console.log('[Feed] User preferences:', prefs);
+          
+          // Check if user has meaningful preferences set
+          const hasValidPrefs = prefs && 
+            prefs.selected_topic_ids && 
+            prefs.selected_topic_ids.length > 0;
+          
+          setHasPreferences(hasValidPrefs);
+          
+          if (!hasValidPrefs) {
+            console.log('[Feed] No valid preferences found');
+            setLoading(false);
+            return;
+          }
+        } else {
+          setHasPreferences(false);
+          setLoading(false);
+          return;
         }
         
         const { data, error } = await supabase.rpc('get_candidate_drops', { limit_n: 10 });
@@ -445,6 +465,39 @@ const Feed = () => {
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="text-center py-12">
           <div className="text-muted-foreground">Your Daily Drop is being prepared.</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show preferences setup if user has no preferences
+  if (hasPreferences === false) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="text-center py-16">
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <Settings className="h-16 w-16 text-muted-foreground mx-auto" />
+              <h2 className="text-2xl font-bold text-foreground">Setup Your Preferences</h2>
+              <p className="text-muted-foreground max-w-md mx-auto">
+                To get personalized daily drops, please set up your topic and language preferences first.
+              </p>
+            </div>
+            
+            <div className="space-y-3">
+              <Button 
+                size="lg" 
+                onClick={() => navigate('/preferences')}
+                className="px-8"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Set Up Preferences
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Choose your interests and languages to get started
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     );
