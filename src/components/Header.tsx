@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -13,7 +13,32 @@ const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const { user, loading } = useAuth();
+
+  // Fetch user role when user changes
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (user) {
+        try {
+          const { data: profileData } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", user.id)
+            .single();
+          
+          setUserRole(profileData?.role || null);
+        } catch (error) {
+          console.error("Error fetching user role:", error);
+          setUserRole(null);
+        }
+      } else {
+        setUserRole(null);
+      }
+    };
+
+    fetchUserRole();
+  }, [user]);
 
   const handleLogout = async () => {
     try {
@@ -39,10 +64,13 @@ const Header = () => {
 
   const isActive = (path: string) => location.pathname === path;
 
+  const isAdmin = userRole === 'admin' || userRole === 'superadmin';
+
   const navLinks = [
     { label: "Feed", path: "/feed" },
     { label: "Pricing", path: "/pricing" },
-    { label: "Newsletter", path: "/newsletter" }
+    { label: "Newsletter", path: "/newsletter" },
+    ...(isAdmin ? [{ label: "Admin", path: "/admin" }] : [])
   ];
 
   const NavLinks = ({ mobile = false, onLinkClick }: { mobile?: boolean; onLinkClick?: () => void }) => (

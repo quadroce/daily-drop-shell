@@ -20,6 +20,7 @@ import Sponsor from "./pages/Sponsor";
 import NotFound from "./pages/NotFound";
 import PublicProfile from "./pages/PublicProfile";
 import ResetPassword from "./pages/ResetPassword";
+import Admin from "./pages/Admin";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -54,6 +55,7 @@ const App = () => (
                 <Route path="/premium" element={<Premium />} />
                 <Route path="/corporate" element={<Corporate />} />
                 <Route path="/sponsor" element={<Sponsor />} />
+                <Route path="/admin" element={<Admin />} />
                 <Route path="/u/:username" element={<PublicProfile />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
