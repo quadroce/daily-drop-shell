@@ -285,6 +285,42 @@ export type Database = {
           },
         ]
       }
+      ingestion_logs: {
+        Row: {
+          articles_tagged: number
+          created_at: string
+          cycle_timestamp: string
+          errors: string[]
+          feeds_processed: number
+          id: number
+          ingestion_processed: number
+          new_articles: number
+          success: boolean
+        }
+        Insert: {
+          articles_tagged?: number
+          created_at?: string
+          cycle_timestamp: string
+          errors?: string[]
+          feeds_processed?: number
+          id?: number
+          ingestion_processed?: number
+          new_articles?: number
+          success?: boolean
+        }
+        Update: {
+          articles_tagged?: number
+          created_at?: string
+          cycle_timestamp?: string
+          errors?: string[]
+          feeds_processed?: number
+          id?: number
+          ingestion_processed?: number
+          new_articles?: number
+          success?: boolean
+        }
+        Relationships: []
+      }
       ingestion_queue: {
         Row: {
           created_at: string

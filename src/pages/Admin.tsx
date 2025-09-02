@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Users, Database, List, ArrowLeft, Rss, Cog, Tags } from "lucide-react";
+import { Loader2, Users, Database, List, ArrowLeft, Rss, Cog, Tags, Monitor } from "lucide-react";
 
 interface Profile {
   id: string;
@@ -523,7 +523,28 @@ const Admin = () => {
       {/* Admin Actions */}
       <Card className="mb-8">
         <CardHeader>
-          <CardTitle>Admin Actions</CardTitle>
+          <CardTitle>System Monitoring</CardTitle>
+          <CardDescription>Monitor automated content ingestion and system health</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col space-y-2">
+            <Button asChild>
+              <Link to="/admin/dashboard" className="flex items-center gap-2">
+                <Monitor className="h-4 w-4" />
+                Open Admin Dashboard
+              </Link>
+            </Button>
+            <p className="text-sm text-muted-foreground">
+              View real-time stats, manage cron jobs, and monitor ingestion logs
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Admin Actions */}
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle>Manual Actions</CardTitle>
           <CardDescription>
             Trigger backend processes manually
           </CardDescription>

@@ -21,6 +21,7 @@ import NotFound from "./pages/NotFound";
 import PublicProfile from "./pages/PublicProfile";
 import ResetPassword from "./pages/ResetPassword";
 import Admin from "./pages/Admin";
+import AdminDashboard from "./pages/AdminDashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -56,6 +57,11 @@ const App = () => (
                 <Route path="/corporate" element={<Corporate />} />
                 <Route path="/sponsor" element={<Sponsor />} />
                 <Route path="/admin" element={<Admin />} />
+                <Route path="/admin/dashboard" element={
+                  <ProtectedRoute>
+                    <AdminDashboard />
+                  </ProtectedRoute>
+                } />
                 <Route path="/u/:username" element={<PublicProfile />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
