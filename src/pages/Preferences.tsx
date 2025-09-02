@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,34 @@ const Preferences = () => {
   const [availableLanguages, setAvailableLanguages] = useState<Array<{id: bigint, label: string}>>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const saveButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Memoized validation state
+  const isSaveEnabled = useMemo(() => {
+    return selectedTopicIds.length >= 1 && selectedLanguageIds.length <= 3;
+  }, [selectedTopicIds.length, selectedLanguageIds.length]);
+
+  // Development logging
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[Prefs] topics', selectedTopicIds, 'langs', selectedLanguageIds, 'isSaveEnabled', isSaveEnabled);
+    }
+  }, [selectedTopicIds, selectedLanguageIds, isSaveEnabled]);
+
+  // Safety check for button accessibility in development
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && isSaveEnabled && saveButtonRef.current) {
+      const btn = saveButtonRef.current;
+      const computedStyle = getComputedStyle(btn);
+      if (computedStyle.pointerEvents === 'none' || btn.tabIndex < 0) {
+        console.warn('[Prefs] Save button blocked despite isSaveEnabled=true. Computed style:', {
+          pointerEvents: computedStyle.pointerEvents,
+          tabIndex: btn.tabIndex,
+          disabled: btn.disabled
+        });
+      }
+    }
+  }, [isSaveEnabled]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -67,10 +95,19 @@ const Preferences = () => {
       setSelectedLanguageIds(prev => prev.filter(id => id !== languageId));
     } else if (selectedLanguageIds.length < 3) {
       setSelectedLanguageIds(prev => [...prev, languageId]);
+    } else {
+      // Prevent selection and show warning is handled in UI
+      console.debug('[Prefs] Max 3 languages reached, blocking selection');
     }
   };
 
-  const handleSavePreferences = async () => {
+  const handleSave = async () => {
+    // Guard clause
+    if (!isSaveEnabled) {
+      console.debug('[Prefs] Save blocked - validation failed');
+      return;
+    }
+
     setSaving(true);
     try {
       const { error } = await supabase.rpc('upsert_preferences', {
@@ -99,8 +136,6 @@ const Preferences = () => {
       setSaving(false);
     }
   };
-
-  const canSave = selectedTopicIds.length >= 1 && selectedLanguageIds.length <= 3;
 
   if (loading) {
     return (
@@ -174,7 +209,7 @@ const Preferences = () => {
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <span>Selected: {selectedLanguageIds.length}/3</span>
-                {selectedLanguageIds.length > 3 && (
+                {selectedLanguageIds.length >= 3 && (
                   <span className="text-warning">Max 3 languages</span>
                 )}
               </div>
@@ -254,11 +289,17 @@ const Preferences = () => {
         </Card>
 
         {/* Save Button */}
-        <div className="flex justify-end">
+        <div className="flex flex-col items-end gap-2">
+          <div className="text-xs text-muted-foreground">
+            Topics: {selectedTopicIds.length} • Languages: {selectedLanguageIds.length}/3
+          </div>
           <Button 
-            onClick={handleSavePreferences}
-            disabled={!canSave || saving}
-            aria-disabled={!canSave}
+            ref={saveButtonRef}
+            type="button"
+            onClick={handleSave}
+            disabled={!isSaveEnabled || saving}
+            aria-disabled={!isSaveEnabled || saving}
+            data-testid="save-preferences"
             className="min-w-32"
           >
             {saving ? "Saving..." : "Save Preferences"}
