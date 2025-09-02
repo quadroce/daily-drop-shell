@@ -381,6 +381,7 @@ export type Database = {
           id: string
           role: Database["public"]["Enums"]["app_role"]
           subscription_tier: Database["public"]["Enums"]["subscription_tier"]
+          username: string | null
         }
         Insert: {
           auth_provider?: Database["public"]["Enums"]["auth_provider"]
@@ -390,6 +391,7 @@ export type Database = {
           id: string
           role?: Database["public"]["Enums"]["app_role"]
           subscription_tier?: Database["public"]["Enums"]["subscription_tier"]
+          username?: string | null
         }
         Update: {
           auth_provider?: Database["public"]["Enums"]["auth_provider"]
@@ -399,6 +401,7 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           subscription_tier?: Database["public"]["Enums"]["subscription_tier"]
+          username?: string | null
         }
         Relationships: []
       }
@@ -552,6 +555,17 @@ export type Database = {
           type: Database["public"]["Enums"]["drop_type"]
           url: string
           url_hash: string | null
+        }[]
+      }
+      public_profile_feed: {
+        Args: { _username: string }
+        Returns: {
+          drop_id: number
+          image_url: string
+          saved_at: string
+          source_name: string
+          title: string
+          url: string
         }[]
       }
       record_engagement: {
