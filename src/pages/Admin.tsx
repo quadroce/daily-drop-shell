@@ -214,12 +214,31 @@ const Admin = () => {
           'Content-Type': 'application/json',
         }
       });
-      const result = await response.json();
       
-      toast({
-        title: "Tagger Complete",
-        description: `Processed ${result.processed} drops, ${result.tagged} tagged successfully`,
-      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      console.log('Tagger result:', result);
+      
+      // Handle both success and error responses
+      if (result.error) {
+        toast({
+          title: "Tagger Error",
+          description: result.error,
+          variant: "destructive",
+        });
+      } else {
+        const processed = result.processed ?? 0;
+        const tagged = result.tagged ?? 0;
+        const errors = result.errors ?? 0;
+        
+        toast({
+          title: "Tagger Complete",
+          description: `Processed ${processed} drops, ${tagged} tagged successfully${errors > 0 ? `, ${errors} errors` : ''}`,
+        });
+      }
     } catch (error) {
       console.error('Tagger error:', error);
       toast({
