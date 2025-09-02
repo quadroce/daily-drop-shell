@@ -18,6 +18,38 @@ interface ScrapeRequest {
   published_at?: string | null;
 }
 
+// Normalize URL to canonical form
+function canonicalUrl(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    
+    // Force HTTPS
+    urlObj.protocol = 'https:';
+    
+    // Remove common tracking parameters
+    const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'fbclid', 'ref', 'source', 'campaign'];
+    trackingParams.forEach(param => urlObj.searchParams.delete(param));
+    
+    // Normalize YouTube URLs to watch?v=ID format
+    if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be')) {
+      const videoId = getYouTubeVideoId(url);
+      if (videoId) {
+        return `https://www.youtube.com/watch?v=${videoId}`;
+      }
+    }
+    
+    // Remove trailing slash unless it's the root path
+    if (urlObj.pathname !== '/' && urlObj.pathname.endsWith('/')) {
+      urlObj.pathname = urlObj.pathname.slice(0, -1);
+    }
+    
+    return urlObj.toString();
+  } catch (error) {
+    console.warn('Failed to canonicalize URL:', url, error);
+    return url;
+  }
+}
+
 // Generate SHA1 hash
 async function generateSHA1(text: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -96,6 +128,11 @@ serve(async (req) => {
     }
 
     console.log(`Scraping URL: ${url}`);
+    
+    // Canonicalize URL and generate hash
+    const canonical = canonicalUrl(url);
+    const url_hash = await generateSHA1(canonical);
+    console.log(`Canonical URL: ${canonical}, Hash: ${url_hash}`);
 
     // Fetch the HTML content
     const fetchResponse = await fetch(url, {
@@ -116,9 +153,6 @@ serve(async (req) => {
 
     const html = await fetchResponse.text();
     console.log('HTML fetched successfully, parsing...');
-
-    // Generate URL hash
-    const url_hash = await generateSHA1(url);
 
     let type: string;
     let title: string;
@@ -171,7 +205,7 @@ serve(async (req) => {
 
     // Prepare data for upsert
     const dropData = {
-      url,
+      url: canonical,
       url_hash,
       type,
       title: title.trim(),
@@ -185,13 +219,14 @@ serve(async (req) => {
       created_at: new Date().toISOString(),
     };
 
-    // Upsert into drops table using SERVICE_ROLE
+    // Upsert into drops table using SERVICE_ROLE with merge-duplicates
     const upsertResponse = await fetch(`${SUPABASE_URL}/rest/v1/drops`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
         'apikey': SERVICE_ROLE_KEY,
         'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates,return=representation',
       },
       body: JSON.stringify(dropData),
     });

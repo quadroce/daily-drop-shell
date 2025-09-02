@@ -215,7 +215,29 @@ async function processQueueItems(limit = 20): Promise<ProcessResult> {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error(`Failed to process item ${item.id}:`, errorMessage);
         
-        // 5. On failure, handle retry logic
+        // Check if error is due to duplicate/unique constraint violation
+        const isDuplicateError = errorMessage.includes('duplicate') || 
+                                errorMessage.includes('uq_drops_url_hash') || 
+                                errorMessage.includes('unique constraint');
+        
+        if (isDuplicateError) {
+          // Treat duplicate as success - URL already exists
+          await updateQueueItem(item.id, {
+            status: 'done',
+            error: null,
+          });
+          console.log(`Item ${item.id} treated as success (duplicate URL already exists)`);
+          
+          result.details.push({
+            id: item.id,
+            url: item.url,
+            status: 'success'
+          });
+          
+          return { success: true, id: item.id };
+        }
+        
+        // 5. On other failures, handle retry logic
         const newTries = item.tries + 1;
         
         if (newTries < 5) {
