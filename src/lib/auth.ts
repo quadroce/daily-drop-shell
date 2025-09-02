@@ -1,0 +1,23 @@
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
+
+/**
+ * Ensures user has a valid session before proceeding with authenticated actions
+ * Throws an error if no session exists and shows user-friendly message
+ */
+export async function requireSession() {
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (!session) {
+    toast({
+      title: "Please sign in to continue",
+      description: "You need to be signed in to perform this action.",
+      variant: "destructive",
+    });
+    
+    // Navigate to auth page - this will be handled by the calling component
+    throw new Error("NO_SESSION");
+  }
+  
+  return session;
+}

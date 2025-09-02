@@ -7,7 +7,8 @@ import { Heart, Bookmark, X, ThumbsDown, ExternalLink, Star, Play, Image } from 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { usePreferences } from "@/contexts/PreferencesContext";
-import { getYouTubeThumbnailFromUrl } from "@/lib/youtube";
+import { getYouTubeThumbnailFromUrl, getYouTubeFallbackThumbnail } from "@/lib/youtube";
+import { requireSession } from "@/lib/auth";
 
 const Feed = () => {
   const { fallbackPrefs, isFallbackActive } = usePreferences();
@@ -138,18 +139,12 @@ const Feed = () => {
 
   const handleSave = async (dropId: number) => {
     try {
+      await requireSession();
+      
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast({
-          title: "Action failed. Please sign in and try again.",
-          variant: "destructive",
-        });
-        return;
-      }
-
       const { error } = await supabase
         .from('bookmarks')
-        .insert({ user_id: user.id, drop_id: dropId });
+        .insert({ user_id: user!.id, drop_id: dropId });
 
       if (error) {
         console.error('Error saving bookmark:', error);
@@ -164,6 +159,10 @@ const Feed = () => {
         title: "Saved to your profile.",
       });
     } catch (error) {
+      if (error instanceof Error && error.message === "NO_SESSION") {
+        return; // Already handled by requireSession
+      }
+      
       console.error('Error saving bookmark:', error);
       toast({
         title: "Action failed. Please sign in and try again.",
@@ -174,21 +173,17 @@ const Feed = () => {
 
   const handleEngagement = async (dropId: number, action: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        if (action !== 'open') {
-          toast({
-            title: "Action failed. Please sign in and try again.",
-            variant: "destructive",
-          });
-        }
-        return;
+      if (action !== 'open') {
+        await requireSession();
       }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user && action !== 'open') return;
 
       const { error } = await supabase
         .from('engagement_events')
         .insert({
-          user_id: user.id,
+          user_id: user?.id,
           drop_id: dropId,
           action,
           channel: 'web'
@@ -207,6 +202,10 @@ const Feed = () => {
       
       console.debug(`[Engagement] ${action} recorded for drop ${dropId}`);
     } catch (error) {
+      if (error instanceof Error && error.message === "NO_SESSION") {
+        return; // Already handled by requireSession
+      }
+      
       console.error('Error recording engagement:', error);
       if (action !== 'open') {
         toast({
@@ -253,8 +252,19 @@ const Feed = () => {
                   alt={drop.title}
                   className="w-full h-full object-cover"
                   onError={(e) => {
+                    // Try fallback for YouTube videos
+                    if (drop.type === 'video' && drop.url) {
+                      const fallbackUrl = getYouTubeFallbackThumbnail(drop.url);
+                      if (fallbackUrl && e.currentTarget.src !== fallbackUrl) {
+                        e.currentTarget.src = fallbackUrl;
+                        return;
+                      }
+                    }
+                    
+                    // Hide image and show placeholder
                     e.currentTarget.style.display = 'none';
-                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                    const placeholder = e.currentTarget.closest('.relative')?.querySelector('[data-placeholder]');
+                    placeholder?.classList.remove('hidden');
                   }}
                 />
                 {drop.type === 'video' && (
@@ -265,6 +275,14 @@ const Feed = () => {
                   </div>
                 )}
                 <div className="absolute inset-0 bg-black/10 group-hover:bg-black/5 transition-colors" />
+                
+                {/* Fallback placeholder (hidden by default) */}
+                <div data-placeholder className="hidden absolute inset-0 bg-muted flex items-center justify-center">
+                  <div className="text-center text-muted-foreground">
+                    <Image className="h-8 w-8 mx-auto mb-2" />
+                    <p className="text-sm">No image available</p>
+                  </div>
+                </div>
               </div>
             ) : null}
             <div className={`${imageUrl ? 'hidden' : 'flex'} w-full h-full bg-muted items-center justify-center`}>

@@ -9,6 +9,7 @@ import { AlertCircle, Check, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { usePreferences } from "@/contexts/PreferencesContext";
+import { requireSession } from "@/lib/auth";
 
 const Preferences = () => {
   const navigate = useNavigate();
@@ -139,6 +140,9 @@ const Preferences = () => {
 
     setSaving(true);
     try {
+      // Ensure user has valid session
+      await requireSession();
+      
       const { error } = await supabase.rpc('upsert_preferences', {
         _topics: selectedTopicIds.map(id => Number(id)),
         _langs: selectedLanguageIds.map(id => Number(id))
@@ -155,23 +159,23 @@ const Preferences = () => {
 
       navigate('/feed');
     } catch (error) {
+      if (error instanceof Error && error.message === "NO_SESSION") {
+        navigate('/auth');
+        return;
+      }
+      
       console.error('[upsert_preferences]', error);
       
       const errorMessage = parseErrorMessage(error);
       console.debug('[Prefs] Error details:', { error, message: errorMessage });
 
-      // Activate fallback mode
-      setFallbackPrefs({ selectedTopicIds, selectedLanguageIds });
-      setFallbackActive(true);
-      
+      // Only activate fallback mode if user explicitly chooses to continue
+      // For now, show error and don't activate fallback automatically
       toast({
-        title: "Using temporary preferences for this session",
+        title: "Failed to save preferences",
         description: errorMessage,
-        variant: "default",
+        variant: "destructive",
       });
-
-      // Still redirect to feed with fallback preferences
-      navigate('/feed');
     } finally {
       setSaving(false);
     }
