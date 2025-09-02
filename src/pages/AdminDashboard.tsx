@@ -190,7 +190,10 @@ const AdminDashboard = () => {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('it-IT');
+    if (!dateString) return 'Never';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Invalid Date';
+    return date.toLocaleString('it-IT');
   };
 
   if (loading) {
