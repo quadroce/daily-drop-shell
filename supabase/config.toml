@@ -2,3 +2,6 @@ project_id = "qimelntuxquptqqynxzv"
 
 [functions.scrape-og]
 verify_jwt = false
+
+[functions.ingest-queue]
+verify_jwt = false
