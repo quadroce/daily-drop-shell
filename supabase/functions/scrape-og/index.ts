@@ -186,6 +186,7 @@ serve(async (req) => {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+        'apikey': SERVICE_ROLE_KEY,
         'Content-Type': 'application/json',
         'Prefer': 'resolution=merge-duplicates',
       },
