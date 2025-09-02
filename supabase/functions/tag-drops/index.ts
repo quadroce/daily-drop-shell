@@ -260,9 +260,32 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  console.log('Tag-drops function started');
+  console.log('OPENAI_API_KEY present:', !!OPENAI_API_KEY);
+  console.log('SERVICE_ROLE_KEY present:', !!SERVICE_ROLE_KEY);
+
   if (!OPENAI_API_KEY) {
+    console.error('OPENAI_API_KEY is missing');
     return new Response(JSON.stringify({ 
-      error: 'OPENAI_API_KEY not configured' 
+      error: 'OPENAI_API_KEY not configured',
+      processed: 0,
+      tagged: 0,
+      errors: 1,
+      details: []
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (!SERVICE_ROLE_KEY) {
+    console.error('SERVICE_ROLE_KEY is missing');
+    return new Response(JSON.stringify({ 
+      error: 'SERVICE_ROLE_KEY not configured',
+      processed: 0,
+      tagged: 0,
+      errors: 1,
+      details: []
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
