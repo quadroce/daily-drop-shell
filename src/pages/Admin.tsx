@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Users, Database, List, ArrowLeft } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2, Users, Database, List, ArrowLeft, Rss, Cog, Tags } from "lucide-react";
 
 interface Profile {
   id: string;
@@ -16,9 +17,11 @@ interface Profile {
 const Admin = () => {
   const { user, session, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -60,6 +63,70 @@ const Admin = () => {
 
     checkAccess();
   }, [authLoading, navigate]);
+
+  // Admin action handlers
+  const runRSSFetcher = async () => {
+    setActionLoading('rss');
+    try {
+      const response = await fetch('/functions/v1/fetch-rss', { method: 'POST' });
+      const result = await response.json();
+      
+      toast({
+        title: "RSS Fetcher Complete",
+        description: `Processed ${result.sources} sources, enqueued ${result.enqueued} items`,
+      });
+    } catch (error) {
+      toast({
+        title: "RSS Fetcher Error",
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: "destructive",
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const runIngestWorker = async () => {
+    setActionLoading('ingest');
+    try {
+      const response = await fetch('/functions/v1/ingest-queue', { method: 'POST' });
+      const result = await response.json();
+      
+      toast({
+        title: "Ingest Worker Complete",
+        description: `Processed ${result.processed} items, ${result.done} successful, ${result.errors} errors`,
+      });
+    } catch (error) {
+      toast({
+        title: "Ingest Worker Error",
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: "destructive",
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const runTagger = async () => {
+    setActionLoading('tagger');
+    try {
+      const response = await fetch('/functions/v1/tag-drops', { method: 'POST' });
+      const result = await response.json();
+      
+      toast({
+        title: "Tagger Complete",
+        description: `Processed ${result.processed} drops, ${result.tagged} tagged successfully`,
+      });
+    } catch (error) {
+      toast({
+        title: "Tagger Error",
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: "destructive",
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   if (loading || authLoading) {
     return (
@@ -152,6 +219,60 @@ const Admin = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Admin Actions */}
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle>Admin Actions</CardTitle>
+          <CardDescription>
+            Trigger backend processes manually
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <Button 
+              onClick={runRSSFetcher}
+              disabled={actionLoading !== null}
+              className="flex items-center gap-2"
+            >
+              {actionLoading === 'rss' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Rss className="h-4 w-4" />
+              )}
+              Run RSS Fetcher now
+            </Button>
+            
+            <Button 
+              onClick={runIngestWorker}
+              disabled={actionLoading !== null}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              {actionLoading === 'ingest' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Cog className="h-4 w-4" />
+              )}
+              Run Ingest Worker now
+            </Button>
+            
+            <Button 
+              onClick={runTagger}
+              disabled={actionLoading !== null}
+              variant="secondary"
+              className="flex items-center gap-2"
+            >
+              {actionLoading === 'tagger' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Tags className="h-4 w-4" />
+              )}
+              Run Tagger now
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Debug info */}
       <Card className="mt-8">
