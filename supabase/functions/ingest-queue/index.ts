@@ -1,7 +1,8 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const SUPABASE_URL = "https://qimelntuxquptqqynxzv.supabase.co";
+const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,7 +23,13 @@ interface QueueItem {
 interface ProcessResult {
   processed: number;
   done: number;
-  error: number;
+  errors: number;
+  details: Array<{
+    id: number;
+    url: string;
+    status: 'success' | 'retry' | 'failed';
+    error?: string;
+  }>;
 }
 
 async function updateQueueItem(id: number, updates: Partial<QueueItem>) {
@@ -75,33 +82,97 @@ async function callScrapeOg(url: string, sourceId: number | null) {
 async function processQueueItems(limit = 20): Promise<ProcessResult> {
   console.log(`Starting queue processing with limit: ${limit}`);
   
-  // 1. Pick up to N rows with FOR UPDATE SKIP LOCKED
-  const fetchResponse = await fetch(
-    `${SUPABASE_URL}/rest/v1/ingestion_queue?status=eq.pending&order=created_at.asc&limit=${limit}`,
-    {
-      method: 'GET',
+  // Ensure the ingestion_queue table exists with proper structure (idempotent)
+  try {
+    const createTableSql = `
+      CREATE TABLE IF NOT EXISTS public.ingestion_queue (
+        id BIGSERIAL PRIMARY KEY,
+        url TEXT NOT NULL,
+        source_id BIGINT,
+        status TEXT NOT NULL DEFAULT 'pending',
+        tries INTEGER NOT NULL DEFAULT 0,
+        error TEXT,
+        lang TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS ingestion_queue_url_idx ON public.ingestion_queue(url);
+    `;
+    
+    const createResponse = await fetch(`${SUPABASE_URL}/rest/v1/rpc/exec_sql`, {
+      method: 'POST',
       headers: {
         'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
         'Content-Type': 'application/json',
-        'apikey': SERVICE_ROLE_KEY,
       },
+      body: JSON.stringify({ sql: createTableSql }),
+    });
+    
+    // Continue even if table creation fails (table might already exist)
+    if (!createResponse.ok) {
+      console.log('Table creation skipped (may already exist)');
     }
-  );
+  } catch (error) {
+    console.log('Table creation error (continuing):', error.message);
+  }
+  
+  // 1. Pick up to N rows with FOR UPDATE SKIP LOCKED using raw SQL
+  const selectSql = `
+    SELECT id, url, source_id, status, tries, error, created_at, updated_at
+    FROM public.ingestion_queue 
+    WHERE status = 'pending' 
+    ORDER BY created_at ASC 
+    LIMIT ${limit}
+    FOR UPDATE SKIP LOCKED
+  `;
+  
+  let queueItems: QueueItem[] = [];
+  
+  try {
+    const rawSqlResponse = await fetch(`${SUPABASE_URL}/rest/v1/rpc/exec_sql`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ sql: selectSql }),
+    });
 
-  if (!fetchResponse.ok) {
-    const errorText = await fetchResponse.text();
-    console.error('Failed to fetch queue items:', errorText);
-    throw new Error(`Failed to fetch queue items: ${errorText}`);
+    if (rawSqlResponse.ok) {
+      const sqlResult = await rawSqlResponse.json();
+      queueItems = sqlResult.data || [];
+    } else {
+      throw new Error('Raw SQL query failed');
+    }
+  } catch (error) {
+    console.log('FOR UPDATE SKIP LOCKED failed, falling back to regular SELECT');
+    
+    // Fallback to regular REST API query
+    const fetchResponse = await fetch(
+      `${SUPABASE_URL}/rest/v1/ingestion_queue?status=eq.pending&order=created_at.asc&limit=${limit}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!fetchResponse.ok) {
+      const errorText = await fetchResponse.text();
+      throw new Error(`Failed to fetch queue items: ${errorText}`);
+    }
+
+    queueItems = await fetchResponse.json();
   }
 
-  const queueItems: QueueItem[] = await fetchResponse.json();
   console.log(`Found ${queueItems.length} pending items to process`);
 
   if (queueItems.length === 0) {
-    return { processed: 0, done: 0, error: 0 };
+    return { processed: 0, done: 0, errors: 0, details: [] };
   }
 
-  const result: ProcessResult = { processed: 0, done: 0, error: 0 };
+  const result: ProcessResult = { processed: 0, done: 0, errors: 0, details: [] };
 
   // Process items in batches of 3 for controlled concurrency
   const batchSize = 3;
@@ -128,6 +199,13 @@ async function processQueueItems(limit = 20): Promise<ProcessResult> {
         });
         
         console.log(`Successfully processed item ${item.id}`);
+        
+        result.details.push({
+          id: item.id,
+          url: item.url,
+          status: 'success'
+        });
+        
         return { success: true, id: item.id };
         
       } catch (error) {
@@ -144,6 +222,13 @@ async function processQueueItems(limit = 20): Promise<ProcessResult> {
             error: errorMessage,
           });
           console.log(`Item ${item.id} will be retried (attempt ${newTries}/5)`);
+          
+          result.details.push({
+            id: item.id,
+            url: item.url,
+            status: 'retry',
+            error: errorMessage
+          });
         } else {
           // Max tries reached, set to error
           await updateQueueItem(item.id, {
@@ -151,6 +236,13 @@ async function processQueueItems(limit = 20): Promise<ProcessResult> {
             error: errorMessage,
           });
           console.log(`Item ${item.id} failed permanently after ${newTries} attempts`);
+          
+          result.details.push({
+            id: item.id,
+            url: item.url,
+            status: 'failed',
+            error: errorMessage
+          });
         }
         
         return { success: false, id: item.id, error: errorMessage };
@@ -168,10 +260,10 @@ async function processQueueItems(limit = 20): Promise<ProcessResult> {
         if (promiseResult.value.success) {
           result.done++;
         } else {
-          result.error++;
+          result.errors++;
         }
       } else {
-        result.error++;
+        result.errors++;
         console.error('Promise rejected:', promiseResult.reason);
       }
     }
@@ -215,13 +307,33 @@ serve(async (req) => {
     
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(JSON.stringify({ 
-      error: errorMessage,
       processed: 0,
       done: 0,
-      error: 0
+      errors: 1,
+      details: [],
+      error: errorMessage
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
+
+/*
+CURL EXAMPLES:
+
+# Process queue with default limit (20)
+curl -X POST https://qimelntuxquptqqynxzv.supabase.co/functions/v1/ingest-queue \
+  -H "Content-Type: application/json"
+
+# Process queue with custom limit
+curl -X POST https://qimelntuxquptqqynxzv.supabase.co/functions/v1/ingest-queue \
+  -H "Content-Type: application/json" \
+  -d '{"limit": 10}'
+
+# Manual trigger via GET
+curl -X GET https://qimelntuxquptqqynxzv.supabase.co/functions/v1/ingest-queue
+
+# GET with limit parameter  
+curl -X GET "https://qimelntuxquptqqynxzv.supabase.co/functions/v1/ingest-queue?limit=5"
+*/
