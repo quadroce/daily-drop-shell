@@ -20,6 +20,11 @@ interface DashboardStats {
   usersCount: number;
 }
 
+interface CronJob {
+  name: string;
+  enabled: boolean;
+}
+
 const Admin = () => {
   const { user, session, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -33,6 +38,7 @@ const Admin = () => {
     queueCount: 0,
     usersCount: 0,
   });
+  const [cronJobs, setCronJobs] = useState<CronJob[]>([]);
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -69,6 +75,7 @@ const Admin = () => {
         // Fetch dashboard stats if user is authorized
         if (isAdmin) {
           await fetchDashboardStats();
+          await fetchCronJobs();
         }
         
         setLoading(false);
@@ -106,6 +113,18 @@ const Admin = () => {
       });
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
+    }
+  };
+
+  const fetchCronJobs = async () => {
+    try {
+      const { data: cronJobsData } = await supabase
+        .from('cron_jobs')
+        .select('name, enabled');
+
+      setCronJobs(cronJobsData || []);
+    } catch (error) {
+      console.error('Error fetching cron jobs:', error);
     }
   };
 
@@ -162,7 +181,8 @@ const Admin = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        }
+        },
+        body: JSON.stringify({ limit: 50 })
       });
       const result = await response.json();
       
@@ -170,6 +190,9 @@ const Admin = () => {
         title: "Ingest Worker Complete",
         description: `Processed ${result.processed} items, ${result.done} successful, ${result.errors} errors`,
       });
+      
+      // Refresh stats after processing
+      await fetchDashboardStats();
     } catch (error) {
       console.error('Ingest Worker error:', error);
       toast({
@@ -202,6 +225,44 @@ const Admin = () => {
       toast({
         title: "Tagger Error",
         description: error instanceof Error ? error.message : 'Unknown error',
+        variant: "destructive",
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const toggleAutoIngest = async () => {
+    setActionLoading('toggle-auto');
+    try {
+      const currentJob = cronJobs.find(job => job.name === 'auto-ingest-worker');
+      const newStatus = !currentJob?.enabled;
+      
+      const { error } = await supabase
+        .from('cron_jobs')
+        .update({ enabled: newStatus, updated_at: new Date().toISOString() })
+        .eq('name', 'auto-ingest-worker');
+
+      if (error) throw error;
+
+      // Update local state
+      setCronJobs(prev => prev.map(job => 
+        job.name === 'auto-ingest-worker' 
+          ? { ...job, enabled: newStatus }
+          : job
+      ));
+
+      toast({
+        title: `Auto Ingest Worker ${newStatus ? 'Enabled' : 'Disabled'}`,
+        description: newStatus 
+          ? 'The system will now automatically process queue items every 5 minutes' 
+          : 'Automatic processing has been disabled',
+      });
+    } catch (error) {
+      console.error('Toggle auto ingest error:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : 'Failed to toggle auto ingest',
         variant: "destructive",
       });
     } finally {
@@ -310,47 +371,78 @@ const Admin = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Button 
-              onClick={runRSSFetcher}
-              disabled={actionLoading !== null}
-              className="flex items-center gap-2"
-            >
-              {actionLoading === 'rss' ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Rss className="h-4 w-4" />
-              )}
-              Run RSS Fetcher now
-            </Button>
-            
-            <Button 
-              onClick={runIngestWorker}
-              disabled={actionLoading !== null}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              {actionLoading === 'ingest' ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Cog className="h-4 w-4" />
-              )}
-              Run Ingest Worker now
-            </Button>
-            
-            <Button 
-              onClick={runTagger}
-              disabled={actionLoading !== null}
-              variant="secondary"
-              className="flex items-center gap-2"
-            >
-              {actionLoading === 'tagger' ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Tags className="h-4 w-4" />
-              )}
-              Run Tagger now
-            </Button>
+          <div className="space-y-4">
+            {/* Manual Actions */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Button 
+                onClick={runRSSFetcher}
+                disabled={actionLoading !== null}
+                className="flex items-center gap-2"
+              >
+                {actionLoading === 'rss' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Rss className="h-4 w-4" />
+                )}
+                Run RSS Fetcher now
+              </Button>
+              
+              <Button 
+                onClick={runIngestWorker}
+                disabled={actionLoading !== null}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                {actionLoading === 'ingest' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Cog className="h-4 w-4" />
+                )}
+                Run Ingest Worker now (50 items)
+              </Button>
+              
+              <Button 
+                onClick={runTagger}
+                disabled={actionLoading !== null}
+                variant="secondary"
+                className="flex items-center gap-2"
+              >
+                {actionLoading === 'tagger' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Tags className="h-4 w-4" />
+                )}
+                Run Tagger now
+              </Button>
+            </div>
+
+            {/* Automation Controls */}
+            <div className="border-t pt-4">
+              <h4 className="text-sm font-medium mb-3">Automation</h4>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">Auto Ingest Worker</span>
+                  <Badge variant={cronJobs.find(job => job.name === 'auto-ingest-worker')?.enabled ? 'default' : 'secondary'}>
+                    {cronJobs.find(job => job.name === 'auto-ingest-worker')?.enabled ? 'Enabled' : 'Disabled'}
+                  </Badge>
+                </div>
+                <Button
+                  onClick={toggleAutoIngest}
+                  disabled={actionLoading !== null}
+                  size="sm"
+                  variant={cronJobs.find(job => job.name === 'auto-ingest-worker')?.enabled ? 'destructive' : 'default'}
+                >
+                  {actionLoading === 'toggle-auto' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    cronJobs.find(job => job.name === 'auto-ingest-worker')?.enabled ? 'Disable' : 'Enable'
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Processes queue items automatically every 5 minutes (50 items per batch)
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
