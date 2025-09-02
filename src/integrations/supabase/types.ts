@@ -151,38 +151,47 @@ export type Database = {
         Row: {
           created_at: string
           id: number
+          image_url: string | null
           lang_id: number | null
           published_at: string | null
           score: number | null
           source_id: number | null
+          summary: string | null
           tags: string[]
           title: string
           type: Database["public"]["Enums"]["drop_type"]
           url: string
+          url_hash: string | null
         }
         Insert: {
           created_at?: string
           id?: number
+          image_url?: string | null
           lang_id?: number | null
           published_at?: string | null
           score?: number | null
           source_id?: number | null
+          summary?: string | null
           tags?: string[]
           title: string
           type: Database["public"]["Enums"]["drop_type"]
           url: string
+          url_hash?: string | null
         }
         Update: {
           created_at?: string
           id?: number
+          image_url?: string | null
           lang_id?: number | null
           published_at?: string | null
           score?: number | null
           source_id?: number | null
+          summary?: string | null
           tags?: string[]
           title?: string
           type?: Database["public"]["Enums"]["drop_type"]
           url?: string
+          url_hash?: string | null
         }
         Relationships: [
           {
@@ -242,6 +251,50 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ingestion_queue: {
+        Row: {
+          created_at: string
+          error: string | null
+          id: number
+          lang: string | null
+          source_id: number | null
+          status: string
+          tries: number
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          id?: number
+          lang?: string | null
+          source_id?: number | null
+          status?: string
+          tries?: number
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          id?: number
+          lang?: string | null
+          source_id?: number | null
+          status?: string
+          tries?: number
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingestion_queue_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "sources"
             referencedColumns: ["id"]
           },
         ]
@@ -326,6 +379,7 @@ export type Database = {
           display_name: string | null
           email: string
           id: string
+          role: Database["public"]["Enums"]["app_role"]
           subscription_tier: Database["public"]["Enums"]["subscription_tier"]
         }
         Insert: {
@@ -334,6 +388,7 @@ export type Database = {
           display_name?: string | null
           email: string
           id: string
+          role?: Database["public"]["Enums"]["app_role"]
           subscription_tier?: Database["public"]["Enums"]["subscription_tier"]
         }
         Update: {
@@ -342,6 +397,7 @@ export type Database = {
           display_name?: string | null
           email?: string
           id?: string
+          role?: Database["public"]["Enums"]["app_role"]
           subscription_tier?: Database["public"]["Enums"]["subscription_tier"]
         }
         Relationships: []
@@ -472,20 +528,35 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      bookmark_upsert: {
+        Args: { _drop_id: number }
+        Returns: undefined
+      }
+      ensure_profile: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       get_candidate_drops: {
         Args: { limit_n?: number }
         Returns: {
           created_at: string
           id: number
+          image_url: string | null
           lang_id: number | null
           published_at: string | null
           score: number | null
           source_id: number | null
+          summary: string | null
           tags: string[]
           title: string
           type: Database["public"]["Enums"]["drop_type"]
           url: string
+          url_hash: string | null
         }[]
+      }
+      record_engagement: {
+        Args: { _action: string; _channel?: string; _drop_id: number }
+        Returns: undefined
       }
       upsert_preferences: {
         Args: { _langs: number[]; _topics: number[] }
@@ -493,6 +564,7 @@ export type Database = {
       }
     }
     Enums: {
+      app_role: "user" | "editor" | "admin" | "superadmin"
       auth_provider: "email" | "google"
       drop_type: "article" | "video"
       subscription_tier: "free" | "premium" | "corporate" | "sponsor"
@@ -623,6 +695,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["user", "editor", "admin", "superadmin"],
       auth_provider: ["email", "google"],
       drop_type: ["article", "video"],
       subscription_tier: ["free", "premium", "corporate", "sponsor"],
