@@ -240,8 +240,25 @@ async function processQueueItems(limit = 20): Promise<ProcessResult> {
         // 5. On other failures, handle retry logic
         const newTries = item.tries + 1;
         
-        if (newTries < 5) {
-          // Set back to pending for retry
+        // Special handling for 403 Forbidden - these are usually permanent blocks
+        const is403Error = errorMessage.includes('403 Forbidden') || errorMessage.includes('403');
+        
+        if (is403Error) {
+          // Mark 403 errors as permanent failures after just 1 attempt
+          await updateQueueItem(item.id, {
+            status: 'error',
+            error: `Permanent failure: ${errorMessage}`,
+          });
+          console.log(`Item ${item.id} marked as permanent failure due to 403 Forbidden`);
+          
+          result.details.push({
+            id: item.id,
+            url: item.url,
+            status: 'failed',
+            error: `Permanent failure: ${errorMessage}`
+          });
+        } else if (newTries < 5) {
+          // Set back to pending for retry (for non-403 errors)
           await updateQueueItem(item.id, {
             status: 'pending',
             error: errorMessage,
