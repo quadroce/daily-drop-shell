@@ -119,12 +119,15 @@ const Feed = () => {
           return;
         }
         
-        const { data, error } = await supabase.rpc('get_candidate_drops', { limit_n: 10 });
+        // Use the new ranking engine
+        const { data, error } = await supabase.functions.invoke('content-ranking', {
+          body: { limit: 10 }
+        });
         
-        console.log('[Feed] RPC result:', { data, error, dataType: typeof data, isArray: Array.isArray(data), length: data?.length });
+        console.log('[Feed] Ranking result:', { data, error });
         
-        if (error || !data || data.length === 0) {
-          console.error('Error fetching candidate drops:', error);
+        if (error || !data?.ranked_drops) {
+          console.error('Error fetching ranked drops:', error);
           
           // Check if fallback is active and use mock data
           if (isFallbackActive && fallbackPrefs) {
@@ -134,41 +137,26 @@ const Feed = () => {
             return;
           }
           
-          console.log('[Feed] No data found but user has preferences - showing empty state');
+          console.log('[Feed] No ranked data found but user has preferences - showing empty state');
           setDrops([]);
           setLoading(false);
           return;
         }
 
-        console.log('[Feed] Found drops:', data.length);
+        console.log('[Feed] Found ranked drops:', data.ranked_drops.length);
         
-        if (data) {
-          // Fetch source names for each drop
-          const dropsWithSources = await Promise.all(
-            data.map(async (drop) => {
-              if (drop.source_id) {
-                const { data: source } = await supabase
-                  .from('sources')
-                  .select('name')
-                  .eq('id', drop.source_id)
-                  .single();
-                
-                return {
-                  ...drop,
-                  source: source?.name || 'Unknown Source',
-                  favicon: drop.type === 'video' ? '📺' : '📄'
-                };
-              }
-              return {
-                ...drop,
-                source: 'Unknown Source',
-                favicon: drop.type === 'video' ? '📺' : '📄'
-              };
-            })
-          );
+        if (data.ranked_drops) {
+          // Map ranked drops to match expected format
+          const rankedDrops = data.ranked_drops.map((drop: any) => ({
+            ...drop,
+            favicon: drop.type === 'video' ? '📺' : '📄',
+            // Add final_score and reason_for_ranking to existing drop data
+            final_score: drop.final_score,
+            reason_for_ranking: drop.reason_for_ranking
+          }));
 
-          console.log('[Feed] Drops with sources:', dropsWithSources);
-          setDrops(dropsWithSources);
+          console.log('[Feed] Processed ranked drops:', rankedDrops);
+          setDrops(rankedDrops);
         }
       } catch (error) {
         console.error('Error fetching drops:', error);
