@@ -92,12 +92,13 @@ const Feed = () => {
         
         // Check user preferences
         if (user?.id) {
-          const { data: prefs } = await supabase
+          const { data: prefs, error: prefsError } = await supabase
             .from('preferences')
             .select('*')
             .eq('user_id', user.id)
-            .single();
-          console.log('[Feed] User preferences:', prefs);
+            .maybeSingle(); // Use maybeSingle instead of single to handle no results
+          
+          console.log('[Feed] User preferences:', prefs, 'error:', prefsError);
           
           // Check if user has meaningful preferences set
           const hasValidPrefs = prefs && 
@@ -107,7 +108,7 @@ const Feed = () => {
           setHasPreferences(hasValidPrefs);
           
           if (!hasValidPrefs) {
-            console.log('[Feed] No valid preferences found');
+            console.log('[Feed] No valid preferences found - showing setup message');
             setLoading(false);
             return;
           }
