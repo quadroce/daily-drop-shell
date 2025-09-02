@@ -293,7 +293,7 @@ serve(async (req) => {
   }
 
   try {
-    let limit = 25;
+    let limit = 1; // Test con solo 1 drop
 
     // Parse limit from request body (POST) or query params (GET)
     if (req.method === 'POST') {
@@ -317,7 +317,9 @@ serve(async (req) => {
     }
 
     console.log(`Starting drop tagging with limit: ${limit}`);
+    console.log('About to call processDropTagging...');
     const result = await processDropTagging(limit);
+    console.log('processDropTagging completed:', result);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
