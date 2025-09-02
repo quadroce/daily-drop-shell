@@ -120,12 +120,12 @@ Rules:
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-5-mini-2025-08-07',
+      model: 'gpt-5-nano-2025-08-07', // FASTER: Use nano for classification tasks
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
-      max_completion_tokens: 300,
+      max_completion_tokens: 150, // REDUCED: Faster response
     }),
   });
 
@@ -193,8 +193,8 @@ async function updateDrop(dropId: number, topics: string[], language: string): P
   console.log(`Successfully updated drop ${dropId}`);
 }
 
-// Process drops for tagging
-async function processDropTagging(limit = 25): Promise<ProcessResult> {
+// Process drops for tagging with concurrency support
+async function processDropTagging(limit = 25, concurrent_requests = 1): Promise<ProcessResult> {
   const result: ProcessResult = {
     processed: 0,
     tagged: 0,
@@ -203,7 +203,7 @@ async function processDropTagging(limit = 25): Promise<ProcessResult> {
   };
 
   try {
-    console.log('Fetching topics and drops...');
+    console.log(`Fetching topics and drops (concurrent_requests: ${concurrent_requests})...`);
     
     // Fetch available topics and drops in parallel
     const [topics, drops] = await Promise.all([
@@ -224,8 +224,8 @@ async function processDropTagging(limit = 25): Promise<ProcessResult> {
     console.log(`Found ${topics.length} topics and ${drops.length} drops to process`);
     console.log('Available topics:', topicSlugs.join(', '));
 
-    // Process drops sequentially to avoid hitting rate limits
-    for (const drop of drops) {
+    // Process drops with controlled concurrency
+    const processDrop = async (drop: Drop) => {
       try {
         console.log(`Processing drop ${drop.id}: ${drop.title}`);
         
@@ -245,13 +245,9 @@ async function processDropTagging(limit = 25): Promise<ProcessResult> {
         
         console.log(`Successfully tagged drop ${drop.id} with topics: ${classification.topics.join(', ')}, language: ${classification.language}`);
         
-        // Small delay to avoid overwhelming the API
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
       } catch (error) {
         console.error(`Error processing drop ${drop.id}:`, error);
         
-        // On error, do NOT set tag_done=true, leave it false for retry
         result.errors++;
         result.details.push({
           id: drop.id,
@@ -259,11 +255,34 @@ async function processDropTagging(limit = 25): Promise<ProcessResult> {
           status: 'error',
           error: error instanceof Error ? error.message : 'Unknown error'
         });
-        
-        // Continue processing other drops
       }
       
       result.processed++;
+    };
+
+    // Process in batches with concurrency control
+    if (concurrent_requests > 1) {
+      // Process with controlled concurrency
+      const batches = [];
+      for (let i = 0; i < drops.length; i += concurrent_requests) {
+        const batch = drops.slice(i, i + concurrent_requests);
+        batches.push(batch);
+      }
+      
+      for (const batch of batches) {
+        await Promise.all(batch.map(processDrop));
+        // Small delay between batches to respect rate limits
+        if (batches.indexOf(batch) < batches.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
+    } else {
+      // Sequential processing (original behavior)
+      for (const drop of drops) {
+        await processDrop(drop);
+        // Small delay to avoid overwhelming the API
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
     }
 
     console.log(`Processing complete: ${result.processed} processed, ${result.tagged} tagged, ${result.errors} errors`);
@@ -315,16 +334,24 @@ serve(async (req) => {
 
   try {
     let limit = 25; // Process 25 drops by default
+    let concurrent_requests = 1; // Default sequential processing
 
-    // Parse limit from request body (POST) or query params (GET)
+    // Parse parameters from request body (POST) or query params (GET)
     if (req.method === 'POST') {
       try {
         const body = await req.json();
+        if (body.batch_size && typeof body.batch_size === 'number' && body.batch_size > 0) {
+          limit = Math.min(body.batch_size, 100); // INCREASED: Cap at 100 (was 50)
+        }
+        if (body.concurrent_requests && typeof body.concurrent_requests === 'number' && body.concurrent_requests > 0) {
+          concurrent_requests = Math.min(body.concurrent_requests, 10); // Max 10 concurrent
+        }
+        // Support legacy limit parameter
         if (body.limit && typeof body.limit === 'number' && body.limit > 0) {
-          limit = Math.min(body.limit, 50); // Cap at 50 to avoid timeouts
+          limit = Math.min(body.limit, 100);
         }
       } catch (error) {
-        console.log('Invalid JSON body, using default limit');
+        console.log('Invalid JSON body, using default parameters');
       }
     } else if (req.method === 'GET') {
       const url = new URL(req.url);
@@ -332,14 +359,14 @@ serve(async (req) => {
       if (limitParam) {
         const parsedLimit = parseInt(limitParam, 10);
         if (parsedLimit > 0) {
-          limit = Math.min(parsedLimit, 50); // Cap at 50
+          limit = Math.min(parsedLimit, 100);
         }
       }
     }
 
-    console.log(`Starting drop tagging with limit: ${limit}`);
+    console.log(`Starting drop tagging with limit: ${limit}, concurrent_requests: ${concurrent_requests}`);
     console.log('About to call processDropTagging...');
-    const result = await processDropTagging(limit);
+    const result = await processDropTagging(limit, concurrent_requests);
     console.log('processDropTagging completed:', result);
 
     return new Response(JSON.stringify(result), {

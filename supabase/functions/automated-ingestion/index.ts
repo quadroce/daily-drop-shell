@@ -71,7 +71,7 @@ async function runAutomatedIngestion(): Promise<ProcessingStats> {
     try {
       const rssResult = await callEdgeFunction('fetch-rss', { 
         trigger: 'automated',
-        max_feeds: 50 // Limit to prevent timeout
+        max_feeds: 100 // INCREASED: Process more feeds
       });
       
       stats.feeds_processed = rssResult?.feeds_processed || 0;
@@ -83,16 +83,17 @@ async function runAutomatedIngestion(): Promise<ProcessingStats> {
       console.error('❌ RSS fetch failed:', error);
     }
 
-    // Wait between steps to prevent overwhelming the system
-    await waitWithTimeout(2000);
+    // Reduced wait time for faster processing
+    await waitWithTimeout(1000);
 
-    // Step 2: Process ingestion queue
+    // Step 2: Process ingestion queue (INCREASED SPEED)
     console.log('🔄 Step 2: Processing ingestion queue...');
     try {
       const ingestionResult = await callEdgeFunction('ingest-queue', {
         trigger: 'automated',
-        batch_size: 60, // Target 60 articles per hour
-        timeout_minutes: 10
+        batch_size: 150, // INCREASED: 150 articles per hour (was 60)
+        timeout_minutes: 15, // More time for larger batches
+        concurrent_processes: 3 // Process multiple articles in parallel
       });
       
       stats.ingestion_processed = ingestionResult?.processed || 0;
@@ -102,16 +103,17 @@ async function runAutomatedIngestion(): Promise<ProcessingStats> {
       console.error('❌ Ingestion failed:', error);
     }
 
-    // Wait between steps
-    await waitWithTimeout(2000);
+    // Reduced wait time
+    await waitWithTimeout(1000);
 
-    // Step 3: Tag articles
+    // Step 3: Tag articles (INCREASED SPEED)
     console.log('🏷️ Step 3: Tagging articles...');
     try {
       const taggingResult = await callEdgeFunction('tag-drops', {
         trigger: 'automated',
-        batch_size: 30, // Process in smaller batches for tagging
-        max_articles: 100
+        batch_size: 80, // INCREASED: More articles per batch (was 30)
+        max_articles: 200, // INCREASED: Process more articles (was 100)
+        concurrent_requests: 5 // Process multiple articles in parallel
       });
       
       stats.articles_tagged = taggingResult?.tagged || 0;
@@ -126,6 +128,9 @@ async function runAutomatedIngestion(): Promise<ProcessingStats> {
     // Log stats to database for monitoring
     await logIngestionStats(stats);
     
+    // Schedule next execution in 1 hour (self-triggering system)
+    scheduleNextExecution();
+    
     return stats;
 
   } catch (error) {
@@ -133,6 +138,41 @@ async function runAutomatedIngestion(): Promise<ProcessingStats> {
     stats.errors.push(`Fatal error: ${error.message}`);
     await logIngestionStats(stats);
     throw error;
+  }
+}
+
+async function scheduleNextExecution() {
+  try {
+    console.log('🕐 Scheduling next automated ingestion in 1 hour...');
+    
+    // Use setTimeout directly (Edge Runtime supports this)
+    setTimeout(async () => {
+      try {
+        console.log('⏰ Auto-trigger: Starting scheduled ingestion cycle...');
+        
+        // Call the function again via HTTP request to avoid recursion issues
+        const response = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/automated-ingestion`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+          },
+          body: JSON.stringify({ trigger: 'auto_scheduled' })
+        });
+        
+        if (response.ok) {
+          console.log('✅ Auto-trigger: Scheduled ingestion completed');
+        } else {
+          console.error('❌ Auto-trigger: Scheduled ingestion failed:', await response.text());
+        }
+      } catch (error) {
+        console.error('❌ Auto-trigger: Scheduled ingestion failed:', error);
+      }
+    }, 60 * 60 * 1000); // 1 hour in milliseconds
+    
+    console.log('✅ Next execution scheduled successfully');
+  } catch (error) {
+    console.error('❌ Failed to schedule next execution:', error);
   }
 }
 
@@ -173,7 +213,7 @@ serve(async (req) => {
     const { data: cronJob } = await supabase
       .from('cron_jobs')
       .select('enabled')
-      .eq('name', 'automated_content_ingestion')
+      .eq('name', 'auto-ingest-worker')
       .single();
     
     if (cronJob && !cronJob.enabled) {
@@ -194,13 +234,20 @@ serve(async (req) => {
     // Run the automated ingestion process
     const stats = await runAutomatedIngestion();
 
+    // For the first manual trigger or restart, start the self-scheduling
+    if (trigger === 'manual' || trigger === 'restart') {
+      console.log('🚀 Starting self-scheduling system...');
+      scheduleNextExecution();
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 
         message: 'Automated ingestion completed successfully',
         stats,
         trigger,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        next_scheduled: trigger === 'manual' || trigger === 'restart' ? 'in 1 hour' : 'continuing schedule'
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
