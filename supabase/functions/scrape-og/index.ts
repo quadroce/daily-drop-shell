@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { load } from "cheerio";
+import { load } from "npm:cheerio@1";
 
 const SUPABASE_URL = "https://qimelntuxquptqqynxzv.supabase.co";
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
