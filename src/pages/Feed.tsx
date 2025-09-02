@@ -462,6 +462,7 @@ const Feed = () => {
   };
 
   if (loading) {
+    console.log('[Feed] Rendering loading state');
     return (
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="text-center py-12">
@@ -473,6 +474,7 @@ const Feed = () => {
 
   // Show preferences setup if user has no preferences
   if (hasPreferences === false) {
+    console.log('[Feed] Rendering preferences setup message');
     return (
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="text-center py-16">
@@ -503,6 +505,8 @@ const Feed = () => {
       </div>
     );
   }
+
+  console.log('[Feed] Rendering main feed, hasPreferences:', hasPreferences, 'drops.length:', drops.length);
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
