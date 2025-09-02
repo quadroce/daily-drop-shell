@@ -44,28 +44,35 @@ interface ProcessResult {
 
 // Fetch available topics from the database
 async function fetchTopics(): Promise<Topic[]> {
+  console.log('Fetching topics from Supabase...');
   const response = await fetch(`${SUPABASE_URL}/rest/v1/topics?select=id,slug,label`, {
     headers: {
       'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+      'apikey': SERVICE_ROLE_KEY,
       'Content-Type': 'application/json',
     },
   });
 
   if (!response.ok) {
     const errorText = await response.text();
+    console.error('Failed to fetch topics:', errorText);
     throw new Error(`Failed to fetch topics: ${errorText}`);
   }
 
-  return await response.json();
+  const topics = await response.json();
+  console.log(`Successfully fetched ${topics.length} topics`);
+  return topics;
 }
 
 // Fetch drops that need tagging
 async function fetchDropsToTag(limit: number): Promise<Drop[]> {
+  console.log(`Fetching ${limit} drops that need tagging...`);
   const response = await fetch(
     `${SUPABASE_URL}/rest/v1/drops?og_scraped=eq.true&tag_done=eq.false&select=id,title,summary,url&order=created_at.desc&limit=${limit}`,
     {
       headers: {
         'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+        'apikey': SERVICE_ROLE_KEY,
         'Content-Type': 'application/json',
       },
     }
@@ -73,10 +80,13 @@ async function fetchDropsToTag(limit: number): Promise<Drop[]> {
 
   if (!response.ok) {
     const errorText = await response.text();
+    console.error('Failed to fetch drops:', errorText);
     throw new Error(`Failed to fetch drops: ${errorText}`);
   }
 
-  return await response.json();
+  const drops = await response.json();
+  console.log(`Successfully fetched ${drops.length} drops to tag`);
+  return drops;
 }
 
 // Classify a drop using OpenAI
@@ -153,10 +163,12 @@ Rules:
 
 // Update a drop with tags and language
 async function updateDrop(dropId: number, topics: string[], language: string): Promise<void> {
+  console.log(`Updating drop ${dropId} with topics: [${topics.join(', ')}], language: ${language}`);
   const response = await fetch(`${SUPABASE_URL}/rest/v1/drops?id=eq.${dropId}`, {
     method: 'PATCH',
     headers: {
       'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+      'apikey': SERVICE_ROLE_KEY,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -168,8 +180,11 @@ async function updateDrop(dropId: number, topics: string[], language: string): P
 
   if (!response.ok) {
     const errorText = await response.text();
+    console.error(`Failed to update drop ${dropId}:`, errorText);
     throw new Error(`Failed to update drop ${dropId}: ${errorText}`);
   }
+  
+  console.log(`Successfully updated drop ${dropId}`);
 }
 
 // Process drops for tagging
