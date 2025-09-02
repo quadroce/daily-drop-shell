@@ -80,7 +80,22 @@ const Feed = () => {
         
         // Check authentication status
         const { data: { user }, error: authError } = await supabase.auth.getUser();
-        console.log('[Feed] User authentication:', { user: user?.id, email: user?.email, authError });
+        console.log('[Feed] User authentication:', { 
+          userId: user?.id, 
+          email: user?.email, 
+          authError,
+          userIdLength: user?.id?.length 
+        });
+        
+        // Debug: Check user preferences
+        if (user?.id) {
+          const { data: prefs } = await supabase
+            .from('preferences')
+            .select('*')
+            .eq('user_id', user.id)
+            .single();
+          console.log('[Feed] User preferences:', prefs);
+        }
         
         const { data, error } = await supabase.rpc('get_candidate_drops', { limit_n: 10 });
         
