@@ -76,7 +76,11 @@ const Feed = () => {
   useEffect(() => {
     const fetchCandidateDrops = async () => {
       try {
+        console.log('[Feed] Starting fetch candidate drops...');
+        
         const { data, error } = await supabase.rpc('get_candidate_drops', { limit_n: 10 });
+        
+        console.log('[Feed] RPC result:', { data, error });
         
         if (error || !data || data.length === 0) {
           console.error('Error fetching candidate drops:', error);
@@ -89,11 +93,14 @@ const Feed = () => {
             return;
           }
           
+          console.log('[Feed] No data found, setting empty array');
           setDrops([]);
           setLoading(false);
           return;
         }
 
+        console.log('[Feed] Found drops:', data.length);
+        
         if (data) {
           // Fetch source names for each drop
           const dropsWithSources = await Promise.all(
@@ -119,6 +126,7 @@ const Feed = () => {
             })
           );
 
+          console.log('[Feed] Drops with sources:', dropsWithSources);
           setDrops(dropsWithSources);
         }
       } catch (error) {
