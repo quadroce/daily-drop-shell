@@ -308,7 +308,7 @@ serve(async (req) => {
   }
 
   try {
-    let limit = 1; // Test con solo 1 drop
+    let limit = 25; // Process 25 drops by default
 
     // Parse limit from request body (POST) or query params (GET)
     if (req.method === 'POST') {
