@@ -68,18 +68,6 @@ function parseFeed(xmlContent: string): RSSItem[] {
   }
 }
 
-// Extract published date from various RSS formats
-function extractPublishedDate(item: RSSItem): string | null {
-  const dateStr = item.pubDate || item.published || item['dc:date'];
-  if (!dateStr) return null;
-  
-  try {
-    return new Date(dateStr).toISOString();
-  } catch {
-    return null;
-  }
-}
-
 // Fetch and process a single RSS feed
 async function processFeed(source: Source): Promise<FeedResult> {
   const result: FeedResult = {
@@ -164,6 +152,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Starting RSS fetch process...');
+    
     const url = new URL(req.url);
     const sourceIdParam = url.searchParams.get('source_id');
     
@@ -186,6 +176,7 @@ serve(async (req) => {
 
     if (!sourcesResponse.ok) {
       const errorText = await sourcesResponse.text();
+      console.error('Failed to fetch sources:', errorText);
       throw new Error(`Failed to fetch sources: ${sourcesResponse.status} ${errorText}`);
     }
 
@@ -234,7 +225,8 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in fetch-rss function:', error);
     return new Response(JSON.stringify({ 
-      ok: false, 
+      sources: 0,
+      enqueued: 0,
       error: error instanceof Error ? error.message : 'Internal server error' 
     }), {
       status: 500,
