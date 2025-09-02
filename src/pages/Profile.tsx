@@ -4,8 +4,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Bookmark, Heart, History, ExternalLink, Calendar, Eye } from "lucide-react";
+import { Bookmark, Heart, History, ExternalLink, Calendar, Eye, Image, Play } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getYouTubeThumbnailFromUrl } from "@/lib/youtube";
 
 const Profile = () => {
   const [activeTab, setActiveTab] = useState("saved");
@@ -41,6 +42,8 @@ const Profile = () => {
               id,
               title,
               tags,
+              url,
+              type,
               sources (name)
             )
           `)
@@ -53,6 +56,10 @@ const Profile = () => {
             title: bookmark.drops?.title,
             source: bookmark.drops?.sources?.name || 'Unknown',
             tags: bookmark.drops?.tags || [],
+            image_url: null, // Will be populated from mock or fallback
+            summary: null, // Will be populated from mock or fallback
+            url: bookmark.drops?.url,
+            type: bookmark.drops?.type,
             savedAt: new Date(bookmark.created_at).toLocaleDateString()
           })));
         }
@@ -66,6 +73,8 @@ const Profile = () => {
               id,
               title,
               tags,
+              url,
+              type,
               sources (name)
             )
           `)
@@ -79,6 +88,10 @@ const Profile = () => {
             title: like.drops?.title,
             source: like.drops?.sources?.name || 'Unknown',
             tags: like.drops?.tags || [],
+            image_url: null, // Will be populated from mock or fallback
+            summary: null, // Will be populated from mock or fallback
+            url: like.drops?.url,
+            type: like.drops?.type,
             likedAt: new Date(like.created_at).toLocaleDateString()
           })));
         }
@@ -198,38 +211,90 @@ const Profile = () => {
     }
   ];
 
+  const getImageUrl = (item: any) => {
+    if (item.type === 'video' && item.url) {
+      const thumbnailUrl = getYouTubeThumbnailFromUrl(item.url);
+      if (thumbnailUrl) return thumbnailUrl;
+    }
+    return item.image_url;
+  };
+
   const ContentGrid = ({ items, emptyMessage }: { items: any[]; emptyMessage: string }) => (
     <div className="space-y-4">
       {items.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {items.map((item) => (
-            <Card key={item.id} className="group hover:bg-card-hover transition-colors">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-sm leading-tight group-hover:text-primary transition-colors">
-                      {item.title}
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-1">{item.source}</p>
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {item.tags?.map((tag: string) => (
-                        <Badge key={tag} variant="secondary" className="text-xs">
-                          {tag}
-                        </Badge>
-                      ))}
+          {items.map((item) => {
+            const imageUrl = getImageUrl(item);
+            
+            return (
+              <Card key={item.id} className="group hover:bg-card-hover transition-colors">
+                <div className="flex">
+                  {/* Image */}
+                  <div className="relative w-24 h-20 overflow-hidden rounded-l-lg shrink-0">
+                    {imageUrl ? (
+                      <div className="relative w-full h-full">
+                        <img 
+                          src={imageUrl} 
+                          alt={item.title}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                          }}
+                        />
+                        {item.type === 'video' && (
+                          <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                            <Play className="h-4 w-4 text-white fill-white" />
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+                    <div className={`${imageUrl ? 'hidden' : 'flex'} w-full h-full bg-muted items-center justify-center`}>
+                      <Image className="h-4 w-4 text-muted-foreground" />
                     </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      {item.savedAt && `Saved ${item.savedAt}`}
-                      {item.likedAt && `Liked ${item.likedAt}`}
-                    </p>
                   </div>
-                  <Button variant="ghost" size="icon" className="shrink-0 h-8 w-8">
-                    <ExternalLink className="h-3 w-3" />
-                  </Button>
+                  
+                  {/* Content */}
+                  <CardContent className="p-4 flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-sm leading-tight group-hover:text-primary transition-colors">
+                          <a href={item.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                            {item.title}
+                          </a>
+                        </h3>
+                        <p className="text-xs text-muted-foreground mt-1">{item.source}</p>
+                        {item.summary && (
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                            {item.summary}
+                          </p>
+                        )}
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {item.tags?.slice(0, 2).map((tag: string) => (
+                            <Badge key={tag} variant="secondary" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {item.savedAt && `Saved ${item.savedAt}`}
+                          {item.likedAt && `Liked ${item.likedAt}`}
+                        </p>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="shrink-0 h-8 w-8"
+                        onClick={() => window.open(item.url, '_blank')}
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </CardContent>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       ) : (
         <Card className="border-dashed">

@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Heart, Bookmark, X, ThumbsDown, ExternalLink, Star } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Heart, Bookmark, X, ThumbsDown, ExternalLink, Star, Play, Image } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { usePreferences } from "@/contexts/PreferencesContext";
+import { getYouTubeThumbnailFromUrl } from "@/lib/youtube";
 
 const Feed = () => {
   const { fallbackPrefs, isFallbackActive } = usePreferences();
@@ -20,7 +22,9 @@ const Feed = () => {
       favicon: "🔥",
       tags: ["AI", "Technology", "Content"],
       type: "article",
-      url: "#"
+      url: "https://techcrunch.com/ai-content-discovery",
+      image_url: null,
+      summary: "Exploring how artificial intelligence is revolutionizing the way we discover and consume digital content across platforms."
     },
     {
       id: 2,
@@ -29,7 +33,9 @@ const Feed = () => {
       favicon: "📺",
       tags: ["React", "JavaScript", "Development"],
       type: "video",
-      url: "#"
+      url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      image_url: null,
+      summary: "Learn best practices for building React applications that can scale to millions of users with modern techniques."
     },
     {
       id: 3,
@@ -37,8 +43,10 @@ const Feed = () => {
       source: "Medium",
       favicon: "📖",
       tags: ["Psychology", "Productivity", "Habits"],
-      type: "article",
-      url: "#"
+      type: "article", 
+      url: "https://medium.com/psychology-habits",
+      image_url: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=200&fit=crop",
+      summary: "Understanding the science behind habit formation and how small changes can lead to significant improvements in daily life."
     },
     {
       id: 4,
@@ -47,7 +55,9 @@ const Feed = () => {
       favicon: "🌱",
       tags: ["Climate", "Technology", "Innovation"],
       type: "research",
-      url: "#"
+      url: "https://nature.com/climate-tech-2024",
+      image_url: "https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=400&h=200&fit=crop",
+      summary: "A comprehensive review of breakthrough technologies addressing climate change challenges in 2024."
     },
     {
       id: 5,
@@ -56,7 +66,9 @@ const Feed = () => {
       favicon: "📺",
       tags: ["TypeScript", "Programming", "Tutorial"],
       type: "video",
-      url: "#"
+      url: "https://www.youtube.com/watch?v=VE6CT8yHJIE",
+      image_url: null,
+      summary: "Master advanced TypeScript patterns and techniques to write more robust and maintainable code."
     }
   ];
 
@@ -129,8 +141,7 @@ const Feed = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         toast({
-          title: "Please log in",
-          description: "You need to be logged in to save content.",
+          title: "Action failed. Please sign in and try again.",
           variant: "destructive",
         });
         return;
@@ -138,22 +149,24 @@ const Feed = () => {
 
       const { error } = await supabase
         .from('bookmarks')
-        .insert({ user_id: user.id, drop_id: dropId })
-        .select();
+        .insert({ user_id: user.id, drop_id: dropId });
 
       if (error) {
-        throw error;
+        console.error('Error saving bookmark:', error);
+        toast({
+          title: "Action failed. Please sign in and try again.",
+          variant: "destructive",
+        });
+        return;
       }
 
       toast({
-        title: "Saved to your profile",
-        description: "Content has been added to your saved items.",
+        title: "Saved to your profile.",
       });
     } catch (error) {
       console.error('Error saving bookmark:', error);
       toast({
-        title: "Couldn't save content",
-        description: "Please try again.",
+        title: "Action failed. Please sign in and try again.",
         variant: "destructive",
       });
     }
@@ -163,7 +176,12 @@ const Feed = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        console.debug('User not logged in, skipping engagement tracking');
+        if (action !== 'open') {
+          toast({
+            title: "Action failed. Please sign in and try again.",
+            variant: "destructive",
+          });
+        }
         return;
       }
 
@@ -177,12 +195,25 @@ const Feed = () => {
         });
 
       if (error) {
-        throw error;
+        console.error('Error recording engagement:', error);
+        if (action !== 'open') {
+          toast({
+            title: "Action failed. Please sign in and try again.",
+            variant: "destructive",
+          });
+        }
+        return;
       }
       
       console.debug(`[Engagement] ${action} recorded for drop ${dropId}`);
     } catch (error) {
       console.error('Error recording engagement:', error);
+      if (action !== 'open') {
+        toast({
+          title: "Action failed. Please sign in and try again.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -194,87 +225,175 @@ const Feed = () => {
     favicon: "⚡",
     tags: ["Sponsored", "Tools", "Development"],
     type: "sponsored",
-    url: "#"
+    url: "#",
+    image_url: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400&h=200&fit=crop",
+    summary: "Boost your development workflow with premium tools designed for modern developers."
   };
 
-  const DropCard = ({ drop, isSponsored = false }: { drop: any; isSponsored?: boolean }) => (
-    <Card className={`group hover:bg-card-hover transition-all duration-200 ${isSponsored ? 'border-warning/40 bg-warning/5' : ''}`}>
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <CardTitle className="text-lg leading-tight group-hover:text-primary transition-colors">
-              {drop.title}
-            </CardTitle>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-lg">{drop.favicon}</span>
-              <span className="text-sm text-muted-foreground truncate">{drop.source}</span>
-              {isSponsored && (
-                <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30">
-                  <Star className="w-3 h-3 mr-1" />
-                  Sponsored
-                </Badge>
-              )}
+  const getImageUrl = (drop: any) => {
+    if (drop.type === 'video' && drop.url) {
+      const thumbnailUrl = getYouTubeThumbnailFromUrl(drop.url);
+      if (thumbnailUrl) return thumbnailUrl;
+    }
+    return drop.image_url;
+  };
+
+  const DropCard = ({ drop, isSponsored = false }: { drop: any; isSponsored?: boolean }) => {
+    const imageUrl = getImageUrl(drop);
+    
+    return (
+      <TooltipProvider>
+        <Card className={`group hover:bg-card-hover transition-all duration-200 ${isSponsored ? 'border-warning/40 bg-warning/5' : ''}`}>
+          {/* Image Area */}
+          <div className="relative h-48 overflow-hidden rounded-t-lg">
+            {imageUrl ? (
+              <div className="relative w-full h-full">
+                <img 
+                  src={imageUrl} 
+                  alt={drop.title}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                  }}
+                />
+                {drop.type === 'video' && (
+                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                    <div className="bg-black/60 rounded-full p-3">
+                      <Play className="h-6 w-6 text-white fill-white" />
+                    </div>
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-black/10 group-hover:bg-black/5 transition-colors" />
+              </div>
+            ) : null}
+            <div className={`${imageUrl ? 'hidden' : 'flex'} w-full h-full bg-muted items-center justify-center`}>
+              <div className="text-center text-muted-foreground">
+                <Image className="h-8 w-8 mx-auto mb-2" />
+                <p className="text-sm">No image available</p>
+              </div>
             </div>
           </div>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="shrink-0"
-            onClick={() => handleEngagement(drop.id, 'open')}
-          >
-            <ExternalLink className="h-4 w-4" />
-          </Button>
-        </div>
-      </CardHeader>
-      
-      <CardContent className="pt-0">
-        <div className="flex items-center justify-between">
-          <div className="flex flex-wrap gap-1">
-            {drop.tags?.slice(0, 3).map((tag: string) => (
-              <Badge key={tag} variant="secondary" className="text-xs">
-                {tag}
-              </Badge>
-            ))}
-          </div>
+
+          <CardHeader className="pb-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <CardTitle className="text-lg leading-tight group-hover:text-primary transition-colors">
+                  <a href={drop.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                    {drop.title}
+                  </a>
+                </CardTitle>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-lg">{drop.favicon}</span>
+                  <span className="text-sm text-muted-foreground truncate">{drop.source}</span>
+                  {isSponsored && (
+                    <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30">
+                      <Star className="w-3 h-3 mr-1" />
+                      Sponsored
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="shrink-0"
+                    onClick={() => {
+                      window.open(drop.url, '_blank');
+                      handleEngagement(drop.id, 'open');
+                    }}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Open link</TooltipContent>
+              </Tooltip>
+            </div>
+          </CardHeader>
           
-          <div className="flex items-center gap-1">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-8 w-8 hover:bg-success/10 hover:text-success" 
-              onClick={() => handleSave(drop.id)}
-            >
-              <Bookmark className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive" 
-              onClick={() => handleEngagement(drop.id, 'dismiss')}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-8 w-8 hover:bg-primary/10 hover:text-primary" 
-              onClick={() => handleEngagement(drop.id, 'like')}
-            >
-              <Heart className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-8 w-8 hover:bg-muted" 
-              onClick={() => handleEngagement(drop.id, 'dislike')}
-            >
-              <ThumbsDown className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
+          <CardContent className="pt-0">
+            {/* Synopsis */}
+            <div className="mb-4">
+              <p className="text-sm text-muted-foreground line-clamp-3">
+                {drop.summary || "No summary available."}
+              </p>
+            </div>
+
+            {/* Tags and Actions */}
+            <div className="flex items-center justify-between">
+              <div className="flex flex-wrap gap-1">
+                {drop.tags?.slice(0, 3).map((tag: string) => (
+                  <Badge key={tag} variant="secondary" className="text-xs">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+              
+              <div className="flex items-center gap-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 hover:bg-success/10 hover:text-success" 
+                      onClick={() => handleSave(drop.id)}
+                    >
+                      <Bookmark className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Save</TooltipContent>
+                </Tooltip>
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive" 
+                      onClick={() => handleEngagement(drop.id, 'dismiss')}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Dismiss</TooltipContent>
+                </Tooltip>
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 hover:bg-primary/10 hover:text-primary" 
+                      onClick={() => handleEngagement(drop.id, 'like')}
+                    >
+                      <Heart className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Like</TooltipContent>
+                </Tooltip>
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 hover:bg-muted" 
+                      onClick={() => handleEngagement(drop.id, 'dislike')}
+                    >
+                      <ThumbsDown className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Dislike</TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </TooltipProvider>
+    );
+  };
 
   if (loading) {
     return (
