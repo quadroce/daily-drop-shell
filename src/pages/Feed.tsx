@@ -132,7 +132,7 @@ const Feed = () => {
             return;
           }
           
-          console.log('[Feed] No data found, setting empty array');
+          console.log('[Feed] No data found but user has preferences - showing empty state');
           setDrops([]);
           setLoading(false);
           return;
@@ -544,15 +544,43 @@ const Feed = () => {
             </div>
           </>
         ) : (
-          <div className="text-center py-12">
-            <div className="text-muted-foreground">Your Daily Drop is being prepared.</div>
-            <p className="text-sm text-muted-foreground mt-2">
-              {isFallbackActive 
-                ? "Using temporary preferences for this session"
-                : "Set your preferences to get personalized content"
-              }
-            </p>
-          </div>
+          // Show different messages based on preferences state
+          hasPreferences === true ? (
+            // User has preferences but no content found
+            <div className="text-center py-16">
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <div className="text-6xl mb-4">📭</div>
+                  <h2 className="text-2xl font-bold text-foreground">No Drops Found</h2>
+                  <p className="text-muted-foreground max-w-md mx-auto">
+                    We couldn't find any content matching your current preferences. Try adjusting your topic or language settings.
+                  </p>
+                </div>
+                
+                <div className="space-y-3">
+                  <Button 
+                    variant="outline"
+                    size="lg" 
+                    onClick={() => navigate('/preferences')}
+                    className="px-8"
+                  >
+                    <Settings className="h-4 w-4 mr-2" />
+                    Adjust Preferences
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Modify your interests to discover more content
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            // Fallback message
+            <div className="text-center py-12">
+              <div className="text-muted-foreground">
+                Loading your personalized content...
+              </div>
+            </div>
+          )
         )}
       </div>
     </div>
