@@ -74,12 +74,30 @@ const Admin = () => {
           'Content-Type': 'application/json',
         }
       });
-      const result = await response.json();
       
-      toast({
-        title: "RSS Fetcher Complete",
-        description: `Processed ${result.sources} sources, enqueued ${result.enqueued} items`,
-      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      console.log('RSS Fetcher result:', result);
+      
+      // Handle both success and error responses
+      if (result.error) {
+        toast({
+          title: "RSS Fetcher Error",
+          description: result.error,
+          variant: "destructive",
+        });
+      } else {
+        const sourcesCount = result.sources ?? 0;
+        const enqueuedCount = result.enqueued ?? 0;
+        
+        toast({
+          title: "RSS Fetcher Complete",
+          description: `Processed ${sourcesCount} sources, enqueued ${enqueuedCount} items`,
+        });
+      }
     } catch (error) {
       console.error('RSS Fetcher error:', error);
       toast({
