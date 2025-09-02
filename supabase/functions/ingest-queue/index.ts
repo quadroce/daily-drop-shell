@@ -103,6 +103,7 @@ async function processQueueItems(limit = 20): Promise<ProcessResult> {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+        'apikey': SERVICE_ROLE_KEY,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ sql: createTableSql }),
@@ -133,6 +134,7 @@ async function processQueueItems(limit = 20): Promise<ProcessResult> {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+        'apikey': SERVICE_ROLE_KEY,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ sql: selectSql }),
@@ -153,6 +155,7 @@ async function processQueueItems(limit = 20): Promise<ProcessResult> {
       {
         headers: {
           'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+          'apikey': SERVICE_ROLE_KEY,
           'Content-Type': 'application/json',
         },
       }
