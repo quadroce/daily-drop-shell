@@ -120,12 +120,13 @@ Rules:
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-5-nano-2025-08-07', // FASTER: Use nano for classification tasks
+      model: 'gpt-4o-mini', // GPT-4 for classification tasks
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
-      max_completion_tokens: 150, // REDUCED: Faster response
+      max_tokens: 150, // Faster response
+      temperature: 0.1, // Low temperature for consistent classification
     }),
   });
 
