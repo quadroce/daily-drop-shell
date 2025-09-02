@@ -104,22 +104,28 @@ Rules:
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'gpt-5-nano-2025-08-07',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
-      max_tokens: 200,
-      temperature: 0.1,
+      max_completion_tokens: 200,
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
+    console.error('OpenAI API error:', response.status, errorText);
     throw new Error(`OpenAI API error: ${response.status} ${errorText}`);
   }
 
   const data = await response.json();
+  console.log('OpenAI response:', data);
+  
+  if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+    throw new Error('Invalid response structure from OpenAI');
+  }
+  
   const content = data.choices[0].message.content;
 
   try {
@@ -140,6 +146,7 @@ Rules:
       language
     };
   } catch (parseError) {
+    console.error('Failed to parse OpenAI response:', content);
     throw new Error(`Failed to parse OpenAI response: ${content}`);
   }
 }
