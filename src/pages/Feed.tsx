@@ -78,9 +78,13 @@ const Feed = () => {
       try {
         console.log('[Feed] Starting fetch candidate drops...');
         
+        // Check authentication status
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        console.log('[Feed] User authentication:', { user: user?.id, email: user?.email, authError });
+        
         const { data, error } = await supabase.rpc('get_candidate_drops', { limit_n: 10 });
         
-        console.log('[Feed] RPC result:', { data, error });
+        console.log('[Feed] RPC result:', { data, error, dataType: typeof data, isArray: Array.isArray(data), length: data?.length });
         
         if (error || !data || data.length === 0) {
           console.error('Error fetching candidate drops:', error);
