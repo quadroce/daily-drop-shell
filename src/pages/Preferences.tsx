@@ -8,9 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertCircle, Check, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { usePreferences } from "@/contexts/PreferencesContext";
 
 const Preferences = () => {
   const navigate = useNavigate();
+  const { setFallbackPrefs, setFallbackActive } = usePreferences();
   const [selectedTopicIds, setSelectedTopicIds] = useState<bigint[]>([]);
   const [selectedLanguageIds, setSelectedLanguageIds] = useState<bigint[]>([]);
   const [availableTopics, setAvailableTopics] = useState<Array<{id: bigint, label: string}>>([]);
@@ -42,6 +44,16 @@ const Preferences = () => {
           tabIndex: btn.tabIndex,
           disabled: btn.disabled
         });
+      }
+      
+      // Check if button is clickable using elementFromPoint
+      const rect = btn.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const elementAtPoint = document.elementFromPoint(centerX, centerY);
+      
+      if (elementAtPoint !== btn && !btn.contains(elementAtPoint)) {
+        console.warn('[Prefs] Button is covered by another element:', elementAtPoint);
       }
     }
   }, [isSaveEnabled]);
@@ -101,6 +113,23 @@ const Preferences = () => {
     }
   };
 
+  const parseErrorMessage = (error: any): string => {
+    if (error?.message) {
+      // Parse common Supabase errors
+      if (error.message.includes('RLS')) {
+        return 'Permission denied. Please log in to save preferences.';
+      }
+      if (error.message.includes('function upsert_preferences') || error.message.includes('does not exist')) {
+        return 'Database function not available. Using temporary preferences.';
+      }
+      if (error.message.includes('JWT')) {
+        return 'Authentication error. Please log in again.';
+      }
+      return error.message;
+    }
+    return 'Unknown error occurred';
+  };
+
   const handleSave = async () => {
     // Guard clause
     if (!isSaveEnabled) {
@@ -126,12 +155,23 @@ const Preferences = () => {
 
       navigate('/feed');
     } catch (error) {
-      console.error('Error saving preferences:', error);
+      console.error('[upsert_preferences]', error);
+      
+      const errorMessage = parseErrorMessage(error);
+      console.debug('[Prefs] Error details:', { error, message: errorMessage });
+
+      // Activate fallback mode
+      setFallbackPrefs({ selectedTopicIds, selectedLanguageIds });
+      setFallbackActive(true);
+      
       toast({
-        title: "Couldn't save preferences",
-        description: "Please try again.",
-        variant: "destructive",
+        title: "Using temporary preferences for this session",
+        description: errorMessage,
+        variant: "default",
       });
+
+      // Still redirect to feed with fallback preferences
+      navigate('/feed');
     } finally {
       setSaving(false);
     }

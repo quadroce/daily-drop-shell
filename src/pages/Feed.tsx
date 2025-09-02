@@ -5,101 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Heart, Bookmark, X, ThumbsDown, ExternalLink, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { usePreferences } from "@/contexts/PreferencesContext";
 
 const Feed = () => {
+  const { fallbackPrefs, isFallbackActive } = usePreferences();
   const [drops, setDrops] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchCandidateDrops = async () => {
-      try {
-        const { data, error } = await supabase.rpc('get_candidate_drops', { limit_n: 10 });
-        
-        if (error) {
-          console.error('Error fetching candidate drops:', error);
-          return;
-        }
-
-        if (data) {
-          // Fetch source names for each drop
-          const dropsWithSources = await Promise.all(
-            data.map(async (drop) => {
-              if (drop.source_id) {
-                const { data: source } = await supabase
-                  .from('sources')
-                  .select('name')
-                  .eq('id', drop.source_id)
-                  .single();
-                
-                return {
-                  ...drop,
-                  source: source?.name || 'Unknown Source',
-                  favicon: drop.type === 'video' ? '📺' : '📄'
-                };
-              }
-              return {
-                ...drop,
-                source: 'Unknown Source',
-                favicon: drop.type === 'video' ? '📺' : '📄'
-              };
-            })
-          );
-
-          setDrops(dropsWithSources);
-        }
-      } catch (error) {
-        console.error('Error fetching drops:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCandidateDrops();
-  }, []);
-
-  const handleSave = async (dropId: number) => {
-    try {
-      const { error } = await supabase
-        .from('bookmarks')
-        .insert({ user_id: (await supabase.auth.getUser()).data.user?.id, drop_id: dropId })
-        .select();
-
-      if (error) {
-        throw error;
-      }
-
-      toast({
-        title: "Saved to your profile",
-        description: "Content has been added to your saved items.",
-      });
-    } catch (error) {
-      console.error('Error saving bookmark:', error);
-      toast({
-        title: "Couldn't save content",
-        description: "Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleEngagement = async (dropId: number, action: string) => {
-    try {
-      const { error } = await supabase
-        .from('engagement_events')
-        .insert({
-          user_id: (await supabase.auth.getUser()).data.user?.id,
-          drop_id: dropId,
-          action,
-          channel: 'web'
-        });
-
-      if (error) {
-        throw error;
-      }
-    } catch (error) {
-      console.error('Error recording engagement:', error);
-    }
-  };
 
   const mockDrops = [
     {
@@ -148,6 +59,133 @@ const Feed = () => {
       url: "#"
     }
   ];
+
+  useEffect(() => {
+    const fetchCandidateDrops = async () => {
+      try {
+        const { data, error } = await supabase.rpc('get_candidate_drops', { limit_n: 10 });
+        
+        if (error || !data || data.length === 0) {
+          console.error('Error fetching candidate drops:', error);
+          
+          // Check if fallback is active and use mock data
+          if (isFallbackActive && fallbackPrefs) {
+            console.debug('[Feed] Using fallback mode with mock data');
+            setDrops(mockDrops.slice(0, 5)); // Use first 5 mock drops
+            setLoading(false);
+            return;
+          }
+          
+          setDrops([]);
+          setLoading(false);
+          return;
+        }
+
+        if (data) {
+          // Fetch source names for each drop
+          const dropsWithSources = await Promise.all(
+            data.map(async (drop) => {
+              if (drop.source_id) {
+                const { data: source } = await supabase
+                  .from('sources')
+                  .select('name')
+                  .eq('id', drop.source_id)
+                  .single();
+                
+                return {
+                  ...drop,
+                  source: source?.name || 'Unknown Source',
+                  favicon: drop.type === 'video' ? '📺' : '📄'
+                };
+              }
+              return {
+                ...drop,
+                source: 'Unknown Source',
+                favicon: drop.type === 'video' ? '📺' : '📄'
+              };
+            })
+          );
+
+          setDrops(dropsWithSources);
+        }
+      } catch (error) {
+        console.error('Error fetching drops:', error);
+        
+        // Fallback to mock data if there's an error and fallback is active
+        if (isFallbackActive && fallbackPrefs) {
+          console.debug('[Feed] Exception caught, using fallback mode');
+          setDrops(mockDrops.slice(0, 5));
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCandidateDrops();
+  }, [isFallbackActive, fallbackPrefs]);
+
+  const handleSave = async (dropId: number) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Please log in",
+          description: "You need to be logged in to save content.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const { error } = await supabase
+        .from('bookmarks')
+        .insert({ user_id: user.id, drop_id: dropId })
+        .select();
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Saved to your profile",
+        description: "Content has been added to your saved items.",
+      });
+    } catch (error) {
+      console.error('Error saving bookmark:', error);
+      toast({
+        title: "Couldn't save content",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEngagement = async (dropId: number, action: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.debug('User not logged in, skipping engagement tracking');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('engagement_events')
+        .insert({
+          user_id: user.id,
+          drop_id: dropId,
+          action,
+          channel: 'web'
+        });
+
+      if (error) {
+        throw error;
+      }
+      
+      console.debug(`[Engagement] ${action} recorded for drop ${dropId}`);
+    } catch (error) {
+      console.error('Error recording engagement:', error);
+    }
+  };
+
 
   const sponsoredContent = {
     id: "sponsored-1",
@@ -258,6 +296,11 @@ const Feed = () => {
         <div className="mt-4 p-3 bg-muted/50 rounded-lg">
           <p className="text-sm text-muted-foreground">
             ≥1 YouTube per Drop • ≤2 per source • ≤1 sponsored
+            {isFallbackActive && (
+              <span className="ml-2 px-2 py-1 bg-warning/20 text-warning text-xs rounded">
+                Using temporary preferences
+              </span>
+            )}
           </p>
         </div>
       </div>
@@ -286,7 +329,12 @@ const Feed = () => {
         ) : (
           <div className="text-center py-12">
             <div className="text-muted-foreground">Your Daily Drop is being prepared.</div>
-            <p className="text-sm text-muted-foreground mt-2">Set your preferences to get personalized content</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              {isFallbackActive 
+                ? "Using temporary preferences for this session"
+                : "Set your preferences to get personalized content"
+              }
+            </p>
           </div>
         )}
       </div>
