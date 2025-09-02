@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { load } from "npm:cheerio@1";
+import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.38/deno-dom-wasm.ts";
 
 const SUPABASE_URL = "https://qimelntuxquptqqynxzv.supabase.co";
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -131,33 +131,37 @@ serve(async (req) => {
       console.log(`YouTube video detected: ${youtubeVideoId}`);
       type = 'video';
       
-      // Parse title from HTML
-      const $ = load(html);
-      title = $('meta[property="og:title"]').attr('content') || 
-              $('title').text() || 
-              'YouTube Video';
+      // Parse title from HTML using DOMParser
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
       
-      summary = $('meta[property="og:description"]').attr('content') || 
-                $('meta[name="description"]').attr('content') || 
-                '';
+      const ogTitle = doc.querySelector('meta[property="og:title"]')?.getAttribute('content');
+      const titleElement = doc.querySelector('title')?.textContent;
+      title = ogTitle || titleElement || 'YouTube Video';
+      
+      const ogDescription = doc.querySelector('meta[property="og:description"]')?.getAttribute('content');
+      const metaDescription = doc.querySelector('meta[name="description"]')?.getAttribute('content');
+      summary = ogDescription || metaDescription || '';
 
       // Use YouTube thumbnail with fallback
       image_url = await getYouTubeThumbnail(youtubeVideoId);
       
     } else {
-      // Regular article parsing
+      // Regular article parsing using DOMParser
       type = 'article';
-      const $ = load(html);
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
       
-      title = $('meta[property="og:title"]').attr('content') || 
-              $('title').text() || 
-              'Untitled';
+      const ogTitle = doc.querySelector('meta[property="og:title"]')?.getAttribute('content');
+      const titleElement = doc.querySelector('title')?.textContent;
+      title = ogTitle || titleElement || 'Untitled';
       
-      summary = $('meta[property="og:description"]').attr('content') || 
-                $('meta[name="description"]').attr('content') || 
-                '';
+      const ogDescription = doc.querySelector('meta[property="og:description"]')?.getAttribute('content');
+      const metaDescription = doc.querySelector('meta[name="description"]')?.getAttribute('content');
+      summary = ogDescription || metaDescription || '';
 
-      const ogImage = $('meta[property="og:image"]').attr('content');
+      const ogImageElement = doc.querySelector('meta[property="og:image"]');
+      const ogImage = ogImageElement?.getAttribute('content');
       if (ogImage) {
         image_url = resolveUrl(url, ogImage);
       }
