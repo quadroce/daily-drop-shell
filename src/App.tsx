@@ -20,6 +20,7 @@ import Sponsor from "./pages/Sponsor";
 import NotFound from "./pages/NotFound";
 import PublicProfile from "./pages/PublicProfile";
 import ResetPassword from "./pages/ResetPassword";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -37,8 +38,16 @@ const App = () => (
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/feed" element={<Feed />} />
-                <Route path="/preferences" element={<Preferences />} />
-                <Route path="/profile" element={<Profile />} />
+                <Route path="/preferences" element={
+                  <ProtectedRoute>
+                    <Preferences />
+                  </ProtectedRoute>
+                } />
+                <Route path="/profile" element={
+                  <ProtectedRoute>
+                    <Profile />
+                  </ProtectedRoute>
+                } />
                 <Route path="/newsletter" element={<Newsletter />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/pricing" element={<Pricing />} />

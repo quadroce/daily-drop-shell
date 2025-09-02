@@ -10,6 +10,7 @@ import { Loader2, Mail, Lock, User, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import EmailVerification from "@/components/EmailVerification";
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -20,13 +21,22 @@ const Auth = () => {
   const [registerPassword, setRegisterPassword] = useState("");
   const [resetEmail, setResetEmail] = useState("");
   const [error, setError] = useState("");
+  const [showVerification, setShowVerification] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
 
   // Redirect if already authenticated
   useEffect(() => {
     if (user) {
-      navigate("/feed");
+      // Check if user needs email verification
+      const isGoogleUser = user.app_metadata?.provider === 'google';
+      const isEmailVerified = user.email_confirmed_at !== null;
+      
+      if (!isGoogleUser && !isEmailVerified) {
+        setShowVerification(true);
+      } else {
+        navigate("/feed");
+      }
     }
   }, [user, navigate]);
 
@@ -84,7 +94,7 @@ const Auth = () => {
           title: "Account created successfully",
           description: "Please check your email to verify your account.",
         });
-        navigate("/feed");
+        setShowVerification(true);
       }
     } catch (err) {
       setError("An unexpected error occurred");
@@ -143,6 +153,14 @@ const Auth = () => {
     }
   };
   
+  // Show verification screen if needed
+  if (showVerification) {
+    return <EmailVerification onVerified={() => {
+      setShowVerification(false);
+      navigate("/feed");
+    }} />;
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">

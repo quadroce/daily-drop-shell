@@ -19,5 +19,17 @@ export async function requireSession() {
     throw new Error("NO_SESSION");
   }
   
+  // Check email verification for non-OAuth users
+  const user = session.user;
+  if (user && !user.email_confirmed_at && user.app_metadata?.provider !== 'google') {
+    toast({
+      title: "Please verify your email",
+      description: "You need to verify your email address to continue.",
+      variant: "destructive",
+    });
+    
+    throw new Error("EMAIL_NOT_VERIFIED");
+  }
+  
   return session;
 }
