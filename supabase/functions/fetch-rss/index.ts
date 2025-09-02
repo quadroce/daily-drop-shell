@@ -113,6 +113,7 @@ async function processFeed(source: Source): Promise<FeedResult> {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+            'apikey': SERVICE_ROLE_KEY,
             'Content-Type': 'application/json',
             'Prefer': 'resolution=ignore-duplicates',
           },
@@ -170,6 +171,7 @@ serve(async (req) => {
     const sourcesResponse = await fetch(sourcesQuery, {
       headers: {
         'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+        'apikey': SERVICE_ROLE_KEY,
         'Content-Type': 'application/json',
       },
     });
