@@ -119,44 +119,97 @@ const Feed = () => {
           return;
         }
         
-        // Use the new ranking engine
-        const { data, error } = await supabase.functions.invoke('content-ranking', {
-          body: { limit: 10 }
-        });
+        // Use new ranking engine
+        console.log('[Feed] Calling new ranking engine...');
+        const { data, error } = await supabase.rpc('get_ranked_drops', { limit_n: 10 });
         
-        console.log('[Feed] Ranking result:', { data, error });
+        console.log('[Feed] Ranking engine result:', { data, error, dataType: typeof data, isArray: Array.isArray(data), length: data?.length });
         
-        if (error || !data?.ranked_drops) {
+        if (error || !data || data.length === 0) {
           console.error('Error fetching ranked drops:', error);
           
-          // Check if fallback is active and use mock data
-          if (isFallbackActive && fallbackPrefs) {
-            console.debug('[Feed] Using fallback mode with mock data');
-            setDrops(mockDrops.slice(0, 5)); // Use first 5 mock drops
+          // Fallback to old method if new ranking fails
+          console.log('[Feed] Falling back to basic candidate drops...');
+          const { data: fallbackData, error: fallbackError } = await supabase.rpc('get_candidate_drops', { limit_n: 10 });
+          
+          if (fallbackError || !fallbackData || fallbackData.length === 0) {
+            // Check if fallback is active and use mock data
+            if (isFallbackActive && fallbackPrefs) {
+              console.debug('[Feed] Using fallback mode with mock data');
+              setDrops(mockDrops.slice(0, 5)); // Use first 5 mock drops
+              setLoading(false);
+              return;
+            }
+            
+            console.log('[Feed] No data found but user has preferences - showing empty state');
+            setDrops([]);
             setLoading(false);
             return;
           }
           
-          console.log('[Feed] No ranked data found but user has preferences - showing empty state');
-          setDrops([]);
+          // Use fallback data
+          const dropsWithSources = await Promise.all(
+            fallbackData.map(async (drop) => {
+              if (drop.source_id) {
+                const { data: source } = await supabase
+                  .from('sources')
+                  .select('name')
+                  .eq('id', drop.source_id)
+                  .single();
+                
+                return {
+                  ...drop,
+                  source: source?.name || 'Unknown Source',
+                  favicon: drop.type === 'video' ? '📺' : '📄',
+                  final_score: null,
+                  reason_for_ranking: 'Standard recommendation'
+                };
+              }
+              return {
+                ...drop,
+                source: 'Unknown Source',
+                favicon: drop.type === 'video' ? '📺' : '📄',
+                final_score: null,
+                reason_for_ranking: 'Standard recommendation'
+              };
+            })
+          );
+
+          console.log('[Feed] Using fallback drops with sources:', dropsWithSources);
+          setDrops(dropsWithSources);
           setLoading(false);
           return;
         }
 
-        console.log('[Feed] Found ranked drops:', data.ranked_drops.length);
+        console.log('[Feed] Found ranked drops:', data.length);
         
-        if (data.ranked_drops) {
-          // Map ranked drops to match expected format
-          const rankedDrops = data.ranked_drops.map((drop: any) => ({
-            ...drop,
-            favicon: drop.type === 'video' ? '📺' : '📄',
-            // Add final_score and reason_for_ranking to existing drop data
-            final_score: drop.final_score,
-            reason_for_ranking: drop.reason_for_ranking
-          }));
+        if (data) {
+          // Fetch source names for ranked drops
+          const dropsWithSources = await Promise.all(
+            data.map(async (drop) => {
+              if (drop.source_id) {
+                const { data: source } = await supabase
+                  .from('sources')
+                  .select('name')
+                  .eq('id', drop.source_id)
+                  .single();
+                
+                return {
+                  ...drop,
+                  source: source?.name || 'Unknown Source',
+                  favicon: drop.type === 'video' ? '📺' : '📄'
+                };
+              }
+              return {
+                ...drop,
+                source: 'Unknown Source',
+                favicon: drop.type === 'video' ? '📺' : '📄'
+              };
+            })
+          );
 
-          console.log('[Feed] Processed ranked drops:', rankedDrops);
-          setDrops(rankedDrops);
+          console.log('[Feed] Ranked drops with sources:', dropsWithSources);
+          setDrops(dropsWithSources);
         }
       } catch (error) {
         console.error('Error fetching drops:', error);
@@ -348,6 +401,15 @@ const Feed = () => {
                     </Badge>
                   )}
                 </div>
+                
+                {/* Ranking reason */}
+                {drop.reason_for_ranking && (
+                  <div className="mt-2">
+                    <Badge variant="outline" className="text-xs bg-primary/5 text-primary/80 border-primary/20">
+                      {drop.reason_for_ranking}
+                    </Badge>
+                  </div>
+                )}
               </div>
               <Tooltip>
                 <TooltipTrigger asChild>

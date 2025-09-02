@@ -660,6 +660,22 @@ export type Database = {
           url_hash: string | null
         }[]
       }
+      get_ranked_drops: {
+        Args: { limit_n?: number }
+        Returns: {
+          final_score: number
+          id: number
+          image_url: string
+          published_at: string
+          reason_for_ranking: string
+          source_id: number
+          summary: string
+          tags: string[]
+          title: string
+          type: Database["public"]["Enums"]["drop_type"]
+          url: string
+        }[]
+      }
       get_user_feedback_score: {
         Args: {
           _drop_id: number
