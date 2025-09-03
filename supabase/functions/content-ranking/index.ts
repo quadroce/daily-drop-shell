@@ -82,6 +82,7 @@ serve(async (req) => {
 
     console.log('[Ranking] Ranking for user:', userId);
     const startTime = performance.now();
+    let cacheCheckTime = 0;
 
     // Handle cache refresh if requested
     if (params.refresh_cache) {
@@ -116,7 +117,7 @@ serve(async (req) => {
       .order('position', { ascending: true })
       .limit(params.limit || 5);
 
-      const cacheCheckTime = performance.now() - cacheCheckStart;
+      cacheCheckTime = performance.now() - cacheCheckStart;
       console.log(`[Ranking] Cache check completed in ${cacheCheckTime.toFixed(2)}ms`);
 
       if (!cacheError && cachedDrops && cachedDrops.length > 0) {
@@ -478,7 +479,7 @@ serve(async (req) => {
         from_cache: false,
         performance_ms: Math.round(totalTime),
         timing_breakdown: {
-          cache_check_ms: Math.round(cacheCheckTime || 0),
+          cache_check_ms: Math.round(cacheCheckTime),
           preferences_ms: Math.round(prefsTime),
           candidates_ms: Math.round(candidatesTime),
           scoring_ms: Math.round(scoringTime),
