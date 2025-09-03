@@ -123,14 +123,13 @@ serve(async (req) => {
       console.log(`❌ Queue processing failed: ${queueResult.error}`);
     }
     
-    // Step 3: Tag new drops (only if queue processing was successful)
-    if (queueResult.success && queueResult.result?.done > 0) {
-      console.log('🏷️ Step 3: Tagging drops...');
-      const tagBatchSize = isAutoTrigger ? 20 : 30; // Smaller batches for auto-trigger
-      const tagResult = await callFunction('tag-drops', { 
-        batch_size: tagBatchSize, 
-        concurrent_requests: isAutoTrigger ? 1 : 2 
-      });
+    // Step 3: Tag new drops (always try, even if no new items processed)
+    console.log('🏷️ Step 3: Tagging drops...');
+    const tagBatchSize = isAutoTrigger ? 50 : 75; // Larger batches to clear backlog faster
+    const tagResult = await callFunction('tag-drops', { 
+      batch_size: tagBatchSize, 
+      concurrent_requests: isAutoTrigger ? 3 : 4 // More concurrent requests for faster processing
+    });
       results.push(tagResult);
       
       if (tagResult.success) {
