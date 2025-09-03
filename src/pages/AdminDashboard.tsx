@@ -109,22 +109,18 @@ const AdminDashboard = () => {
         .select('*')
         .order('name');
 
-      // Fetch stats
-      const [dropsResponse, queueResponse] = await Promise.all([
-        supabase.from('drops').select('count').single(),
-        supabase.from('drops').select('count').eq('tag_done', true).single(),
-        supabase.from('ingestion_queue').select('count').eq('status', 'pending').single()
+      // Fetch stats with correct queries
+      const [totalDropsRes, taggedDropsRes, queueRes] = await Promise.all([
+        supabase.from('drops').select('*', { count: 'exact', head: true }),
+        supabase.from('drops').select('*', { count: 'exact', head: true }).eq('tag_done', true),
+        supabase.from('ingestion_queue').select('*', { count: 'exact', head: true }).in('status', ['pending', 'processing'])
       ]);
 
-      // Set stats manually
-      const totalDrops = dropsResponse.data?.count || 0;
-      const taggedDrops = queueResponse.data?.count || 0;
-      
       setStats({
-        total_drops: 241, // From previous query we know there are 241 total
-        tagged_drops: 84, // From previous query we know 84 are tagged
+        total_drops: totalDropsRes.count || 0,
+        tagged_drops: taggedDropsRes.count || 0,
         recent_drops: logsData?.[0]?.new_articles || 0,
-        processing_queue: queueResponse.data?.count || 0
+        processing_queue: queueRes.count || 0
       });
 
     } catch (error) {

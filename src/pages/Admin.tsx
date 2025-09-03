@@ -115,11 +115,11 @@ const Admin = () => {
         .from('sources')
         .select('*', { count: 'exact', head: true });
 
-      // Fetch queue count (pending items)
+      // Fetch queue count (pending + processing items)
       const { count: queueCount } = await supabase
         .from('ingestion_queue')
         .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending');
+        .in('status', ['pending', 'processing']);
 
       // Fetch users count
       const { count: usersCount } = await supabase
@@ -150,22 +150,25 @@ const Admin = () => {
 
   const fetchTaggingStats = async () => {
     try {
-      // Fetch tagging stats with direct query
-      const { data: statsData, error: statsError } = await supabase
+      // Fetch total drops count
+      const { count: totalDrops } = await supabase
         .from('drops')
-        .select('tag_done')
-        .limit(1000);
+        .select('*', { count: 'exact', head: true });
 
-      if (statsError) throw statsError;
+      // Fetch tagged drops count
+      const { count: taggedDrops } = await supabase
+        .from('drops')
+        .select('*', { count: 'exact', head: true })
+        .eq('tag_done', true);
 
-      const totalDrops = statsData?.length || 0;
-      const taggedDrops = statsData?.filter(d => d.tag_done === true).length || 0;
-      const untaggedDrops = totalDrops - taggedDrops;
-      const taggedPercentage = totalDrops > 0 ? (taggedDrops / totalDrops) * 100 : 0;
+      const total = totalDrops || 0;
+      const tagged = taggedDrops || 0;
+      const untaggedDrops = total - tagged;
+      const taggedPercentage = total > 0 ? (tagged / total) * 100 : 0;
 
       setTaggingStats({
-        totalDrops,
-        taggedDrops,
+        totalDrops: total,
+        taggedDrops: tagged,
         untaggedDrops,
         taggedPercentage,
       });
