@@ -125,16 +125,26 @@ const Feed = () => {
           body: { limit: 10 }
         });
         
+        console.log('[Feed] Raw response from edge function:', { rankingResponse, error });
+        
         const data = rankingResponse?.ranked_drops;
-        console.log('[Feed] Content ranking result:', { 
-          rankingResponse, 
+        console.log('[Feed] Parsed data:', { 
           data, 
-          error, 
           dataType: typeof data, 
           isArray: Array.isArray(data), 
           length: data?.length,
-          constraints: rankingResponse?.constraints_applied 
+          constraints: rankingResponse?.constraints_applied,
+          hasRankedDrops: !!rankingResponse?.ranked_drops,
+          responseKeys: rankingResponse ? Object.keys(rankingResponse) : null
         });
+        
+        if (error) {
+          console.error('[Feed] Edge function error:', error);
+        }
+        
+        if (!data || data.length === 0) {
+          console.warn('[Feed] No data from edge function, falling back...');
+        }
         
         if (error || !data || data.length === 0) {
           console.error('Error fetching ranked drops:', error);
