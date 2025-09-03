@@ -130,15 +130,12 @@ serve(async (req) => {
       batch_size: tagBatchSize, 
       concurrent_requests: isAutoTrigger ? 3 : 4 // More concurrent requests for faster processing
     });
-      results.push(tagResult);
-      
-      if (tagResult.success) {
-        console.log(`✅ Drop tagging completed: ${tagResult.result?.tagged || 0} articles tagged`);
-      } else {
-        console.log(`❌ Drop tagging failed: ${tagResult.error}`);
-      }
+    results.push(tagResult);
+    
+    if (tagResult.success) {
+      console.log(`✅ Drop tagging completed: ${tagResult.result?.tagged || 0} articles tagged`);
     } else {
-      console.log('🏷️ Skipping drop tagging (no successful queue processing)');
+      console.log(`❌ Drop tagging failed: ${tagResult.error}`);
     }
     
     const overallDuration = performance.now() - overallStart;
