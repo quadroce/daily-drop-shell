@@ -578,6 +578,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_feed_cache: {
+        Row: {
+          created_at: string
+          drop_id: number
+          expires_at: string
+          final_score: number
+          position: number
+          reason_for_ranking: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          drop_id: number
+          expires_at?: string
+          final_score: number
+          position: number
+          reason_for_ranking: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          drop_id?: number
+          expires_at?: string
+          final_score?: number
+          position?: number
+          reason_for_ranking?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       whatsapp_subscriptions: {
         Row: {
           active: boolean

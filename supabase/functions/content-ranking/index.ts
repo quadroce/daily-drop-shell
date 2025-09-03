@@ -79,6 +79,66 @@ serve(async (req) => {
 
     console.log('[Ranking] Ranking for user:', userId);
 
+    // First, try to get from cache
+    console.log('[Ranking] Checking cache for user:', userId);
+    const { data: cachedDrops, error: cacheError } = await supabaseClient
+      .from('user_feed_cache')
+      .select(`
+        drop_id, final_score, reason_for_ranking, position,
+        drops!inner(
+          id, title, url, image_url, summary, type, tags,
+          source_id, published_at, created_at
+        )
+      `)
+      .eq('user_id', userId)
+      .gt('expires_at', new Date().toISOString())
+      .order('position', { ascending: true })
+      .limit(params.limit || 5);
+
+    if (!cacheError && cachedDrops && cachedDrops.length > 0) {
+      console.log('[Ranking] Found', cachedDrops.length, 'cached drops, returning from cache');
+      
+      // Get source information for cached drops
+      const sourceIds = [...new Set(cachedDrops.map(c => c.drops.source_id).filter(Boolean))];
+      const { data: sources } = await supabaseClient
+        .from('sources')
+        .select('id, name, type')
+        .in('id', sourceIds);
+
+      const sourceMap = new Map(sources?.map(s => [s.id, s]) || []);
+
+      const rankedDrops = cachedDrops.map(cached => ({
+        id: cached.drops.id,
+        title: cached.drops.title,
+        source: sourceMap.get(cached.drops.source_id)?.name || 'Unknown Source',
+        url: cached.drops.url,
+        image_url: cached.drops.image_url,
+        type: cached.drops.type,
+        tags: cached.drops.tags || [],
+        final_score: cached.final_score,
+        reason_for_ranking: cached.reason_for_ranking,
+        summary: cached.drops.summary
+      }));
+
+      return new Response(
+        JSON.stringify({
+          ranked_drops: rankedDrops,
+          total_candidates: cachedDrops.length,
+          from_cache: true,
+          constraints_applied: {
+            youtube_items: rankedDrops.filter(d => d.type === 'video').length,
+            max_per_source: 2,
+            total_sources: new Set(rankedDrops.map(d => d.source)).size
+          }
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    console.log('[Ranking] No valid cache found, calculating live ranking');
+
     // Get user preferences and profile
     const { data: preferences, error: prefsError } = await supabaseClient
       .from('preferences')

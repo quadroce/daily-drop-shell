@@ -15,5 +15,8 @@ verify_jwt = false
 [functions.tag-drops-test]
 verify_jwt = false
 
+[functions.background-feed-ranking]
+verify_jwt = false
+
 [functions.admin-api]
 verify_jwt = true
