@@ -85,8 +85,10 @@ serve(async (req) => {
       
       // Skip RSS fetch if it recently failed to prevent worker limit issues
       if (isAutoTrigger) {
-        // Check if we should skip RSS based on recent failures
-        console.log('🤖 Auto-trigger detected, optimizing for reliability...');
+        // For auto triggers, skip RSS more often to prevent overload
+        const skipRssChance = Math.random() < 0.7; // Skip RSS 70% of the time for auto triggers
+        skipRssFetch = skipRssChance;
+        console.log(`🤖 Auto-trigger detected, ${skipRssFetch ? 'skipping' : 'including'} RSS fetch for reliability...`);
       }
     } catch (e) {
       // No body, continue with defaults
