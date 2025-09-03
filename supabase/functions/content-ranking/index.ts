@@ -23,6 +23,7 @@ interface RankedDrop {
 interface RankingParams {
   limit?: number;
   user_id?: string;
+  refresh_cache?: boolean;
 }
 
 serve(async (req) => {
@@ -40,7 +41,7 @@ serve(async (req) => {
     );
 
     // Extract parameters from request
-    let params: RankingParams = { limit: 10 };
+    let params: RankingParams = { limit: 5 };
     
     if (req.method === 'POST') {
       const body = await req.json();
@@ -49,8 +50,10 @@ serve(async (req) => {
       const url = new URL(req.url);
       const limit = url.searchParams.get('limit');
       const user_id = url.searchParams.get('user_id');
+      const refresh_cache = url.searchParams.get('refresh_cache');
       if (limit) params.limit = parseInt(limit);
       if (user_id) params.user_id = user_id;
+      if (refresh_cache) params.refresh_cache = refresh_cache === 'true';
     }
 
     console.log('[Ranking] Parameters:', params);
@@ -78,9 +81,27 @@ serve(async (req) => {
     }
 
     console.log('[Ranking] Ranking for user:', userId);
+    const startTime = performance.now();
 
-    // First, try to get from cache
-    console.log('[Ranking] Checking cache for user:', userId);
+    // Handle cache refresh if requested
+    if (params.refresh_cache) {
+      console.log('[Ranking] Refresh cache requested, clearing existing cache for user:', userId);
+      const { error: deleteError } = await supabaseClient
+        .from('user_feed_cache')
+        .delete()
+        .eq('user_id', userId);
+      
+      if (deleteError) {
+        console.warn('[Ranking] Error clearing cache:', deleteError);
+      } else {
+        console.log('[Ranking] Cache cleared successfully');
+      }
+    }
+
+    // First, try to get from cache (unless refresh requested)
+    if (!params.refresh_cache) {
+      console.log('[Ranking] Checking cache for user:', userId);
+      const cacheCheckStart = performance.now();
     const { data: cachedDrops, error: cacheError } = await supabaseClient
       .from('user_feed_cache')
       .select(`
@@ -95,8 +116,11 @@ serve(async (req) => {
       .order('position', { ascending: true })
       .limit(params.limit || 5);
 
-    if (!cacheError && cachedDrops && cachedDrops.length > 0) {
-      console.log('[Ranking] Found', cachedDrops.length, 'cached drops, returning from cache');
+      const cacheCheckTime = performance.now() - cacheCheckStart;
+      console.log(`[Ranking] Cache check completed in ${cacheCheckTime.toFixed(2)}ms`);
+
+      if (!cacheError && cachedDrops && cachedDrops.length > 0) {
+        console.log(`[Ranking] Found ${cachedDrops.length} cached drops (expires at: ${cachedDrops[0]?.expires_at}), returning from cache`);
       
       // Get source information for cached drops
       const sourceIds = [...new Set(cachedDrops.map(c => c.drops.source_id).filter(Boolean))];
@@ -120,34 +144,47 @@ serve(async (req) => {
         summary: cached.drops.summary
       }));
 
-      return new Response(
-        JSON.stringify({
-          ranked_drops: rankedDrops,
-          total_candidates: cachedDrops.length,
-          from_cache: true,
-          constraints_applied: {
-            youtube_items: rankedDrops.filter(d => d.type === 'video').length,
-            max_per_source: 2,
-            total_sources: new Set(rankedDrops.map(d => d.source)).size
+        const totalTime = performance.now() - startTime;
+        console.log(`[Ranking] Cache response completed in ${totalTime.toFixed(2)}ms total`);
+
+        return new Response(
+          JSON.stringify({
+            ranked_drops: rankedDrops,
+            total_candidates: cachedDrops.length,
+            from_cache: true,
+            performance_ms: Math.round(totalTime),
+            constraints_applied: {
+              youtube_items: rankedDrops.filter(d => d.type === 'video').length,
+              max_per_source: 2,
+              total_sources: new Set(rankedDrops.map(d => d.source)).size
+            }
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
           }
-        }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+        );
+      }
+    }
     }
 
     console.log('[Ranking] No valid cache found, calculating live ranking');
+    const liveCalcStart = performance.now();
 
     // Get user preferences and profile
+    const prefsStart = performance.now();
     const { data: preferences, error: prefsError } = await supabaseClient
       .from('preferences')
       .select('selected_topic_ids, selected_language_ids')
       .eq('user_id', userId)
       .single();
 
+    const prefsTime = performance.now() - prefsStart;
+    console.log(`[Ranking] Preferences fetch completed in ${prefsTime.toFixed(2)}ms`);
+    
     if (prefsError || !preferences) {
       console.log('[Ranking] No preferences found, using default ranking');
+    } else {
+      console.log(`[Ranking] Found preferences: ${preferences.selected_topic_ids?.length || 0} topics, ${preferences.selected_language_ids?.length || 0} languages`);
     }
 
     const { data: profile, error: profileError } = await supabaseClient
@@ -157,6 +194,7 @@ serve(async (req) => {
       .single();
 
     // Get candidate drops (published in last 30 days, tagged)
+    const candidatesStart = performance.now();
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -183,16 +221,24 @@ serve(async (req) => {
       );
     }
 
+    const candidatesTime = performance.now() - candidatesStart;
+    console.log(`[Ranking] Candidates fetch completed in ${candidatesTime.toFixed(2)}ms`);
+
     if (!drops || drops.length === 0) {
+      const totalTime = performance.now() - startTime;
       return new Response(
-        JSON.stringify({ ranked_drops: [], total_candidates: 0 }),
+        JSON.stringify({ 
+          ranked_drops: [], 
+          total_candidates: 0,
+          performance_ms: Math.round(totalTime)
+        }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
     }
 
-    console.log('[Ranking] Processing', drops.length, 'candidate drops');
+    console.log(`[Ranking] Processing ${drops.length} candidate drops for ranking`);
 
     // Get source information
     const sourceIds = [...new Set(drops.map(d => d.source_id).filter(Boolean))];
@@ -204,7 +250,9 @@ serve(async (req) => {
     const sourceMap = new Map(sources?.map(s => [s.id, s]) || []);
 
     // Calculate rankings for each drop
+    const scoringStart = performance.now();
     const rankedDrops: RankedDrop[] = [];
+    let processedCount = 0;
 
     for (const drop of drops) {
       try {
@@ -321,12 +369,18 @@ serve(async (req) => {
       } catch (error) {
         console.error('[Ranking] Error processing drop', drop.id, ':', error);
       }
+      processedCount++;
     }
+
+    const scoringTime = performance.now() - scoringStart;
+    console.log(`[Ranking] Scoring completed in ${scoringTime.toFixed(2)}ms - processed ${processedCount} drops, ranked ${rankedDrops.length}`);
 
     // Sort by final score
     rankedDrops.sort((a, b) => b.final_score - a.final_score);
+    console.log(`[Ranking] Top 5 scores: ${rankedDrops.slice(0, 5).map(d => d.final_score.toFixed(3)).join(', ')}`);
 
     // 4. Apply Constraints and Diversity
+    const constraintsStart = performance.now();
     const finalDrops: RankedDrop[] = [];
     const sourceCount = new Map<string, number>();
     const usedSources = new Set<string>();
@@ -364,7 +418,7 @@ serve(async (req) => {
     }
 
     // 5. Ensure diversity - add exploration slot if needed
-    if (finalDrops.length < (params.limit || 10)) {
+    if (finalDrops.length < (params.limit || 5)) {
       const unusedSources = rankedDrops.filter(d => 
         !usedSources.has(d.source) && 
         !finalDrops.some(f => f.id === d.id)
@@ -380,12 +434,57 @@ serve(async (req) => {
       }
     }
 
+    const constraintsTime = performance.now() - constraintsStart;
+    console.log(`[Ranking] Constraints applied in ${constraintsTime.toFixed(2)}ms - final count: ${finalDrops.length}`);
+
+    // 6. Cache the results for future requests (on-demand caching)
+    const cachingStart = performance.now();
+    try {
+      // Prepare cache entries
+      const cacheEntries = finalDrops.map((drop, index) => ({
+        user_id: userId,
+        drop_id: drop.id,
+        final_score: drop.final_score,
+        reason_for_ranking: drop.reason_for_ranking,
+        position: index + 1,
+        expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() // 2 hours from now
+      }));
+
+      // Insert cache entries
+      const { error: cacheInsertError } = await supabaseClient
+        .from('user_feed_cache')
+        .insert(cacheEntries);
+
+      if (cacheInsertError) {
+        console.error('[Ranking] Error caching results:', cacheInsertError);
+      } else {
+        console.log(`[Ranking] Successfully cached ${cacheEntries.length} entries for 2 hours`);
+      }
+    } catch (cacheError) {
+      console.error('[Ranking] Exception while caching:', cacheError);
+    }
+
+    const cachingTime = performance.now() - cachingStart;
+    const totalTime = performance.now() - startTime;
+    console.log(`[Ranking] Caching completed in ${cachingTime.toFixed(2)}ms`);
+    console.log(`[Ranking] Total live calculation time: ${totalTime.toFixed(2)}ms`);
+
     console.log('[Ranking] Returning', finalDrops.length, 'ranked drops');
 
     return new Response(
       JSON.stringify({
         ranked_drops: finalDrops,
         total_candidates: drops.length,
+        from_cache: false,
+        performance_ms: Math.round(totalTime),
+        timing_breakdown: {
+          cache_check_ms: Math.round(cacheCheckTime || 0),
+          preferences_ms: Math.round(prefsTime),
+          candidates_ms: Math.round(candidatesTime),
+          scoring_ms: Math.round(scoringTime),
+          constraints_ms: Math.round(constraintsTime),
+          caching_ms: Math.round(cachingTime)
+        },
         constraints_applied: {
           youtube_items: youtubeCount,
           max_per_source: 2,
