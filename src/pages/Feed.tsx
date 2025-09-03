@@ -119,11 +119,22 @@ const Feed = () => {
           return;
         }
         
-        // Use new ranking engine
-        console.log('[Feed] Calling new ranking engine...');
-        const { data, error } = await supabase.rpc('get_ranked_drops', { limit_n: 10 });
+        // Use content ranking edge function with source diversity
+        console.log('[Feed] Calling content-ranking edge function...');
+        const { data: rankingResponse, error } = await supabase.functions.invoke('content-ranking', {
+          body: { limit: 10 }
+        });
         
-        console.log('[Feed] Ranking engine result:', { data, error, dataType: typeof data, isArray: Array.isArray(data), length: data?.length });
+        const data = rankingResponse?.ranked_drops;
+        console.log('[Feed] Content ranking result:', { 
+          rankingResponse, 
+          data, 
+          error, 
+          dataType: typeof data, 
+          isArray: Array.isArray(data), 
+          length: data?.length,
+          constraints: rankingResponse?.constraints_applied 
+        });
         
         if (error || !data || data.length === 0) {
           console.error('Error fetching ranked drops:', error);
