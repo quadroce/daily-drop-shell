@@ -202,15 +202,27 @@ serve(async (req) => {
         }
 
         // User feedback score
-        const { data: feedbackResult } = await supabaseClient
-          .rpc('get_user_feedback_score', {
-            _user_id: userId,
-            _drop_id: drop.id,
-            _source_id: drop.source_id || 0,
-            _tags: drop.tags || []
-          });
+        let feedbackScore = 0;
+        try {
+          const { data: feedbackResult, error: feedbackError } = await supabaseClient
+            .rpc('get_user_feedback_score', {
+              _user_id: userId,
+              _drop_id: drop.id,
+              _source_id: drop.source_id || 0,
+              _tags: drop.tags || []
+            });
 
-        const feedbackScore = feedbackResult || 0;
+          if (feedbackError) {
+            console.warn('[Ranking] Feedback error for drop', drop.id, ':', feedbackError);
+            feedbackScore = 0;
+          } else {
+            feedbackScore = feedbackResult || 0;
+          }
+        } catch (feedbackErr) {
+          console.warn('[Ranking] Feedback exception for drop', drop.id, ':', feedbackErr);
+          feedbackScore = 0;
+        }
+
         if (feedbackScore > 0.1) {
           reasonFactors.push('Similar content liked before');
         }
@@ -327,8 +339,15 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('[Ranking] Unexpected error:', error);
+    console.error('[Ranking] Error stack:', error.stack);
+    console.error('[Ranking] Error details:', JSON.stringify(error, null, 2));
+    
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ 
+        error: 'Internal server error',
+        details: error.message,
+        ranked_drops: [] // Always include this for consistency
+      }),
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
