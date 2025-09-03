@@ -284,7 +284,7 @@ serve(async (req) => {
 
     // Second pass: apply constraints
     for (const drop of rankedDrops) {
-      if (finalDrops.length >= (params.limit || 10)) break;
+      if (finalDrops.length >= (params.limit || 5)) break;
       
       // Skip if already added
       if (finalDrops.some(d => d.id === drop.id)) continue;
@@ -311,7 +311,7 @@ serve(async (req) => {
       );
       
       for (const drop of unusedSources) {
-        if (finalDrops.length >= (params.limit || 10)) break;
+        if (finalDrops.length >= (params.limit || 5)) break;
         finalDrops.push({
           ...drop,
           reason_for_ranking: 'Exploration • ' + drop.reason_for_ranking
