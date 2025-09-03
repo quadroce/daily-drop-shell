@@ -18,5 +18,8 @@ verify_jwt = false
 [functions.background-feed-ranking]
 verify_jwt = false
 
+[functions.restart-ingestion]
+verify_jwt = false
+
 [functions.admin-api]
 verify_jwt = true
