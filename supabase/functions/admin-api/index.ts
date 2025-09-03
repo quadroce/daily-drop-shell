@@ -30,7 +30,7 @@ function decodeJWT(token: string): JWTPayload | null {
   }
 }
 
-function validateAdminRole(authHeader: string | null): { valid: boolean; payload?: JWTPayload } {
+async function validateAdminRole(authHeader: string | null): Promise<{ valid: boolean; payload?: JWTPayload }> {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return { valid: false };
   }
@@ -42,15 +42,40 @@ function validateAdminRole(authHeader: string | null): { valid: boolean; payload
     return { valid: false };
   }
 
-  const userRole = payload.app_metadata?.role;
-  const isAdmin = userRole === 'admin' || userRole === 'superadmin';
-  
-  if (!isAdmin) {
-    console.log(`Access denied: user role '${userRole}' is not admin or superadmin`);
+  // Check role from profiles table instead of JWT metadata
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: {
+      headers: {
+        Authorization: authHeader,
+      },
+    },
+  });
+
+  try {
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', payload.sub)
+      .single();
+
+    if (error) {
+      console.log('Error fetching user profile:', error);
+      return { valid: false };
+    }
+
+    const userRole = profile?.role;
+    const isAdmin = userRole === 'admin' || userRole === 'superadmin';
+    
+    if (!isAdmin) {
+      console.log(`Access denied: user role '${userRole}' is not admin or superadmin`);
+      return { valid: false };
+    }
+
+    return { valid: true, payload };
+  } catch (error) {
+    console.log('Error validating admin role:', error);
     return { valid: false };
   }
-
-  return { valid: true, payload };
 }
 
 async function createSource(req: Request, authHeader: string) {
@@ -231,7 +256,7 @@ serve(async (req) => {
 
   // Validate admin role
   const authHeader = req.headers.get('Authorization');
-  const { valid } = validateAdminRole(authHeader);
+  const { valid } = await validateAdminRole(authHeader);
   
   if (!valid) {
     return new Response(JSON.stringify({ error: 'Unauthorized: Admin role required' }), {
