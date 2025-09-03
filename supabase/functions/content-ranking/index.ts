@@ -96,9 +96,9 @@ serve(async (req) => {
       .eq('id', userId)
       .single();
 
-    // Get candidate drops (published in last 7 days, tagged)
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    // Get candidate drops (published in last 30 days, tagged)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     const { data: drops, error: dropsError } = await supabaseClient
       .from('drops')
@@ -108,8 +108,8 @@ serve(async (req) => {
         authority_score, quality_score, popularity_score, embeddings
       `)
       .eq('tag_done', true)
-      .gte('published_at', sevenDaysAgo.toISOString())
-      .order('published_at', { ascending: false })
+      .gte('created_at', thirtyDaysAgo.toISOString())
+      .order('created_at', { ascending: false })
       .limit(200); // Get more candidates for better ranking
 
     if (dropsError) {
