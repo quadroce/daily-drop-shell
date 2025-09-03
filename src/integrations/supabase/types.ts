@@ -794,6 +794,10 @@ export type Database = {
         Args: { "": unknown[] }
         Returns: number
       }
+      trigger_background_ranking: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       upsert_preferences: {
         Args: { _langs: number[]; _topics: number[] }
         Returns: undefined
