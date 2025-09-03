@@ -265,9 +265,16 @@ serve(async (req) => {
     });
   }
 
-  // Route by pathname
+  // Route by pathname - handle both direct and function paths
   const url = new URL(req.url);
-  const pathname = url.pathname;
+  let pathname = url.pathname;
+  
+  // Extract the actual endpoint from Supabase function path
+  if (pathname.startsWith('/functions/v1/admin-api/')) {
+    pathname = pathname.replace('/functions/v1/admin-api', '');
+  }
+  
+  console.log('Routing to pathname:', pathname);
 
   try {
     switch (pathname) {
@@ -283,6 +290,7 @@ serve(async (req) => {
       default:
         return new Response(JSON.stringify({ 
           error: 'Not found',
+          pathname: pathname,
           available_endpoints: ['/sources', '/enqueue', '/retry']
         }), {
           status: 404,

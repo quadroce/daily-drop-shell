@@ -404,13 +404,21 @@ const Admin = () => {
           </p>
         </div>
         
-        {/* Profile badge */}
-        {profile && (
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-muted-foreground">{profile.email}</span>
-            <Badge variant="secondary">{profile.role}</Badge>
-          </div>
-        )}
+          {/* Quick Actions */}
+        <div className="flex items-center gap-3">
+          <Button variant="outline" onClick={() => navigate("/admin/sources")}>
+            <Database className="h-4 w-4 mr-2" />
+            Gestisci Sorgenti
+          </Button>
+          
+          {/* Profile badge */}
+          {profile && (
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-muted-foreground">{profile.email}</span>
+              <Badge variant="secondary">{profile.role}</Badge>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Dashboard cards */}
