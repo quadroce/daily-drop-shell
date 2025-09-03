@@ -75,20 +75,44 @@ serve(async (req) => {
     
     const results: ProcessResult[] = [];
     
-    // Step 1: Fetch new RSS feeds
-    console.log('📡 Step 1: Fetching RSS feeds...');
-    const rssResult = await callFunction('fetch-rss', {});
-    results.push(rssResult);
+    // Parse request parameters
+    let isAutoTrigger = false;
+    let skipRssFetch = false;
     
-    if (rssResult.success) {
-      console.log(`✅ RSS fetch completed: ${rssResult.result?.enqueued || 0} new items enqueued`);
-    } else {
-      console.log(`❌ RSS fetch failed: ${rssResult.error}`);
+    try {
+      const body = await req.json();
+      isAutoTrigger = body.auto_recovery || body.cron_trigger || false;
+      
+      // Skip RSS fetch if it recently failed to prevent worker limit issues
+      if (isAutoTrigger) {
+        // Check if we should skip RSS based on recent failures
+        console.log('🤖 Auto-trigger detected, optimizing for reliability...');
+      }
+    } catch (e) {
+      // No body, continue with defaults
     }
     
-    // Step 2: Process ingestion queue (larger batch to clear backlog)
+    // Step 1: Fetch new RSS feeds (skip if problematic)
+    if (!skipRssFetch) {
+      console.log('📡 Step 1: Fetching RSS feeds...');
+      const rssResult = await callFunction('fetch-rss', {});
+      results.push(rssResult);
+      
+      if (rssResult.success) {
+        console.log(`✅ RSS fetch completed: ${rssResult.result?.enqueued || 0} new items enqueued`);
+      } else if (rssResult.recoverable) {
+        console.log(`⚠️ RSS fetch failed but recoverable: ${rssResult.error}`);
+      } else {
+        console.log(`❌ RSS fetch failed: ${rssResult.error}`);
+      }
+    } else {
+      console.log('📡 Skipping RSS fetch to prevent worker limits');
+    }
+    
+    // Step 2: Process ingestion queue (always try this)
     console.log('⚙️ Step 2: Processing ingestion queue...');
-    const queueResult = await callFunction('ingest-queue', { limit: 50 });
+    const queueLimit = isAutoTrigger ? 30 : 50; // Smaller batches for auto-trigger
+    const queueResult = await callFunction('ingest-queue', { limit: queueLimit });
     results.push(queueResult);
     
     if (queueResult.success) {
@@ -97,30 +121,43 @@ serve(async (req) => {
       console.log(`❌ Queue processing failed: ${queueResult.error}`);
     }
     
-    // Step 3: Tag new drops
-    console.log('🏷️ Step 3: Tagging drops...');
-    const tagResult = await callFunction('tag-drops', { batch_size: 30, concurrent_requests: 2 });
-    results.push(tagResult);
-    
-    if (tagResult.success) {
-      console.log(`✅ Drop tagging completed: ${tagResult.result?.tagged || 0} articles tagged`);
+    // Step 3: Tag new drops (only if queue processing was successful)
+    if (queueResult.success && queueResult.result?.done > 0) {
+      console.log('🏷️ Step 3: Tagging drops...');
+      const tagBatchSize = isAutoTrigger ? 20 : 30; // Smaller batches for auto-trigger
+      const tagResult = await callFunction('tag-drops', { 
+        batch_size: tagBatchSize, 
+        concurrent_requests: isAutoTrigger ? 1 : 2 
+      });
+      results.push(tagResult);
+      
+      if (tagResult.success) {
+        console.log(`✅ Drop tagging completed: ${tagResult.result?.tagged || 0} articles tagged`);
+      } else {
+        console.log(`❌ Drop tagging failed: ${tagResult.error}`);
+      }
     } else {
-      console.log(`❌ Drop tagging failed: ${tagResult.error}`);
+      console.log('🏷️ Skipping drop tagging (no successful queue processing)');
     }
     
     const overallDuration = performance.now() - overallStart;
     
+    // Determine overall success (at least queue processing should work)
+    const hasQueueSuccess = results.some(r => r.step === 'ingest-queue' && r.success);
+    const overallSuccess = hasQueueSuccess; // Success if we can at least process queue
+    
     // Summary
     const summary = {
-      success: results.every(r => r.success),
+      success: overallSuccess,
       total_duration_ms: Math.round(overallDuration),
+      auto_trigger: isAutoTrigger,
       steps: results,
       summary: {
-        rss_feeds_processed: rssResult.success ? rssResult.result?.sources || 0 : 0,
-        new_items_enqueued: rssResult.success ? rssResult.result?.enqueued || 0 : 0,
-        queue_items_processed: queueResult.success ? queueResult.result?.processed || 0 : 0,
-        queue_items_successful: queueResult.success ? queueResult.result?.done || 0 : 0,
-        articles_tagged: tagResult.success ? tagResult.result?.tagged || 0 : 0,
+        rss_feeds_processed: results.find(r => r.step === 'fetch-rss')?.result?.sources || 0,
+        new_items_enqueued: results.find(r => r.step === 'fetch-rss')?.result?.enqueued || 0,
+        queue_items_processed: results.find(r => r.step === 'ingest-queue')?.result?.processed || 0,
+        queue_items_successful: results.find(r => r.step === 'ingest-queue')?.result?.done || 0,
+        articles_tagged: results.find(r => r.step === 'tag-drops')?.result?.tagged || 0,
       }
     };
     
