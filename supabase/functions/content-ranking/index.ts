@@ -104,67 +104,120 @@ serve(async (req) => {
       console.log('[Ranking] Checking cache for user:', userId);
       const cacheCheckStart = performance.now();
       
-      const { data: cachedDrops, error: cacheError } = await supabaseClient
+      // Step 1: Check if we have valid cache entries
+      const currentTimestamp = new Date().toISOString();
+      console.log('[Ranking] Current timestamp for cache check:', currentTimestamp);
+      
+      const { data: cacheEntries, error: cacheError } = await supabaseClient
         .from('user_feed_cache')
-        .select(`
-          drop_id, final_score, reason_for_ranking, position,
-          drops!inner(
-            id, title, url, image_url, summary, type, tags,
-            source_id, published_at, created_at
-          )
-        `)
+        .select('drop_id, final_score, reason_for_ranking, position, created_at, expires_at')
         .eq('user_id', userId)
-        .gt('expires_at', new Date().toISOString())
+        .gt('expires_at', currentTimestamp)
         .order('position', { ascending: true })
         .limit(params.limit || 5);
 
       cacheCheckTime = performance.now() - cacheCheckStart;
       console.log(`[Ranking] Cache check completed in ${cacheCheckTime.toFixed(2)}ms`);
+      
+      if (cacheError) {
+        console.log('[Ranking] Cache query error:', cacheError);
+      } else {
+        console.log(`[Ranking] Cache query successful, found ${cacheEntries?.length || 0} entries`);
+        if (cacheEntries && cacheEntries.length > 0) {
+          console.log('[Ranking] First cache entry expires at:', cacheEntries[0].expires_at);
+          console.log('[Ranking] Cache entries drop IDs:', cacheEntries.map(c => c.drop_id));
+        }
+      }
 
-      if (!cacheError && cachedDrops && cachedDrops.length > 0) {
-        console.log(`[Ranking] Found ${cachedDrops.length} cached drops (expires at: ${cachedDrops[0]?.expires_at}), returning from cache`);
+      if (!cacheError && cacheEntries && cacheEntries.length > 0) {
+        console.log(`[Ranking] Found ${cacheEntries.length} valid cached entries, fetching drop details`);
         
-        // Get source information for cached drops
-        const sourceIds = [...new Set(cachedDrops.map(c => c.drops.source_id).filter(Boolean))];
-        const { data: sources } = await supabaseClient
-          .from('sources')
-          .select('id, name, type')
-          .in('id', sourceIds);
+        // Step 2: Get drop details for cached entries
+        const dropIds = cacheEntries.map(c => c.drop_id);
+        const dropsStart = performance.now();
+        
+        const { data: drops, error: dropsError } = await supabaseClient
+          .from('drops')
+          .select('id, title, url, image_url, summary, type, tags, source_id, published_at, created_at')
+          .in('id', dropIds);
+        
+        const dropsTime = performance.now() - dropsStart;
+        console.log(`[Ranking] Drop details fetch completed in ${dropsTime.toFixed(2)}ms, found ${drops?.length || 0} drops`);
+        
+        if (!dropsError && drops && drops.length > 0) {
+          // Step 3: Get source information
+          const sourceIds = [...new Set(drops.map(d => d.source_id).filter(Boolean))];
+          const sourcesStart = performance.now();
+          
+          const { data: sources, error: sourcesError } = await supabaseClient
+            .from('sources')
+            .select('id, name, type')
+            .in('id', sourceIds);
+          
+          const sourcesTime = performance.now() - sourcesStart;
+          console.log(`[Ranking] Sources fetch completed in ${sourcesTime.toFixed(2)}ms, found ${sources?.length || 0} sources`);
+          
+          if (!sourcesError) {
+            const sourceMap = new Map(sources?.map(s => [s.id, s]) || []);
+            const dropMap = new Map(drops.map(d => [d.id, d]));
+            
+            // Step 4: Build ranked results maintaining cache order
+            const rankedDrops = cacheEntries
+              .map(cached => {
+                const drop = dropMap.get(cached.drop_id);
+                if (!drop) {
+                  console.warn('[Ranking] Drop not found for cache entry:', cached.drop_id);
+                  return null;
+                }
+                
+                return {
+                  id: drop.id,
+                  title: drop.title,
+                  source: sourceMap.get(drop.source_id)?.name || 'Unknown Source',
+                  url: drop.url,
+                  image_url: drop.image_url,
+                  type: drop.type,
+                  tags: drop.tags || [],
+                  final_score: cached.final_score,
+                  reason_for_ranking: cached.reason_for_ranking,
+                  summary: drop.summary
+                };
+              })
+              .filter(Boolean);
 
-        const sourceMap = new Map(sources?.map(s => [s.id, s]) || []);
+            const totalTime = performance.now() - startTime;
+            console.log(`[Ranking] Successfully built ${rankedDrops.length} ranked drops from cache in ${totalTime.toFixed(2)}ms total`);
 
-        const rankedDrops = cachedDrops.map(cached => ({
-          id: cached.drops.id,
-          title: cached.drops.title,
-          source: sourceMap.get(cached.drops.source_id)?.name || 'Unknown Source',
-          url: cached.drops.url,
-          image_url: cached.drops.image_url,
-          type: cached.drops.type,
-          tags: cached.drops.tags || [],
-          final_score: cached.final_score,
-          reason_for_ranking: cached.reason_for_ranking,
-          summary: cached.drops.summary
-        }));
-
-        const totalTime = performance.now() - startTime;
-        console.log(`[Ranking] Cache response completed in ${totalTime.toFixed(2)}ms total`);
-
-        return new Response(
-          JSON.stringify({
-            ranked_drops: rankedDrops,
-            total_candidates: cachedDrops.length,
-            from_cache: true,
-            performance_ms: Math.round(totalTime),
-            constraints_applied: {
-              youtube_items: rankedDrops.filter(d => d.type === 'video').length,
-              max_per_source: 2,
-              total_sources: new Set(rankedDrops.map(d => d.source)).size
-            }
-          }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            return new Response(
+              JSON.stringify({
+                ranked_drops: rankedDrops,
+                total_candidates: rankedDrops.length,
+                from_cache: true,
+                performance_ms: Math.round(totalTime),
+                cache_details: {
+                  cache_check_ms: Math.round(cacheCheckTime),
+                  drops_fetch_ms: Math.round(dropsTime),
+                  sources_fetch_ms: Math.round(sourcesTime),
+                  cache_expires_at: cacheEntries[0]?.expires_at
+                },
+                constraints_applied: {
+                  youtube_items: rankedDrops.filter(d => d.type === 'video').length,
+                  max_per_source: 2,
+                  total_sources: new Set(rankedDrops.map(d => d.source)).size
+                }
+              }),
+              { 
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+              }
+            );
+          } else {
+            console.log('[Ranking] Sources fetch error:', sourcesError);
           }
-        );
+        } else {
+          console.log('[Ranking] Drops fetch error or no drops found:', dropsError);
+        }
+      } else {
+        console.log('[Ranking] No valid cache entries found or cache error occurred');
       }
     }
 
