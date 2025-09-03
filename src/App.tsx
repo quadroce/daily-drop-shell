@@ -22,6 +22,7 @@ import PublicProfile from "./pages/PublicProfile";
 import ResetPassword from "./pages/ResetPassword";
 import Admin from "./pages/Admin";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminSources from "./pages/AdminSources";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -60,6 +61,11 @@ const App = () => (
                 <Route path="/admin/dashboard" element={
                   <ProtectedRoute>
                     <AdminDashboard />
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/sources" element={
+                  <ProtectedRoute>
+                    <AdminSources />
                   </ProtectedRoute>
                 } />
                 <Route path="/u/:username" element={<PublicProfile />} />
