@@ -122,7 +122,7 @@ const Feed = () => {
         // Use content ranking edge function with source diversity
         console.log('[Feed] Calling content-ranking edge function...');
         const { data: rankingResponse, error } = await supabase.functions.invoke('content-ranking', {
-          body: { limit: 10 }
+          body: { limit: 5 }
         });
         
         console.log('[Feed] Raw response from edge function:', { rankingResponse, error });
