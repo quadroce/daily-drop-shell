@@ -30,7 +30,6 @@ const Preferences = () => {
 
   return (
     <TopicsOnboardingWizard
-      fetchUrl="/api/topics/tree"
       onSave={handleSaveTopics}
     />
   );

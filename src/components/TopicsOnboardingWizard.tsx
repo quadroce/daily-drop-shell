@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Separator } from "@/components/ui/separator";
 import { Search, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { fetchTopicsTree } from "@/lib/api/topics";
 
 interface Topic {
   id: number;
@@ -17,7 +18,6 @@ interface Topic {
 }
 
 interface TopicsOnboardingWizardProps {
-  fetchUrl?: string;
   onSave: (topicIds: number[]) => Promise<void>;
 }
 
@@ -25,7 +25,7 @@ interface TopicsOnboardingWizardProps {
 const SEED_TOPICS: Topic[] = [
   // Macro topics (level 1)
   { id: 1, slug: "technology", label: "Technology", level: 1, parent_id: null },
-  { id: 2, slug: "business", label: "Business", level: 2, parent_id: null },
+  { id: 2, slug: "business", label: "Business", level: 1, parent_id: null },
   { id: 3, slug: "science", label: "Science", level: 1, parent_id: null },
   { id: 4, slug: "health", label: "Health", level: 1, parent_id: null },
   
@@ -43,7 +43,6 @@ const SEED_TOPICS: Topic[] = [
 ];
 
 export const TopicsOnboardingWizard: React.FC<TopicsOnboardingWizardProps> = ({
-  fetchUrl,
   onSave
 }) => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -55,18 +54,13 @@ export const TopicsOnboardingWizard: React.FC<TopicsOnboardingWizardProps> = ({
 
   // Fetch topics data
   useEffect(() => {
-    const fetchTopics = async () => {
+    const loadTopics = async () => {
       try {
-        if (fetchUrl) {
-          const response = await fetch(fetchUrl);
-          if (response.ok) {
-            const data = await response.json();
-            setTopics(data);
-          } else {
-            throw new Error('API failed');
-          }
+        const data = await fetchTopicsTree();
+        if (data && data.length > 0) {
+          setTopics(data);
         } else {
-          throw new Error('No fetch URL');
+          throw new Error('No topics returned');
         }
       } catch (error) {
         console.warn('Using fallback seed data:', error);
@@ -76,8 +70,8 @@ export const TopicsOnboardingWizard: React.FC<TopicsOnboardingWizardProps> = ({
       }
     };
 
-    fetchTopics();
-  }, [fetchUrl]);
+    loadTopics();
+  }, []);
 
   // Organize topics by level and parent
   const { macroTopics, subTopics, microTopics } = useMemo(() => {
