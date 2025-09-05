@@ -51,6 +51,45 @@ export async function fetchTopicsTree(): Promise<TopicTreeItem[]> {
   }
 }
 
+// Get all descendant topic IDs for a given topic
+export async function getTopicDescendants(topicId: number, allTopics: TopicTreeItem[]): Promise<number[]> {
+  const descendants = new Set<number>();
+  
+  const findDescendants = (parentId: number) => {
+    const children = allTopics.filter(t => t.parent_id === parentId);
+    children.forEach(child => {
+      descendants.add(child.id);
+      findDescendants(child.id); // Recursively find descendants
+    });
+  };
+  
+  findDescendants(topicId);
+  return Array.from(descendants);
+}
+
+// Expand topic preferences to include all descendants for ranking
+export async function expandTopicPreferences(selectedTopicIds: number[]): Promise<number[]> {
+  try {
+    // Fetch all topics to build the hierarchy
+    const allTopics = await fetchTopicsTree();
+    const expandedIds = new Set(selectedTopicIds);
+    
+    // For each selected topic, add all its descendants
+    for (const topicId of selectedTopicIds) {
+      const topic = allTopics.find(t => t.id === topicId);
+      if (topic && topic.level < 3) {
+        const descendants = await getTopicDescendants(topicId, allTopics);
+        descendants.forEach(id => expandedIds.add(id));
+      }
+    }
+    
+    return Array.from(expandedIds);
+  } catch (error) {
+    console.error('Error expanding topic preferences:', error);
+    return selectedTopicIds; // Return original if expansion fails
+  }
+}
+
 export async function saveUserTopics(topicIds: number[]): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   
@@ -67,9 +106,12 @@ export async function saveUserTopics(topicIds: number[]): Promise<void> {
 
   const currentLanguages = currentPrefs?.selected_language_ids || [];
 
+  // Expand topic preferences to include descendants for better article matching
+  const expandedTopicIds = await expandTopicPreferences(topicIds);
+
   const { error } = await supabase
     .rpc('upsert_preferences', {
-      _topics: topicIds,
+      _topics: expandedTopicIds, // Save expanded topics including descendants
       _langs: currentLanguages
     });
 
