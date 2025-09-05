@@ -195,10 +195,27 @@ serve(async (req) => {
       });
     }
 
-    // Process all feeds in parallel
-    const results = await Promise.all(
-      sources.map(source => processFeed(source))
-    );
+    // Process feeds in batches to avoid CPU time limits
+    const BATCH_SIZE = 10; // Process 10 sources at a time
+    const results: FeedResult[] = [];
+    
+    console.log(`Processing ${sources.length} sources in batches of ${BATCH_SIZE}`);
+    
+    for (let i = 0; i < sources.length; i += BATCH_SIZE) {
+      const batch = sources.slice(i, i + BATCH_SIZE);
+      console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(sources.length / BATCH_SIZE)} (${batch.length} sources)`);
+      
+      const batchResults = await Promise.all(
+        batch.map(source => processFeed(source))
+      );
+      
+      results.push(...batchResults);
+      
+      // Small delay between batches to prevent overwhelming the system
+      if (i + BATCH_SIZE < sources.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
 
     const totalEnqueued = results.reduce((sum, result) => sum + result.items, 0);
     const allErrors = results.flatMap(result => 
