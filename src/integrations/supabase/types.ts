@@ -47,6 +47,42 @@ export type Database = {
           },
         ]
       }
+      content_topics: {
+        Row: {
+          content_id: number
+          created_at: string | null
+          id: number
+          topic_id: number
+        }
+        Insert: {
+          content_id: number
+          created_at?: string | null
+          id?: number
+          topic_id: number
+        }
+        Update: {
+          content_id?: number
+          created_at?: string | null
+          id?: number
+          topic_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_topics_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "drops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_topics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       corporate_sources: {
         Row: {
           branding: string | null
@@ -560,6 +596,35 @@ export type Database = {
           },
         ]
       }
+      topic_keywords: {
+        Row: {
+          created_at: string | null
+          id: number
+          keywords: string[]
+          topic_id: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number
+          keywords?: string[]
+          topic_id: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          keywords?: string[]
+          topic_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topic_keywords_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: true
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       topics: {
         Row: {
           id: number
@@ -573,7 +638,7 @@ export type Database = {
           id?: number
           is_active?: boolean
           label: string
-          level?: number
+          level: number
           parent_id?: number | null
           slug: string
         }
@@ -686,18 +751,7 @@ export type Database = {
       }
     }
     Views: {
-      v_topics_tree: {
-        Row: {
-          depth: number | null
-          id: number | null
-          label: string | null
-          level: number | null
-          parent_id: number | null
-          path: string | null
-          slug: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       binary_quantize: {
@@ -835,6 +889,10 @@ export type Database = {
       }
       record_engagement: {
         Args: { _action: string; _channel?: string; _drop_id: number }
+        Returns: undefined
+      }
+      set_article_topics: {
+        Args: { _content_id: number; _topic_ids: number[] }
         Returns: undefined
       }
       sparsevec_out: {
