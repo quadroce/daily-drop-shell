@@ -195,8 +195,8 @@ serve(async (req) => {
       });
     }
 
-    // Process feeds in batches to avoid CPU time limits
-    const BATCH_SIZE = 10; // Process 10 sources at a time
+    // Process feeds in very small batches to avoid CPU time limits
+    const BATCH_SIZE = 3; // Process only 3 sources at a time to avoid timeouts
     const results: FeedResult[] = [];
     
     console.log(`Processing ${sources.length} sources in batches of ${BATCH_SIZE}`);
@@ -211,9 +211,9 @@ serve(async (req) => {
       
       results.push(...batchResults);
       
-      // Small delay between batches to prevent overwhelming the system
+      // Longer delay between batches to prevent CPU exhaustion
       if (i + BATCH_SIZE < sources.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 500)); // Increased to 500ms
       }
     }
 
