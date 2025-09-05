@@ -9,17 +9,46 @@ export interface TopicTreeItem {
 }
 
 export async function fetchTopicsTree(): Promise<TopicTreeItem[]> {
-  // Return fallback data to avoid Supabase type issues for now
-  const fallbackTopics: TopicTreeItem[] = [
-    { id: 1, slug: "technology", label: "Technology", level: 1, parent_id: null },
-    { id: 2, slug: "business", label: "Business", level: 1, parent_id: null },
-    { id: 3, slug: "science", label: "Science", level: 1, parent_id: null },
-    { id: 4, slug: "health", label: "Health", level: 1, parent_id: null },
-    { id: 5, slug: "sports", label: "Sports", level: 1, parent_id: null },
-    { id: 6, slug: "entertainment", label: "Entertainment", level: 1, parent_id: null }
-  ];
-  
-  return fallbackTopics;
+  try {
+    const { data, error } = await supabase
+      .from('topics')
+      .select('id, slug, label, level, parent_id')
+      .eq('is_active', true)
+      .order('level', { ascending: true })
+      .order('label', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching topics:', error);
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      console.warn('No topics found in database, using fallback data');
+      throw new Error('No topics found');
+    }
+
+    return data.map(topic => ({
+      id: topic.id,
+      slug: topic.slug,
+      label: topic.label,
+      level: topic.level as 1 | 2 | 3,
+      parent_id: topic.parent_id
+    }));
+  } catch (error) {
+    console.warn('Using fallback seed data due to error:', error);
+    
+    // Fallback data in case of database issues
+    const fallbackTopics: TopicTreeItem[] = [
+      { id: 1, slug: "technology", label: "Technology", level: 1, parent_id: null },
+      { id: 2, slug: "business", label: "Business", level: 1, parent_id: null },
+      { id: 3, slug: "science", label: "Science", level: 1, parent_id: null },
+      { id: 4, slug: "health", label: "Health", level: 1, parent_id: null },
+      { id: 5, slug: "sports", label: "Sports", level: 1, parent_id: null },
+      { id: 6, slug: "entertainment", label: "Entertainment", level: 1, parent_id: null }
+    ];
+    
+    return fallbackTopics;
+  }
 }
 
 export async function saveUserTopics(topicIds: number[]): Promise<void> {

@@ -563,18 +563,62 @@ export type Database = {
       topics: {
         Row: {
           id: number
+          is_active: boolean
           label: string
+          level: number
+          parent_id: number | null
           slug: string
         }
         Insert: {
           id?: number
+          is_active?: boolean
           label: string
+          level?: number
+          parent_id?: number | null
           slug: string
         }
         Update: {
           id?: number
+          is_active?: boolean
           label?: string
+          level?: number
+          parent_id?: number | null
           slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topics_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      topics_backup: {
+        Row: {
+          id: number | null
+          is_active: boolean | null
+          label: string | null
+          level: number | null
+          parent_id: number | null
+          slug: string | null
+        }
+        Insert: {
+          id?: number | null
+          is_active?: boolean | null
+          label?: string | null
+          level?: number | null
+          parent_id?: number | null
+          slug?: string | null
+        }
+        Update: {
+          id?: number | null
+          is_active?: boolean | null
+          label?: string | null
+          level?: number | null
+          parent_id?: number | null
+          slug?: string | null
         }
         Relationships: []
       }
@@ -642,7 +686,18 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_topics_tree: {
+        Row: {
+          depth: number | null
+          id: number | null
+          label: string | null
+          level: number | null
+          parent_id: number | null
+          path: string | null
+          slug: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       binary_quantize: {
@@ -793,6 +848,12 @@ export type Database = {
       sparsevec_typmod_in: {
         Args: { "": unknown[] }
         Returns: number
+      }
+      topic_descendants: {
+        Args: { root: number }
+        Returns: {
+          id: number
+        }[]
       }
       trigger_background_ranking: {
         Args: Record<PropertyKey, never>
