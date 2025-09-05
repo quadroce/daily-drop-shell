@@ -241,8 +241,10 @@ export const TopicsOnboardingWizard: React.FC<TopicsOnboardingWizardProps> = ({
           {currentStep === 2 && (
             <div className="space-y-6">
               <h2 className="text-2xl font-semibold">Subtopics</h2>
-              {filteredSubTopics.length === 0 ? (
+              {Array.from(selectedTopics).filter(id => macroTopics.some(m => m.id === id)).length === 0 ? (
                 <p className="text-muted-foreground">Please select some main categories first.</p>
+              ) : filteredSubTopics.length === 0 ? (
+                <p className="text-muted-foreground">No subtopics available for your selected categories.</p>
               ) : (
                 <Accordion type="multiple" className="space-y-4">
                   {macroTopics
