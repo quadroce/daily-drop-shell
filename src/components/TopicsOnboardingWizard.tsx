@@ -88,7 +88,10 @@ export const TopicsOnboardingWizard: React.FC<TopicsOnboardingWizardProps> = ({
 
   // Organize topics by level and parent
   const { macroTopics, subTopics, microTopics } = useMemo(() => {
-    const macro = topics.filter(t => t.level === 1);
+    // Only show featured macro topics for step 1
+    const featuredMacroSlugs = ['technology', 'business', 'science-health', 'health', 'sports', 'entertainment', 'fintech', 'ai', 'energy'];
+    
+    const macro = topics.filter(t => t.level === 1 && featuredMacroSlugs.includes(t.slug));
     const sub = topics.filter(t => t.level === 2);
     const micro = topics.filter(t => t.level === 3);
 
