@@ -257,7 +257,17 @@ export const TopicsOnboardingWizard: React.FC<TopicsOnboardingWizardProps> = ({
               {Array.from(selectedTopics).filter(id => macroTopics.some(m => m.id === id)).length === 0 ? (
                 <p className="text-muted-foreground">Please select some main categories first.</p>
               ) : filteredSubTopics.length === 0 ? (
-                <p className="text-muted-foreground">No subtopics available for your selected categories.</p>
+                <div className="space-y-2">
+                  <p className="text-muted-foreground">No subtopics available for your selected categories.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Selected macro IDs: {Array.from(selectedTopics).filter(id => macroTopics.some(m => m.id === id)).join(', ')}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Available subtopics for these: {subTopics.filter(sub => 
+                      Array.from(selectedTopics).filter(id => macroTopics.some(m => m.id === id)).includes(sub.parent_id!)
+                    ).length}
+                  </p>
+                </div>
               ) : (
                 <Accordion type="multiple" className="space-y-4">
                   {macroTopics
