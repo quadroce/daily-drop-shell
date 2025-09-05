@@ -28,18 +28,31 @@ const SEED_TOPICS: Topic[] = [
   { id: 2, slug: "business", label: "Business", level: 1, parent_id: null },
   { id: 3, slug: "science", label: "Science", level: 1, parent_id: null },
   { id: 4, slug: "health", label: "Health", level: 1, parent_id: null },
+  { id: 20, slug: "sports", label: "Sports", level: 1, parent_id: null },
+  { id: 21, slug: "entertainment", label: "Entertainment", level: 1, parent_id: null },
   
   // Sub topics (level 2)
   { id: 5, slug: "ai-ml", label: "AI & Machine Learning", level: 2, parent_id: 1 },
   { id: 6, slug: "web-dev", label: "Web Development", level: 2, parent_id: 1 },
   { id: 7, slug: "fintech", label: "FinTech", level: 2, parent_id: 2 },
   { id: 8, slug: "biotech", label: "Biotechnology", level: 2, parent_id: 3 },
+  { id: 13, slug: "nutrition", label: "Nutrition", level: 2, parent_id: 4 },
+  { id: 14, slug: "fitness", label: "Fitness", level: 2, parent_id: 4 },
+  { id: 15, slug: "mental-health", label: "Mental Health", level: 2, parent_id: 4 },
+  { id: 16, slug: "football", label: "Football", level: 2, parent_id: 20 },
+  { id: 17, slug: "basketball", label: "Basketball", level: 2, parent_id: 20 },
+  { id: 18, slug: "movies", label: "Movies", level: 2, parent_id: 21 },
+  { id: 19, slug: "music", label: "Music", level: 2, parent_id: 21 },
   
   // Micro topics (level 3)
   { id: 9, slug: "chatgpt", label: "ChatGPT", level: 3, parent_id: 5 },
   { id: 10, slug: "react", label: "React", level: 3, parent_id: 6 },
   { id: 11, slug: "crypto", label: "Cryptocurrency", level: 3, parent_id: 7 },
   { id: 12, slug: "gene-therapy", label: "Gene Therapy", level: 3, parent_id: 8 },
+  { id: 22, slug: "supplements", label: "Supplements", level: 3, parent_id: 13 },
+  { id: 23, slug: "meditation", label: "Meditation", level: 3, parent_id: 15 },
+  { id: 24, slug: "nba", label: "NBA", level: 3, parent_id: 17 },
+  { id: 25, slug: "netflix", label: "Netflix", level: 3, parent_id: 18 },
 ];
 
 export const TopicsOnboardingWizard: React.FC<TopicsOnboardingWizardProps> = ({
