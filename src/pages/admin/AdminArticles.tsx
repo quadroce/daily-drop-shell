@@ -75,6 +75,7 @@ interface TaggingParams {
 const AdminArticles = () => {
   const [drops, setDrops] = useState<Drop[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
+  const [sources, setSources] = useState<{ id: number; name: string }[]>([]);
   const [taggingParams, setTaggingParams] = useState<TaggingParams>({});
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -149,6 +150,21 @@ const AdminArticles = () => {
     }
   }, []);
 
+  const fetchSources = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('sources')
+        .select('id, name')
+        .eq('status', 'active')
+        .order('name');
+
+      if (error) throw error;
+      setSources(data || []);
+    } catch (error) {
+      console.error('Error fetching sources:', error);
+    }
+  }, []);
+
   const fetchTaggingParams = useCallback(async () => {
     try {
       const { data, error } = await supabase
@@ -174,8 +190,9 @@ const AdminArticles = () => {
 
   useEffect(() => {
     fetchTopics();
+    fetchSources();
     fetchTaggingParams();
-  }, [fetchTopics, fetchTaggingParams]);
+  }, [fetchTopics, fetchSources, fetchTaggingParams]);
 
   const handleRetag = async (dropId: number) => {
     try {
@@ -335,7 +352,11 @@ const AdminArticles = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Tutte le fonti</SelectItem>
-                    {/* Qui andrebbe popolato con le fonti disponibili */}
+                    {sources.map((source) => (
+                      <SelectItem key={source.id} value={source.name}>
+                        {source.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
