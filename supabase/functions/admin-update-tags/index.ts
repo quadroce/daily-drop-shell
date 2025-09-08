@@ -7,20 +7,26 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log('admin-update-tags function called');
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    console.log('Processing request...');
+    
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error('No authorization header provided');
       return new Response(
         JSON.stringify({ error: 'Authorization header required' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    console.log('Creating Supabase client...');
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -31,9 +37,11 @@ serve(async (req) => {
       }
     );
 
+    console.log('Parsing request body...');
     const { dropId, topicIds } = await req.json();
     
     if (!dropId || !Array.isArray(topicIds)) {
+      console.error('Invalid request parameters:', { dropId, topicIds });
       return new Response(
         JSON.stringify({ error: 'dropId and topicIds array are required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -42,7 +50,7 @@ serve(async (req) => {
 
     console.log(`Updating tags for drop ${dropId} with topics:`, topicIds);
 
-    // First, let's check the user's profile and role for debugging
+    // Check user authentication and role
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
       console.error('Failed to get user:', userError);
@@ -52,7 +60,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('User ID:', user.id);
+    console.log('User authenticated:', user.id);
 
     // Check user profile and role
     const { data: profile, error: profileError } = await supabase
@@ -81,7 +89,8 @@ serve(async (req) => {
       );
     }
 
-    // Usa la funzione database per aggiornare i tag
+    // Call the database function to update tags
+    console.log('Calling admin_update_drop_tags function...');
     const { error } = await supabase.rpc('admin_update_drop_tags', {
       _drop_id: dropId,
       _topic_ids: topicIds
