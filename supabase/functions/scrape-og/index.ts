@@ -103,6 +103,100 @@ async function getYouTubeThumbnail(videoId: string): Promise<string> {
   return hqdefaultUrl;
 }
 
+// Calculate Authority Score based on source reputation
+async function calculateAuthorityScore(sourceId: number | null, url: string): Promise<number> {
+  if (!sourceId) return 0.3; // Unknown source gets low authority
+
+  try {
+    // Fetch source data
+    const sourceResponse = await fetch(`${SUPABASE_URL}/rest/v1/sources?id=eq.${sourceId}&select=official,type,name`, {
+      headers: {
+        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+        'apikey': SERVICE_ROLE_KEY,
+      },
+    });
+    
+    if (!sourceResponse.ok) return 0.5;
+    
+    const sources = await sourceResponse.json();
+    if (!sources || sources.length === 0) return 0.5;
+    
+    const source = sources[0];
+    let score = 0.5; // Base score
+    
+    // Official sources get higher authority
+    if (source.official) score += 0.3;
+    
+    // Domain-based authority adjustments
+    if (url.includes('youtube.com')) score += 0.2;
+    if (url.includes('github.com')) score += 0.2;
+    if (url.includes('arxiv.org')) score += 0.3;
+    if (url.includes('medium.com')) score += 0.1;
+    
+    return Math.max(0.1, Math.min(1.0, score));
+  } catch (error) {
+    console.error('Error calculating authority score:', error);
+    return 0.5;
+  }
+}
+
+// Calculate Quality Score based on content characteristics
+async function calculateQualityScore(title: string, summary: string, imageUrl: string | null, type: string): Promise<{quality_score: number}> {
+  let score = 0.5; // Base score
+  
+  // Title quality indicators
+  if (title.length >= 10 && title.length <= 100) score += 0.1;
+  if (title.includes('?') || title.includes(':') || title.includes('How') || title.includes('Why')) score += 0.1;
+  
+  // Summary quality indicators  
+  if (summary.length >= 50) score += 0.1;
+  if (summary.length >= 200) score += 0.1;
+  
+  // Has image
+  if (imageUrl) score += 0.1;
+  
+  // Content type adjustments
+  if (type === 'video') score += 0.1; // Videos often have higher engagement
+  
+  // Avoid clickbait patterns
+  const clickbaitPatterns = [
+    /\d+ (tricks?|secrets?|tips?)/i,
+    /you won't believe/i,
+    /this will shock you/i,
+    /doctors hate/i
+  ];
+  
+  if (clickbaitPatterns.some(pattern => pattern.test(title))) {
+    score -= 0.2;
+  }
+  
+  return {
+    quality_score: Math.max(0.1, Math.min(1.0, score))
+  };
+}
+
+// Calculate Popularity Score (placeholder for now, could integrate with external APIs)
+async function calculatePopularityScore(url: string, type: string): Promise<number> {
+  try {
+    // For YouTube videos, we could extract view count from the page or use YouTube API
+    if (url.includes('youtube.com') && type === 'video') {
+      const videoId = getYouTubeVideoId(url);
+      if (videoId) {
+        // For now, return a base popularity for YouTube videos
+        // This could be enhanced with actual YouTube API integration
+        return 0.3;
+      }
+    }
+    
+    // For other content, could integrate with social media APIs, analytics, etc.
+    // For now, return base popularity
+    return 0.1;
+  } catch (error) {
+    console.error('Error calculating popularity score:', error);
+    return 0.0;
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -203,6 +297,13 @@ serve(async (req) => {
 
     console.log(`Parsed content - Title: ${title}, Type: ${type}, Image: ${image_url}`);
 
+    // Calculate quality scores
+    const qualityMetrics = await calculateQualityScore(title.trim(), summary.trim(), image_url, type);
+    const authorityScore = await calculateAuthorityScore(source_id, canonical);
+    const popularityScore = await calculatePopularityScore(canonical, type);
+
+    console.log(`Calculated scores - Authority: ${authorityScore}, Quality: ${qualityMetrics.quality_score}, Popularity: ${popularityScore}`);
+
     // Prepare data for upsert
     const dropData = {
       url: canonical,
@@ -216,6 +317,9 @@ serve(async (req) => {
       lang_id,
       published_at,
       og_scraped: true,
+      authority_score: authorityScore,
+      quality_score: qualityMetrics.quality_score,
+      popularity_score: popularityScore,
       created_at: new Date().toISOString(),
     };
 
