@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_audit_log: {
+        Row: {
+          action: string
+          created_at: string | null
+          details: Json | null
+          id: number
+          resource_id: string | null
+          resource_type: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          details?: Json | null
+          id?: number
+          resource_id?: string | null
+          resource_type: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          details?: Json | null
+          id?: number
+          resource_id?: string | null
+          resource_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_audit_log_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bookmarks: {
         Row: {
           created_at: string
@@ -36,6 +74,13 @@ export type Database = {
             columns: ["drop_id"]
             isOneToOne: false
             referencedRelation: "drops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookmarks_drop_id_fkey"
+            columns: ["drop_id"]
+            isOneToOne: false
+            referencedRelation: "drops_view"
             referencedColumns: ["id"]
           },
           {
@@ -72,6 +117,13 @@ export type Database = {
             columns: ["content_id"]
             isOneToOne: false
             referencedRelation: "drops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_topics_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "drops_view"
             referencedColumns: ["id"]
           },
           {
@@ -171,6 +223,13 @@ export type Database = {
             columns: ["drop_id"]
             isOneToOne: false
             referencedRelation: "drops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_batch_items_drop_id_fkey"
+            columns: ["drop_id"]
+            isOneToOne: false
+            referencedRelation: "drops_view"
             referencedColumns: ["id"]
           },
         ]
@@ -283,6 +342,13 @@ export type Database = {
             foreignKeyName: "drops_source_id_fkey"
             columns: ["source_id"]
             isOneToOne: false
+            referencedRelation: "drops_view"
+            referencedColumns: ["source_id"]
+          },
+          {
+            foreignKeyName: "drops_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
             referencedRelation: "sources"
             referencedColumns: ["id"]
           },
@@ -322,6 +388,13 @@ export type Database = {
             columns: ["drop_id"]
             isOneToOne: false
             referencedRelation: "drops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engagement_events_drop_id_fkey"
+            columns: ["drop_id"]
+            isOneToOne: false
+            referencedRelation: "drops_view"
             referencedColumns: ["id"]
           },
           {
@@ -404,6 +477,13 @@ export type Database = {
           url?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ingestion_queue_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "drops_view"
+            referencedColumns: ["source_id"]
+          },
           {
             foreignKeyName: "ingestion_queue_source_id_fkey"
             columns: ["source_id"]
@@ -596,6 +676,41 @@ export type Database = {
           },
         ]
       }
+      tagging_params: {
+        Row: {
+          description: string | null
+          id: number
+          param_name: string
+          param_value: Json
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          description?: string | null
+          id?: number
+          param_name: string
+          param_value: Json
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          description?: string | null
+          id?: number
+          param_name?: string
+          param_value?: Json
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tagging_params_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       topic_keywords: {
         Row: {
           created_at: string | null
@@ -751,9 +866,37 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      drops_view: {
+        Row: {
+          authority_score: number | null
+          created_at: string | null
+          id: number | null
+          image_url: string | null
+          popularity_score: number | null
+          published_at: string | null
+          quality_score: number | null
+          source_id: number | null
+          source_name: string | null
+          summary: string | null
+          tag_done: boolean | null
+          tags: string[] | null
+          title: string | null
+          topic_labels: string[] | null
+          type: Database["public"]["Enums"]["drop_type"] | null
+          url: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      admin_soft_delete_drop: {
+        Args: { _drop_id: number }
+        Returns: undefined
+      }
+      admin_update_drop_tags: {
+        Args: { _drop_id: number; _topic_ids: number[] }
+        Returns: undefined
+      }
       binary_quantize: {
         Args: { "": string } | { "": unknown }
         Returns: unknown
@@ -875,6 +1018,15 @@ export type Database = {
       l2_normalize: {
         Args: { "": string } | { "": unknown } | { "": unknown }
         Returns: unknown
+      }
+      log_admin_action: {
+        Args: {
+          _action: string
+          _details?: Json
+          _resource_id?: string
+          _resource_type: string
+        }
+        Returns: undefined
       }
       public_profile_feed: {
         Args: { _username: string }
