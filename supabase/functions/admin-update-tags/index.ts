@@ -23,7 +23,12 @@ serve(async (req) => {
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: authHeader },
+        },
+      }
     );
 
     const { dropId, topicIds } = await req.json();
@@ -36,6 +41,45 @@ serve(async (req) => {
     }
 
     console.log(`Updating tags for drop ${dropId} with topics:`, topicIds);
+
+    // First, let's check the user's profile and role for debugging
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      console.error('Failed to get user:', userError);
+      return new Response(
+        JSON.stringify({ error: 'Authentication failed' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('User ID:', user.id);
+
+    // Check user profile and role
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError) {
+      console.error('Error fetching user profile:', profileError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to verify user permissions', details: profileError.message }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('User role:', profile?.role);
+
+    if (!profile || !['editor', 'admin', 'superadmin'].includes(profile.role)) {
+      console.error('User does not have required role. Current role:', profile?.role);
+      return new Response(
+        JSON.stringify({ 
+          error: `Insufficient permissions. Current role: ${profile?.role}. Editor role or higher required.` 
+        }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Usa la funzione database per aggiornare i tag
     const { error } = await supabase.rpc('admin_update_drop_tags', {
