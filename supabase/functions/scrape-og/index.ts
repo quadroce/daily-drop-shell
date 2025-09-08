@@ -197,6 +197,83 @@ async function calculatePopularityScore(url: string, type: string): Promise<numb
   }
 }
 
+// Extract published date from HTML
+function extractPublishedDate(html: string, url: string): string | null {
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    
+    // Try various meta tags for publication date
+    const metaSelectors = [
+      'meta[property="article:published_time"]',
+      'meta[property="article:modified_time"]', 
+      'meta[name="publish_date"]',
+      'meta[name="publication_date"]',
+      'meta[name="date"]',
+      'meta[property="og:updated_time"]',
+      'meta[name="DC.Date"]',
+      'meta[name="dcterms.created"]'
+    ];
+    
+    for (const selector of metaSelectors) {
+      const element = doc.querySelector(selector);
+      if (element) {
+        const content = element.getAttribute('content');
+        if (content) {
+          const date = parseDate(content);
+          if (date) return date;
+        }
+      }
+    }
+    
+    // Try time elements with datetime attribute
+    const timeElements = doc.querySelectorAll('time[datetime]');
+    for (const timeEl of timeElements) {
+      const datetime = timeEl.getAttribute('datetime');
+      if (datetime) {
+        const date = parseDate(datetime);
+        if (date) return date;
+      }
+    }
+    
+    // For Medium articles, try specific selectors
+    if (url.includes('medium.com')) {
+      const mediumTime = doc.querySelector('time')?.getAttribute('datetime');
+      if (mediumTime) {
+        const date = parseDate(mediumTime);
+        if (date) return date;
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error extracting published date:', error);
+    return null;
+  }
+}
+
+// Parse and validate date string
+function parseDate(dateString: string): string | null {
+  try {
+    const date = new Date(dateString);
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) return null;
+    
+    // Check if date is reasonable (not in the future, not too old)
+    const now = new Date();
+    const tenYearsAgo = new Date(now.getFullYear() - 10, now.getMonth(), now.getDate());
+    
+    if (date > now || date < tenYearsAgo) {
+      return null;
+    }
+    
+    return date.toISOString();
+  } catch (error) {
+    return null;
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -297,6 +374,12 @@ serve(async (req) => {
 
     console.log(`Parsed content - Title: ${title}, Type: ${type}, Image: ${image_url}`);
 
+    // Extract published date from HTML
+    const extractedDate = extractPublishedDate(html, url);
+    const finalPublishedAt = extractedDate || new Date().toISOString();
+    
+    console.log(`Extracted published date: ${extractedDate ? extractedDate : 'null, using current date'}`);
+
     // Calculate quality scores
     const qualityMetrics = await calculateQualityScore(title.trim(), summary.trim(), image_url, type);
     const authorityScore = await calculateAuthorityScore(source_id, canonical);
@@ -315,7 +398,7 @@ serve(async (req) => {
       source_id,
       tags,
       lang_id,
-      published_at,
+      published_at: finalPublishedAt,
       og_scraped: true,
       authority_score: authorityScore,
       quality_score: qualityMetrics.quality_score,
