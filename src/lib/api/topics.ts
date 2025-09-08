@@ -90,6 +90,36 @@ export async function expandTopicPreferences(selectedTopicIds: number[]): Promis
   }
 }
 
+export async function fetchUserPreferences(): Promise<{
+  selectedTopicIds: number[];
+  selectedLanguageIds: number[];
+} | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('User must be authenticated');
+  }
+
+  const { data: preferences, error } = await supabase
+    .from('preferences')
+    .select('selected_topic_ids, selected_language_ids')
+    .eq('user_id', user.id)
+    .single();
+
+  if (error) {
+    // If no preferences found, return null
+    if (error.code === 'PGRST116') {
+      return null;
+    }
+    throw new Error(`Failed to fetch preferences: ${error.message}`);
+  }
+
+  return {
+    selectedTopicIds: preferences?.selected_topic_ids || [],
+    selectedLanguageIds: preferences?.selected_language_ids || []
+  };
+}
+
 export async function saveUserTopics(topicIds: number[]): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   

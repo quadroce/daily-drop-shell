@@ -19,6 +19,7 @@ interface Topic {
 
 interface TopicsOnboardingWizardProps {
   onSave: (topicIds: number[]) => Promise<void>;
+  initialSelectedTopics?: number[];
 }
 
 // Fallback seed data
@@ -56,11 +57,12 @@ const SEED_TOPICS: Topic[] = [
 ];
 
 export const TopicsOnboardingWizard: React.FC<TopicsOnboardingWizardProps> = ({
-  onSave
+  onSave,
+  initialSelectedTopics = []
 }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [topics, setTopics] = useState<Topic[]>([]);
-  const [selectedTopics, setSelectedTopics] = useState<Set<number>>(new Set());
+  const [selectedTopics, setSelectedTopics] = useState<Set<number>>(new Set(initialSelectedTopics));
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
