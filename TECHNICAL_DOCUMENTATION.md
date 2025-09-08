@@ -1,231 +1,284 @@
-# Technical Documentation - Sistema di Ranking e Dashboard Admin
+# DailyDrop Shell – Comprehensive Technical Documentation
 
-## Executive Summary
-
-Questo documento descrive l'analisi completa e le correzioni apportate al sistema di content curation, inclusi i dashboard amministrativi e il sistema di ranking degli articoli. Il lavoro ha identificato e risolto inconsistenze nei dati mostrati dai dashboard e ha fornito un'analisi dettagliata dell'implementazione del sistema di ranking.
-
-## 1. Analisi Database
-
-### 1.1 Stato Attuale del Database
-
-**Ingestion Queue**: 
-- **Totale**: 3,181 items
-- **Pending**: 1 item
-- **Processing**: 3 items  
-- **Done**: 2,325 items
-- **Error**: 852 items
-
-**Drops (Articoli)**:
-- **Totale**: 2,355 articoli
-- **Tag Done**: 2,355 (100%)
-- **OG Scraped**: 2,355 (100%)
-
-**Performance Giornaliera**:
-- **3/9/2025**: 1,376 nuovi articoli
-- **2/9/2025**: 979 nuovi articoli
-- **Media**: ~1,000+ articoli/giorno
-
-### 1.2 Fonti di Contenuto
-
-**Fonti Attive**: 49 sorgenti configurate
-- **Ufficiali**: 28 sorgenti
-- **Non Ufficiali**: 21 sorgenti
-- **Tipo**: Principalmente RSS feeds
-- **Performance**: Success rate ~73% medio
-
-## 2. Problematiche Identificate
-
-### 2.1 Inconsistenze nei Dashboard
-
-Prima delle correzioni, i dashboard mostravano dati inconsistenti:
-
-**Admin Page**:
-- Queue: 419 (ERRATO - era 4)
-- Tagged: 681 (ERRATO - era 2,355)
-
-**AdminDashboard**:
-- Total: 241 (ERRATO - era 2,355)
-- Queue: 2,355 (ERRATO - era 4)
-
-**AdminSources** (CORRETTO):
-- Total: 2,355 ✓
-
-### 2.2 Query Problematiche
-
-Le query errate erano:
-```typescript
-// ERRATO - Admin.tsx
-.eq('status', 'pending') // Solo pending, mancava processing
-
-// ERRATO - AdminDashboard.tsx
-.select('count').single() // Query malformata
-```
-
-## 3. Correzioni Implementate
-
-### 3.1 Admin.tsx - Correzioni
-
-**Query Coda Aggiornata**:
-```typescript
-// Prima (ERRATO)
-const { count: queueCount } = await supabase
-  .from('ingestion_queue')
-  .select('*', { count: 'exact', head: true })
-  .eq('status', 'pending');
-
-// Dopo (CORRETTO)
-const { count: queueCount } = await supabase
-  .from('ingestion_queue')
-  .select('*', { count: 'exact', head: true })
-  .in('status', ['pending', 'processing']);
-```
-
-**Query Tagging Stats Aggiornata**:
-```typescript
-// Prima (ERRATO - limitato a 1000)
-const { data: statsData, error: statsError } = await supabase
-  .from('drops')
-  .select('tag_done')
-  .limit(1000);
-
-// Dopo (CORRETTO - count esatto)
-const { count: totalDrops } = await supabase
-  .from('drops')
-  .select('*', { count: 'exact', head: true });
-
-const { count: taggedDrops } = await supabase
-  .from('drops')
-  .select('*', { count: 'exact', head: true })
-  .eq('tag_done', true);
-```
-
-### 3.2 AdminDashboard.tsx - Correzioni
-
-**Query Stats Aggiornate**:
-```typescript
-// Prima (ERRATO)
-const [dropsResponse, queueResponse] = await Promise.all([
-  supabase.from('drops').select('count').single(),
-  supabase.from('drops').select('count').eq('tag_done', true).single(),
-  supabase.from('ingestion_queue').select('count').eq('status', 'pending').single()
-]);
-
-// Dopo (CORRETTO)
-const [totalDropsRes, taggedDropsRes, queueRes] = await Promise.all([
-  supabase.from('drops').select('*', { count: 'exact', head: true }),
-  supabase.from('drops').select('*', { count: 'exact', head: true }).eq('tag_done', true),
-  supabase.from('ingestion_queue').select('*', { count: 'exact', head: true }).in('status', ['pending', 'processing'])
-]);
-```
-
-## 4. Sistema di Ranking - Analisi Implementazione
-
-### 4.1 Criteri Specificati vs Implementati
-
-**BASE SCORE** (Catalog Relevance):
-- ✅ **Recency (0.3)**: Implementato correttamente con decay esponenziale
-- ❌ **Trust (0.3)**: Implementato come 0.25 invece di 0.3
-- ✅ **Popularity (0.15)**: Implementato correttamente con log-scaling
-
-**PERSONALIZATION**:
-- ✅ **Topic Match (0.2)**: Implementato correttamente
-- ❌ **Vector Similarity (0.25)**: Placeholder (sempre 0)
-- ✅ **Feedback (0.25)**: Implementato con engagement history
-
-**FINAL SCORE**:
-- ✅ **Formula**: 0.4*BaseScore + 0.6*PersonalScore implementata
-
-### 4.2 Funzionalità Mancanti
-
-**Constraints**:
-- ❌ **≥1 YouTube item**: Non implementato
-- ❌ **≤2 per source**: Non implementato  
-- ❌ **≤1 sponsored item**: Non implementato
-- ❌ **Exclude >7 days**: Usa 30 giorni invece di 7
-
-**Diversity & Exploration**:
-- ❌ **Clustering (similarity >0.9)**: Non implementato
-- ❌ **Exploration slot**: Non implementato
-- ❌ **Diversity penalty**: Non implementato
-
-**Dynamic Weighting**:
-- ❌ **Cold Start**: Non implementato
-- ❌ **Active/Mature user logic**: Non implementato
-
-### 4.3 File Coinvolti nel Ranking
-
-**Edge Functions**:
-- `supabase/functions/content-ranking/index.ts` - Real-time ranking
-- `supabase/functions/background-feed-ranking/index.ts` - Background caching
-
-**Database Functions**:
-- `calculate_recency_score(published_date)` - Calcolo decay temporale
-- `calculate_popularity_score(raw_popularity)` - Normalizzazione log
-- `get_user_feedback_score(user_id, drop_id, source_id, tags)` - Score personalizzazione
-- `get_ranked_drops(limit_n)` - Function completa di ranking
-
-**Frontend**:
-- `src/pages/Feed.tsx` - Consumo del ranking via API
-
-### 4.4 Compliance Attuale
-
-**Percentuale di Implementazione**: ~70%
-- ✅ Base scoring: 80% compliant
-- ❌ Constraints: 0% compliant  
-- ❌ Diversity: 0% compliant
-- ❌ Dynamic Weighting: 0% compliant
-
-## 5. Performance del Sistema
-
-### 5.1 Ingestion Performance
-
-**Throughput Giornaliero**: 1,000+ articoli/giorno
-**Success Rate**: 73% medio
-**Error Rate**: 27% (principalmente RSS non disponibili)
-
-### 5.2 Background Processing
-
-**Feed Ranking Background**:
-- 6 utenti processati nell'ultima esecuzione
-- 30 cache entries create (5 per utente)
-- Tempo di esecuzione: ~90 secondi
-
-## 6. Raccomandazioni Tecniche
-
-### 6.1 Correzioni Immediate Necessarie
-
-1. **Allineare Trust Score**: Correggere da 0.25 a 0.3
-2. **Implementare Vector Similarity**: Sostituire placeholder con calcolo cosine
-3. **Unificare Time Filter**: 7 giorni consistenti ovunque
-4. **Implementare Constraints**: YouTube, source limits, sponsored limits
-
-### 6.2 Sviluppi Futuri
-
-1. **Diversity Engine**: Clustering e exploration slots
-2. **Dynamic Weighting**: Adattamento basato su user interactions  
-3. **Real-time Monitoring**: Dashboard per performance ranking
-4. **A/B Testing**: Framework per testare algoritmi diversi
-
-### 6.3 Ottimizzazioni Database
-
-1. **Indici**: Aggiungere indici su `published_at`, `tag_done`, `source_id`
-2. **Partitioning**: Considerare partitioning temporale per `drops`
-3. **Caching**: Estendere cache duration per feed stabili
-
-## 7. Conclusioni
-
-Il sistema di content curation è funzionale e performante, con un throughput elevato di articoli processati giornalmente. Le correzioni ai dashboard hanno risolto le inconsistenze nei dati mostrati agli amministratori. 
-
-Il sistema di ranking ha una base solida ma necessita completamento per raggiungere piena compliance con i criteri specificati. Le priorità sono:
-
-1. **Immediate**: Correggere pesi e filtri temporali
-2. **Breve termine**: Implementare constraints e vector similarity
-3. **Lungo termine**: Aggiungere diversity engine e dynamic weighting
-
-Il sistema è pronto per gestire crescita del volume di contenuti e utenti, con architettura scalabile basata su Supabase edge functions e background processing.
+This document provides an exhaustive, **technical deep‑dive** into the DailyDrop Shell system, covering architecture, database schema, ingestion pipeline, ranking logic, APIs, UI/UX flow, and deployment strategies. It is designed for engineers who need to understand, extend, and maintain the platform.
 
 ---
 
-**Documento generato**: 5 Gennaio 2025  
-**Versione Sistema**: Production  
-**Ambiente**: Supabase qimelntuxquptqqynxzv
+## 1. System Architecture
+
+**Frontend**
+
+* Built with **React (TypeScript)** + **Vite**.
+* Component library: **shadcn/ui** (built on **Radix Primitives** + TailwindCSS).
+* Routing: **react-router-dom** with protected routes for authenticated users.
+* State management: local React context + Supabase client state.
+
+**Backend**
+
+* **Supabase** provides:
+
+  * PostgreSQL (with pgvector extension)
+  * Authentication (email, OAuth planned)
+  * Row Level Security (RLS)
+  * Edge Functions (Deno)
+  * Realtime channels (future use for live updates)
+
+**Infrastructure**
+
+* Local dev: Docker containers managed by Supabase CLI.
+* Production: Deployed via Vercel/Render (frontend) + Supabase hosted backend.
+
+**Integrations**
+
+* External APIs: YouTube Data API, OpenAI API (for embeddings + tagging).
+* Analytics: Google Analytics planned integration.
+
+---
+
+## 2. Database Schema
+
+### Core Tables
+
+* **sources** – metadata for RSS, YouTube, Reddit, etc.
+* **topics** – hierarchical taxonomy with 3 levels:
+
+  * Level 1: Macro categories (≤8)
+  * Level 2: Seed categories (≤32)
+  * Level 3: Micro topics (≥100)
+* **content** – ingested articles/videos with metadata (title, url, summary, image, etc.).
+* **content\_topics** – join table for content ↔ topics.
+* **user\_preferences** – stores user topic preferences.
+* **user\_profile\_vectors** – vector embeddings of user interests for personalization.
+
+### Indices & Extensions
+
+* **pgvector** for similarity search (`vector(1536)` columns).
+* Indexes on `content.created_at`, `content.source_id`, `topics.slug` for fast retrieval.
+
+### Policies
+
+* Row Level Security: enforced on user‑specific tables.
+* Service role key used by ingestion functions, not exposed to client.
+
+---
+
+## 3. Ingestion Pipeline
+
+### Functions (Supabase Edge Functions)
+
+* **fetch-rss** → pulls articles from configured RSS feeds.
+* **ingest-queue** → processes items, deduplicates, inserts normalized content.
+* **scrape-og** → extracts OpenGraph metadata (title, desc, image).
+* **tag-drops** → assigns hierarchical topics to content.
+* **content-ranking** → calculates ranking score for each content item.
+* **background-feed-ranking** → periodic refresh of scores.
+* **admin-api** → protected endpoints for dashboard data.
+* **restart-ingestion** → maintenance utility.
+
+### Scheduling
+
+* Cron jobs managed via Supabase Dashboard (e.g., RSS fetch every 6h).
+
+### Flow
+
+1. `fetch-rss` adds entries → `ingest_queue`.
+2. `ingest-queue` validates, enriches, stores in `content`.
+3. `scrape-og` resolves images & metadata.
+4. `tag-drops` applies topic classification.
+5. `content-ranking` computes score.
+6. Feed built daily with at least one YouTube fallback.
+
+---
+
+## 4. Ranking System
+
+**Catalog Score**
+
+* Recency (0.4)
+* Authority (0.25)
+* Quality (0.2)
+* Popularity (0.15)
+* Penalties (duplicates, low trust sources)
+
+**User Personalization**
+
+* Topic Match
+* Vector Similarity (pgvector search)
+* Feedback (like/dislike/open/dismiss)
+
+**Final Score**
+
+```
+Final = 0.3 * Catalog + 0.35 * TopicMatch + 0.35 * VectorSim ± Adjustments
+```
+
+**Constraints**
+
+* ≥ 1 YouTube per Drop
+* ≤ 2 items per source
+* ≤ 1 sponsored content
+* Corporate boost toggle
+
+**Missing features (roadmap)**
+
+* Diversity engine (source/topic variety enforcement).
+* Fine‑grained feedback loops.
+
+---
+
+## 5. Authentication & Authorization
+
+* **Supabase Auth**: email/password today; Google/LinkedIn planned.
+* `useAuth` hook manages user + session state.
+* Protected routes via `RequiredAuth` + `Layout` pattern.
+* Role‑based access: `admin` and `editor` roles allow access to `/admin` dashboard.
+
+---
+
+## 6. Frontend Routes
+
+* `/` – landing page
+* `/auth` – login/signup
+* `/reset-password` – password recovery
+* `/feed` – personalized daily feed
+* `/preferences` – topic selector
+* `/profile` – user settings
+* `/u/:username` – public profile
+* `/admin` – admin dashboard
+* `*` – 404 fallback
+
+---
+
+## 7. UI / UX Flow
+
+**Onboarding**
+
+* User signs up → selects interests (topics).
+* Preferences stored in `user_preferences` + embedded into `user_profile_vectors`.
+
+**Feed Rendering**
+
+* Fetches ranked `content` filtered by user preferences.
+* Embeds YouTube player for videos (premium gating planned).
+* Bookmark, dismiss, like/dislike feedback updates personalization.
+
+**Admin Dashboard**
+
+* Shows ingestion queue counts, content counts, error logs.
+* Allows manual re‑ranking, tagging fixes.
+
+---
+
+## 8. Deployment
+
+**Frontend**
+
+* Static build with Vite → `dist/`.
+* Deployment options:
+
+  * **Vercel** (recommended) → auto build on push.
+  * **Render** (Static Site) → build command `npm run build`, publish dir `dist`.
+
+**Backend**
+
+* Supabase hosted project for Postgres + Auth + Functions.
+* Functions deployed with:
+
+  ```bash
+  supabase functions deploy <name>
+  ```
+* Schedules set via Supabase Dashboard.
+
+---
+
+## 9. Local Development (Windows)
+
+**Prerequisites**
+
+* Node.js ≥ 18 (prefer 20)
+* Git
+* Docker Desktop (WSL2)
+* Supabase CLI
+* Deno
+* VS Code/Visual Studio
+
+**Steps**
+
+1. Clone repo → `npm install`
+2. Start Supabase local → `supabase start`
+3. Apply schema → `supabase db reset`
+4. Create `.env.local` with `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY`
+5. Run dev server → `npm run dev`
+6. Access at `http://localhost:8080`
+
+---
+
+## 10. Security Considerations
+
+* Never expose service role keys in frontend.
+* Enforce RLS for all user‑owned tables.
+* Use environment variables for secrets.
+* Protect admin functions with JWT verification.
+* Plan for monitoring ingestion anomalies.
+
+---
+
+## 11. Roadmap Enhancements
+
+* RSS + Reddit ingestion (growth milestone).
+* Discord + Telegram bots (free tier).
+* WhatsApp delivery (Pro tier).
+* Push notifications (OneSignal).
+* Analytics dashboards for engagement.
+* Content feedback loop fine‑tuned with ML.
+
+---
+
+## 12. Troubleshooting
+
+**Issue: Redirect loop to /auth**
+
+* Wrong env vars → check `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
+* Supabase local not running.
+
+**Issue: Duplicate constraints**
+
+* Use `supabase db reset` to drop & reapply schema.
+
+**Issue: Docker errors on Windows**
+
+* Restart Docker Desktop with WSL2 backend.
+* Run `wsl --shutdown` then restart.
+
+**Issue: CORS errors from Edge Functions**
+
+* Add CORS headers in function handler.
+* For local, use `--no-verify-jwt`.
+
+---
+
+## 13. Quick Reference Commands
+
+```bash
+# Start Supabase local
+docker start supabase
+supabase start
+
+# Reset DB
+supabase db reset
+
+# Run frontend
+npm run dev
+
+# Build frontend
+npm run build
+
+# Deploy function
+supabase functions deploy fetch-rss
+```
+
+---
+
+## 14. Conclusion
+
+DailyDrop Shell is a full‑stack AI‑assisted content curation platform. The architecture combines a React SPA frontend with a Supabase backend (Postgres + Edge Functions). It provides ingestion from multiple sources, hierarchical tagging, a ranking engine, and a personalized daily feed. This document serves as the technical reference for setup, maintenance, and further development.
