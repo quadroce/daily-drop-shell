@@ -414,6 +414,11 @@ const Admin = () => {
             Gestisci Sorgenti
           </Button>
           
+          <Button variant="outline" onClick={() => navigate("/admin/articles")}>
+            <Monitor className="h-4 w-4 mr-2" />
+            Gestisci Articoli
+          </Button>
+          
           {/* Profile badge */}
           {profile && (
             <div className="flex items-center space-x-2">

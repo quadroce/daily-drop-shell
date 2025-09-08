@@ -329,12 +329,12 @@ const AdminArticles = () => {
               
               <div>
                 <Label htmlFor="source">Source</Label>
-                <Select value={selectedSource} onValueChange={setSelectedSource}>
+                <Select value={selectedSource || "all"} onValueChange={(value) => setSelectedSource(value === "all" ? "" : value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Tutte le fonti" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Tutte le fonti</SelectItem>
+                    <SelectItem value="all">Tutte le fonti</SelectItem>
                     {/* Qui andrebbe popolato con le fonti disponibili */}
                   </SelectContent>
                 </Select>
