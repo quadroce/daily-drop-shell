@@ -1,11 +1,30 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { TopicsOnboardingWizard } from "@/components/TopicsOnboardingWizard";
-import { saveUserTopics } from "@/lib/api/topics";
+import { saveUserTopics, fetchUserPreferences } from "@/lib/api/topics";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 
 const Preferences = () => {
   const navigate = useNavigate();
+  const [initialTopics, setInitialTopics] = useState<number[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadExistingPreferences = async () => {
+      try {
+        const preferences = await fetchUserPreferences();
+        if (preferences) {
+          setInitialTopics(preferences.selectedTopicIds);
+        }
+      } catch (error) {
+        console.error("Error loading preferences:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadExistingPreferences();
+  }, []);
 
   const handleSaveTopics = async (topicIds: number[]) => {
     try {
@@ -28,9 +47,14 @@ const Preferences = () => {
     }
   };
 
+  if (loading) {
+    return <div>Loading preferences...</div>;
+  }
+
   return (
     <TopicsOnboardingWizard
       onSave={handleSaveTopics}
+      initialSelectedTopics={initialTopics}
     />
   );
 };
