@@ -23,6 +23,7 @@ import ResetPassword from "./pages/ResetPassword";
 import Admin from "./pages/Admin";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminSources from "./pages/AdminSources";
+import AdminArticles from "./pages/admin/AdminArticles";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -68,6 +69,7 @@ const App = () => (
                     <AdminSources />
                   </ProtectedRoute>
                 } />
+                <Route path="/admin/articles" element={<AdminArticles />} />
                 <Route path="/u/:username" element={<PublicProfile />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>

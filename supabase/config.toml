@@ -26,3 +26,15 @@ verify_jwt = true
 
 [functions.retag-existing-content]
 verify_jwt = true
+
+[functions.admin-retag-drop]
+verify_jwt = true
+
+[functions.admin-update-tags]
+verify_jwt = true
+
+[functions.admin-delete-drop]
+verify_jwt = true
+
+[functions.admin-update-tagging-params]
+verify_jwt = true
