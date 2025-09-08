@@ -298,11 +298,28 @@ const AdminArticles = () => {
   };
 
   const openEditTagsModal = (drop: Drop) => {
-    // Load existing topics for this drop
-    const existingTopicIds = topics
-      .filter(topic => drop.topic_labels.includes(topic.label))
-      .map(topic => topic.id);
+    let existingTopicIds: number[] = [];
     
+    // Prima prova a caricare dai topic_labels (nuova struttura)
+    if (drop.topic_labels && drop.topic_labels.length > 0) {
+      existingTopicIds = topics
+        .filter(topic => drop.topic_labels.includes(topic.label))
+        .map(topic => topic.id);
+    } 
+    // Se non ci sono topic_labels, prova a mappare dai tags vecchi
+    else if (drop.tags && drop.tags.length > 0) {
+      // Cerca di mappare i tag esistenti ai topic corrispondenti per label
+      existingTopicIds = topics
+        .filter(topic => drop.tags.some(tag => 
+          topic.label.toLowerCase().includes(tag.toLowerCase()) ||
+          tag.toLowerCase().includes(topic.label.toLowerCase())
+        ))
+        .map(topic => topic.id);
+    }
+    
+    console.log('Loading existing topics for drop:', drop.id, 'Found topic IDs:', existingTopicIds);
+    console.log('Drop topic_labels:', drop.topic_labels);
+    console.log('Drop tags:', drop.tags);
     setSelectedTopics(existingTopicIds);
     setEditTagsModal({ open: true, drop });
   };
@@ -408,11 +425,21 @@ const AdminArticles = () => {
                     <TableCell>{drop.source_name || 'N/A'}</TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        {drop.topic_labels.map((topic, idx) => (
-                          <Badge key={idx} variant="outline" className="text-xs">
-                            {topic}
-                          </Badge>
-                        ))}
+                        {/* Mostra prima i topic_labels (nuova struttura) */}
+                        {drop.topic_labels && drop.topic_labels.length > 0 ? (
+                          drop.topic_labels.map((topic, idx) => (
+                            <Badge key={idx} variant="outline" className="text-xs">
+                              {topic}
+                            </Badge>
+                          ))
+                        ) : (
+                          /* Se non ci sono topic_labels, mostra i tags vecchi */
+                          drop.tags.filter(tag => tag !== 'deleted').map((tag, idx) => (
+                            <Badge key={idx} variant="secondary" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))
+                        )}
                         {drop.tags.includes('deleted') && (
                           <Badge variant="destructive">Eliminato</Badge>
                         )}
