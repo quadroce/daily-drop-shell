@@ -222,11 +222,14 @@ const AdminArticles = () => {
     if (!editTagsModal.drop) return;
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const dropId = Number(editTagsModal.drop.id);
+      const topicIds = selectedTopics.map((v) => Number(v));
+
       const { error } = await supabase.functions.invoke('admin-update-tags', {
-        body: { 
-          dropId: editTagsModal.drop.id,
-          topicIds: selectedTopics
-        }
+        body: { dropId, topicIds },
+        headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
       });
 
       if (error) throw error;
@@ -297,30 +300,27 @@ const AdminArticles = () => {
     }
   };
 
-  const openEditTagsModal = (drop: Drop) => {
-    let existingTopicIds: number[] = [];
-    
-    // Prima prova a caricare dai topic_labels (nuova struttura)
-    if (drop.topic_labels && drop.topic_labels.length > 0) {
-      existingTopicIds = topics
-        .filter(topic => drop.topic_labels.includes(topic.label))
-        .map(topic => topic.id);
-    } 
-    // Se non ci sono topic_labels, prova a mappare dai tags vecchi
-    else if (drop.tags && drop.tags.length > 0) {
-      // Cerca di mappare i tag esistenti ai topic corrispondenti per label
-      existingTopicIds = topics
-        .filter(topic => drop.tags.some(tag => 
-          topic.label.toLowerCase().includes(tag.toLowerCase()) ||
-          tag.toLowerCase().includes(topic.label.toLowerCase())
-        ))
-        .map(topic => topic.id);
+  const openEditTagsModal = async (drop: Drop) => {
+    try {
+      // Carica i topic esistenti dalla tabella content_topics
+      const { data: contentTopics, error } = await supabase
+        .from('content_topics')
+        .select('topic_id')
+        .eq('content_id', drop.id);
+
+      if (error) {
+        console.error('Error loading existing topics:', error);
+        setSelectedTopics([]);
+      } else {
+        const existingTopicIds = (contentTopics || []).map(ct => ct.topic_id);
+        console.log('Loading existing topics for drop:', drop.id, 'Found topic IDs:', existingTopicIds);
+        setSelectedTopics(existingTopicIds);
+      }
+    } catch (error) {
+      console.error('Error in openEditTagsModal:', error);
+      setSelectedTopics([]);
     }
     
-    console.log('Loading existing topics for drop:', drop.id, 'Found topic IDs:', existingTopicIds);
-    console.log('Drop topic_labels:', drop.topic_labels);
-    console.log('Drop tags:', drop.tags);
-    setSelectedTopics(existingTopicIds);
     setEditTagsModal({ open: true, drop });
   };
 
