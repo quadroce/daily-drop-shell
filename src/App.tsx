@@ -69,7 +69,11 @@ const App = () => (
                     <AdminSources />
                   </ProtectedRoute>
                 } />
-                <Route path="/admin/articles" element={<AdminArticles />} />
+                <Route path="/admin/articles" element={
+                  <ProtectedRoute>
+                    <AdminArticles />
+                  </ProtectedRoute>  
+                } />
                 <Route path="/u/:username" element={<PublicProfile />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>

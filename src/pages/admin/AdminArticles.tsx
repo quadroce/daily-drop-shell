@@ -1,5 +1,4 @@
 import { FunctionsHttpError } from "@supabase/supabase-js";
-import { toast } from "sonner";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -98,57 +97,52 @@ const AdminArticles = () => {
 
   const fetchDrops = useCallback(async () => {
     setLoading(true);
+    console.log('Fetching drops...');
     try {
       const from = (currentPage - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
 
-      // Build query step by step to avoid deep type instantiation
-      const baseQuery = supabase
+      // Simple query first - let's get basic drops data
+      const { data: dropsData, error: dropsError } = await supabase
         .from('drops')
-        .select('*, sources(name)')
+        .select(`
+          id, title, url, tag_done, created_at, tags,
+          sources!inner(name)
+        `)
         .order('created_at', { ascending: false })
         .range(from, to);
 
-      let finalQuery = baseQuery;
-
-      if (searchQuery) {
-        finalQuery = finalQuery.or(`title.ilike.%${searchQuery}%,summary.ilike.%${searchQuery}%,url.ilike.%${searchQuery}%`);
+      if (dropsError) {
+        console.error('Drops query error:', dropsError);
+        throw dropsError;
       }
 
-      if (selectedSource) {
-        finalQuery = finalQuery.eq('sources.name', selectedSource);
-      }
+      console.log('Drops data loaded:', dropsData?.length || 0, 'items');
 
-      if (showUntaggedOnly) {
-        finalQuery = finalQuery.eq('tag_done', false);
-      }
-
-      // Get count separately to avoid complex type chaining
-      const countQuery = supabase
+      // Get total count
+      const { count, error: countError } = await supabase
         .from('drops')
         .select('*', { count: 'exact', head: true });
 
-      const [dataResult, countResult] = await Promise.all([
-        finalQuery,
-        countQuery
-      ]);
-
-      if (dataResult.error) throw dataResult.error;
-      if (countResult.error) throw countResult.error;
+      if (countError) {
+        console.error('Count query error:', countError);
+        throw countError;
+      }
 
       // Transform data to match our Drop interface
-      const transformedData = (dataResult.data || []).map((item: any) => ({
+      const transformedData = (dropsData || []).map((item: any) => ({
         ...item,
         source_name: item.sources?.name || 'N/A'
       }));
 
       setDrops(transformedData);
-      setTotalCount(countResult.count || 0);
+      setTotalCount(count || 0);
+      console.log('Data set successfully, total count:', count);
     } catch (error) {
       console.error('Error fetching drops:', error);
       toast({
         title: "Errore",
-        description: "Errore nel caricamento degli articles",
+        description: "Errore nel caricamento degli articoli",
         variant: "destructive",
       });
     }
