@@ -226,39 +226,30 @@ const AdminArticles = () => {
   const handleEditTags = async () => {
   if (!editTagsModal.drop) return;
 
-  // mappa id -> topic (serve per leggere il livello)
-  const byId = new Map(topics.map(t => [t.id, t] as const));
+    try {
+      const { error } = await supabase.functions.invoke('admin-update-tags', {
+        body: { 
+          dropId: editTagsModal.drop.id,
+          topicIds: selectedTopics
+        }
+      });
 
-  // normalizza gli ID a numeri unici > 0
-  const selected = Array.from(new Set(
-    (selectedTopics ?? []).map(Number).filter(n => Number.isFinite(n) && n > 0)
-  ));
+      if (error) throw error;
 
-  // vincolo L1/L2 lato client (evita 400 dal server)
-  const l1 = selected.filter(id => byId.get(id)?.level === 1).length;
-  const l2 = selected.filter(id => byId.get(id)?.level === 2).length;
-  if (l1 !== 1 || l2 !== 1) {
-    toast.error(`Seleziona esattamente 1 topic di Livello 1 e 1 di Livello 2 (ora L1=${l1}, L2=${l2}).`);
-    return;
-  }
+      toast({
+        title: "Successo",
+        description: "Tag aggiornati con successo",
+      });
 
-  try {
-    const { error } = await supabase.functions.invoke("admin-update-tags", {
-      body: { contentId: editTagsModal.drop.id, topicIds: selected }
-    });
-    if (error) throw error;
-    toast.success("Tag aggiornati!");
-    // TODO: ricarica righe/tabella o stato modale
-  } catch (e: any) {
-    // mostra l’errore JSON che ritorna la function (così capiamo esattamente quale 400 è)
-    if (e instanceof FunctionsHttpError) {
-      let details: any = null;
-      try { details = await e.context.json(); } catch {}
-      toast.error(details?.error ?? "Aggiornamento tag fallito");
-      console.error("admin-update-tags 400 →", details);
-    } else {
-      toast.error(e?.message ?? "Aggiornamento tag fallito");
-      console.error(e);
+      setEditTagsModal({ open: false });
+      fetchDrops();
+    } catch (error) {
+      console.error('Error updating tags:', error);
+      toast({
+        title: "Errore",
+        description: "Errore nell'aggiornamento dei tag",
+        variant: "destructive",
+      });
     }
   }
 };
@@ -313,30 +304,27 @@ const AdminArticles = () => {
     }
   };
 
-  const openEditTagsModal = (drop: Drop) => {
-    let existingTopicIds: number[] = [];
-    
-    // Prima prova a caricare dai topic_labels (nuova struttura)
-    if (drop.topic_labels && drop.topic_labels.length > 0) {
-      existingTopicIds = topics
-        .filter(topic => drop.topic_labels.includes(topic.label))
-        .map(topic => topic.id);
-    } 
-    // Se non ci sono topic_labels, prova a mappare dai tags vecchi
-    else if (drop.tags && drop.tags.length > 0) {
-      // Cerca di mappare i tag esistenti ai topic corrispondenti per label
-      existingTopicIds = topics
-        .filter(topic => drop.tags.some(tag => 
-          topic.label.toLowerCase().includes(tag.toLowerCase()) ||
-          tag.toLowerCase().includes(topic.label.toLowerCase())
-        ))
-        .map(topic => topic.id);
+  const openEditTagsModal = async (drop: Drop) => {
+    try {
+      // Carica i topic esistenti dalla tabella content_topics
+      const { data: contentTopics, error } = await supabase
+        .from('content_topics')
+        .select('topic_id')
+        .eq('content_id', drop.id);
+
+      if (error) {
+        console.error('Error loading existing topics:', error);
+        setSelectedTopics([]);
+      } else {
+        const existingTopicIds = (contentTopics || []).map(ct => ct.topic_id);
+        console.log('Loading existing topics for drop:', drop.id, 'Found topic IDs:', existingTopicIds);
+        setSelectedTopics(existingTopicIds);
+      }
+    } catch (error) {
+      console.error('Error in openEditTagsModal:', error);
+      setSelectedTopics([]);
     }
     
-    console.log('Loading existing topics for drop:', drop.id, 'Found topic IDs:', existingTopicIds);
-    console.log('Drop topic_labels:', drop.topic_labels);
-    console.log('Drop tags:', drop.tags);
-    setSelectedTopics(existingTopicIds);
     setEditTagsModal({ open: true, drop });
   };
 
