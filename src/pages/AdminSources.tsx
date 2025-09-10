@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Plus, Globe, Rss, CheckCircle, XCircle, AlertTriangle, Trash2, ArrowLeft, BarChart3 } from "lucide-react";
+import { toast } from "sonner";
 
 interface Source {
   id: number;
@@ -355,7 +356,14 @@ const AdminSources = () => {
                 <Switch
                   id="official"
                   checked={newSource.official}
-                  onCheckedChange={(checked) => setNewSource(prev => ({ ...prev, official: checked }))}
+                  onCheckedChange={(checked) => {
+  setSelectedTopics(prev => {
+    const id = Number(topic.id);
+    if (checked) return Array.from(new Set([...(prev ?? []).map(Number), id]));
+    return (prev ?? []).map(Number).filter(x => x !== id);
+  });
+}}
+
                 />
                 <Label htmlFor="official">Sorgente Ufficiale</Label>
               </div>

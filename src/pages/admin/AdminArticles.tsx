@@ -1,3 +1,5 @@
+import { FunctionsHttpError } from "@supabase/supabase-js";
+import { toast } from "sonner"; // o il tuo sistema di toast
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -55,11 +57,14 @@ interface Drop {
   id: number;
   title: string;
   url: string;
-  source_name: string;
-  topic_labels: string[];
+  source_name?: string;
+  topic_labels?: string[];   // opzionale
   created_at: string;
-  tag_done: boolean;
-  tags: string[];
+  tag_done?: boolean;        // opzionale
+  tags?: string[];           // opzionale
+  l1_slug?: string;          // se usi la view nuova
+  l2_slug?: string;
+  l3_slugs?: string[];
 }
 
 interface Topic {
@@ -219,34 +224,45 @@ const AdminArticles = () => {
   };
 
   const handleEditTags = async () => {
-    if (!editTagsModal.drop) return;
+  if (!editTagsModal.drop) return;
 
-    try {
-      const { error } = await supabase.functions.invoke('admin-update-tags', {
-        body: { 
-          dropId: editTagsModal.drop.id,
-          topicIds: selectedTopics
-        }
-      });
+  // mappa id -> topic (serve per leggere il livello)
+  const byId = new Map(topics.map(t => [t.id, t] as const));
 
-      if (error) throw error;
+  // normalizza gli ID a numeri unici > 0
+  const selected = Array.from(new Set(
+    (selectedTopics ?? []).map(Number).filter(n => Number.isFinite(n) && n > 0)
+  ));
 
-      toast({
-        title: "Successo",
-        description: "Tag aggiornati con successo",
-      });
+  // vincolo L1/L2 lato client (evita 400 dal server)
+  const l1 = selected.filter(id => byId.get(id)?.level === 1).length;
+  const l2 = selected.filter(id => byId.get(id)?.level === 2).length;
+  if (l1 !== 1 || l2 !== 1) {
+    toast.error(`Seleziona esattamente 1 topic di Livello 1 e 1 di Livello 2 (ora L1=${l1}, L2=${l2}).`);
+    return;
+  }
 
-      setEditTagsModal({ open: false });
-      fetchDrops();
-    } catch (error) {
-      console.error('Error updating tags:', error);
-      toast({
-        title: "Errore",
-        description: "Errore nell'aggiornamento dei tag",
-        variant: "destructive",
-      });
+  try {
+    const { error } = await supabase.functions.invoke("admin-update-tags", {
+      body: { contentId: editTagsModal.drop.id, topicIds: selected }
+    });
+    if (error) throw error;
+    toast.success("Tag aggiornati!");
+    // TODO: ricarica righe/tabella o stato modale
+  } catch (e: any) {
+    // mostra l’errore JSON che ritorna la function (così capiamo esattamente quale 400 è)
+    if (e instanceof FunctionsHttpError) {
+      let details: any = null;
+      try { details = await e.context.json(); } catch {}
+      toast.error(details?.error ?? "Aggiornamento tag fallito");
+      console.error("admin-update-tags 400 →", details);
+    } else {
+      toast.error(e?.message ?? "Aggiornamento tag fallito");
+      console.error(e);
     }
-  };
+  }
+};
+
 
   const handleDelete = async () => {
     if (!deleteModal.drop) return;
@@ -424,34 +440,50 @@ const AdminArticles = () => {
                     </TableCell>
                     <TableCell>{drop.source_name || 'N/A'}</TableCell>
                     <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {/* Mostra prima i topic_labels (nuova struttura) */}
-                        {drop.topic_labels && drop.topic_labels.length > 0 ? (
-                          drop.topic_labels.map((topic, idx) => (
-                            <Badge key={idx} variant="outline" className="text-xs">
-                              {topic}
-                            </Badge>
-                          ))
-                        ) : (
-                          /* Se non ci sono topic_labels, mostra i tags vecchi */
-                          drop.tags.filter(tag => tag !== 'deleted').map((tag, idx) => (
-                            <Badge key={idx} variant="secondary" className="text-xs">
-                              {tag}
-                            </Badge>
-                          ))
-                        )}
-                        {drop.tags.includes('deleted') && (
-                          <Badge variant="destructive">Eliminato</Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
+  <div className="flex flex-wrap gap-1">
+    {/* 1) prova la nuova tassonomia se esposta dalla view */}
+    { (drop.l1_slug || drop.l2_slug || (drop.l3_slugs?.length ?? 0) > 0)
+      ? (
+        [drop.l1_slug, drop.l2_slug, ...(drop.l3_slugs ?? [])]
+          .filter(Boolean)
+          .map((slug, idx) => (
+            <Badge key={idx} variant="outline" className="text-xs">
+              {slug}
+            </Badge>
+          ))
+      )
+      /* 2) altrimenti: se topic_labels esiste, usala */
+      : (drop.topic_labels?.length
+          ? drop.topic_labels.map((topic, idx) => (
+              <Badge key={idx} variant="outline" className="text-xs">
+                {topic}
+              </Badge>
+            ))
+          /* 3) fallback legacy: tags (con guardie) */
+          : (drop.tags ?? [])
+              .filter(tag => tag !== 'deleted')
+              .map((tag, idx) => (
+                <Badge key={idx} variant="secondary" className="text-xs">
+                  {tag}
+                </Badge>
+              ))
+        )
+    }
+
+    {/* deleted badge (guardia) */}
+    { (drop.tags ?? []).includes('deleted') && (
+      <Badge variant="destructive">Eliminato</Badge>
+    )}
+  </div>
+</TableCell>
+<TableCell>
                       {format(new Date(drop.created_at), 'dd/MM/yyyy HH:mm')}
                     </TableCell>
                     <TableCell>
                       <Badge variant={drop.tag_done ? "default" : "secondary"}>
-                        {drop.tag_done ? 'Taggato' : 'Da taggare'}
-                      </Badge>
+  {drop.tag_done ? 'Taggato' : 'Da taggare'}
+</Badge>
+
                     </TableCell>
                     <TableCell>
                       <div className="flex space-x-2">

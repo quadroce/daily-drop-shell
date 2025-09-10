@@ -1,409 +1,192 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const SUPABASE_URL = "https://qimelntuxquptqqynxzv.supabase.co";
-const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+// ===== Config =====
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "https://YOUR-PROJECT.supabase.co";
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+
+if (!SERVICE_ROLE_KEY) console.warn("Missing SUPABASE_SERVICE_ROLE_KEY");
+if (!OPENAI_API_KEY) console.warn("Missing OPENAI_API_KEY");
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface Topic {
-  id: number;
-  slug: string;
-  label: string;
+type Topic = { id: number; slug: string; label: string; level: number };
+type Drop  = { id: number; title: string; summary: string | null; language: string | null };
+
+type ClassifyOut = { l1: string; l2: string; l3: string[]; language?: string };
+
+// ===== Utilities =====
+function jres(status: number, body: unknown) {
+  return new Response(JSON.stringify(body, null, 2), {
+    status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 }
 
-interface Drop {
-  id: number;
-  title: string;
-  summary: string;
-  url: string;
+async function supa(path: string, init: RequestInit = {}) {
+  const url = `${SUPABASE_URL}${path}`;
+  const res = await fetch(url, {
+    ...init,
+    headers: {
+      apikey: SERVICE_ROLE_KEY!,
+      authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+      "Content-Type": "application/json",
+      ...(init.headers || {}),
+    },
+  });
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(`Supabase error ${res.status}: ${t}`);
+  }
+  return res;
 }
 
-interface ClassificationResult {
-  topics: string[];
-  language: string;
-}
-
-interface ProcessResult {
-  processed: number;
-  tagged: number;
-  errors: number;
-  details: Array<{
-    id: number;
-    url: string;
-    status: 'success' | 'error';
-    topics?: string[];
-    language?: string;
-    error?: string;
-  }>;
-}
-
-// Fetch available topics from the database
+// ===== Fetch topics & drops =====
 async function fetchTopics(): Promise<Topic[]> {
-  console.log('Fetching topics from Supabase...');
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/topics?select=id,slug,label`, {
-    headers: {
-      'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-      'apikey': SERVICE_ROLE_KEY,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Failed to fetch topics:', errorText);
-    throw new Error(`Failed to fetch topics: ${errorText}`);
-  }
-
-  const topics = await response.json();
-  console.log(`Successfully fetched ${topics.length} topics`);
-  return topics;
+  const res = await supa(`/rest/v1/topics?select=id,slug,label,level&order=level.asc,slug.asc`);
+  return await res.json();
 }
 
-// Fetch drops that need tagging
-async function fetchDropsToTag(limit: number): Promise<Drop[]> {
-  console.log(`Fetching ${limit} drops that need tagging...`);
-  const response = await fetch(
-    `${SUPABASE_URL}/rest/v1/drops?og_scraped=eq.true&tag_done=eq.false&select=id,title,summary,url&order=created_at.desc&limit=${limit}`,
-    {
-      headers: {
-        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-        'apikey': SERVICE_ROLE_KEY,
-        'Content-Type': 'application/json',
-      },
-    }
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Failed to fetch drops:', errorText);
-    throw new Error(`Failed to fetch drops: ${errorText}`);
-  }
-
-  const drops = await response.json();
-  console.log(`Successfully fetched ${drops.length} drops to tag`);
-  return drops;
+async function fetchDrops(limit: number): Promise<Drop[]> {
+  // Drops che necessitano tagging (usa la tua condizione – qui tag_done=false se esiste)
+  const query = `/rest/v1/drops?select=id,title,summary,language&tag_done=is.false&order=created_at.desc&limit=${limit}`;
+  const res = await supa(query);
+  return await res.json();
 }
 
-// Classify a drop using OpenAI
-async function classifyDrop(drop: Drop, topicSlugs: string[]): Promise<ClassificationResult> {
-  const systemPrompt = `You are a taxonomy classifier. Given a title and summary, pick 1–3 topics from THIS EXACT LIST ONLY: ${topicSlugs.join(', ')}. Also detect the content language (2-letter code like 'en', 'es', 'fr', etc.).
-
-IMPORTANT TOPIC GROUPINGS - Use related tags when content fits:
-- AI content should get: "ai" and possibly "datasci", "dev" if technical
-- HealthTech content should get: "healthtech" and possibly "medicine", "biotech"  
-- Dev content should get: "dev" and possibly related tech tags
-- Business content should get multiple relevant business tags
-
-Return JSON in this exact format:
+// ===== LLM classification =====
+function buildPrompt(availableSlugs: string[], params: { max_l3?: number }) {
+  const list = availableSlugs.join(", ");
+  const maxL3 = Math.max(0, params.max_l3 ?? 3);
+  return `You are a strict taxonomy router. You MUST return a JSON object with this exact shape:
 {
-  "topics": ["topic1", "topic2", "topic3"],
-  "language": "en"
+  "l1": "<one slug>",
+  "l2": "<one slug>",
+  "l3": ["<zero or more slugs>"],
+  "language": "<optional 2-letter code>"
 }
-
 Rules:
-- Topics MUST be from the provided list only
-- Use 2-3 related topics when content spans multiple areas
-- Language should be 2-letter ISO code
-- Be comprehensive and accurate`;
+- Allowed slugs are ONLY from this list: [${list}]
+- Exactly 1 for l1, exactly 1 for l2, and 0..${maxL3} for l3 (all distinct).
+- l1 must be a Level-1 topic, l2 Level-2, l3 Level-3.
+- Prefer concise and accurate mapping.
+If you cannot satisfy the constraints, pick the closest valid slugs.`;
+}
 
-  const userPrompt = `Title: ${drop.title}\n\nSummary: ${drop.summary || 'No summary available'}`;
+async function classifyDrop(drop: Drop, topicSlugs: string[], params: { max_l3?: number }): Promise<ClassifyOut> {
+  const system = buildPrompt(topicSlugs, params);
+  const user = `${drop.title}\n\n${drop.summary ?? ""}`.slice(0, 8000);
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${OPENAI_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: 'gpt-4o-mini', // GPT-4 for classification tasks
+      model: "gpt-4o-mini",
       messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
+        { role: "system", content: system },
+        { role: "user", content: user }
       ],
-      max_tokens: 150, // Faster response
-      temperature: 0.1, // Low temperature for consistent classification
+      temperature: 0.1,
+      response_format: { type: "json_object" }
     }),
   });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('OpenAI API error:', response.status, errorText);
-    throw new Error(`OpenAI API error: ${response.status} ${errorText}`);
+  if (!res.ok) throw new Error(`OpenAI ${res.status} ${await res.text()}`);
+  const out = await res.json();
+  const txt = out.choices?.[0]?.message?.content ?? "{}";
+  let parsed: any;
+  try { parsed = JSON.parse(txt); } catch {
+    parsed = { l1: "", l2: "", l3: [] };
   }
-
-  const data = await response.json();
-  console.log('OpenAI response:', data);
-  
-  if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-    throw new Error('Invalid response structure from OpenAI');
-  }
-  
-  const content = data.choices[0].message.content;
-
-  try {
-    const parsed = JSON.parse(content);
-    
-    // Validate and sanitize the response
-    let topics = Array.isArray(parsed.topics) ? parsed.topics : [];
-    
-    // Filter topics to only include valid ones from our list
-    topics = topics
-      .filter((topic: any) => typeof topic === 'string' && topicSlugs.includes(topic))
-      .slice(0, 3); // Limit to 3 topics max
-    
-    const language = typeof parsed.language === 'string' ? parsed.language.toLowerCase().slice(0, 2) : 'en';
-    
-    return {
-      topics,
-      language
-    };
-  } catch (parseError) {
-    console.error('Failed to parse OpenAI response:', content);
-    throw new Error(`Failed to parse OpenAI response: ${content}`);
-  }
+  // Normalize
+  parsed.l1 = String(parsed.l1 || "");
+  parsed.l2 = String(parsed.l2 || "");
+  parsed.l3 = Array.isArray(parsed.l3) ? parsed.l3.map(String) : [];
+  if (parsed.language) parsed.language = String(parsed.language).slice(0, 5);
+  return parsed as ClassifyOut;
 }
 
-// Update a drop with tags and language
-async function updateDrop(dropId: number, topics: string[], language: string): Promise<void> {
-  console.log(`Updating drop ${dropId} with topics: [${topics.join(', ')}], language: ${language}`);
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/drops?id=eq.${dropId}`, {
-    method: 'PATCH',
-    headers: {
-      'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-      'apikey': SERVICE_ROLE_KEY,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      tags: topics,
-      lang_code: language,
-      tag_done: true,
-    }),
+// ===== Post-processing / enforcement =====
+function byLevelMap(topics: Topic[]) {
+  const bySlug = new Map<string, Topic>(topics.map(t => [t.slug, t]));
+  return { bySlug };
+}
+
+function enforce121(result: ClassifyOut, topics: Topic[], params: {max_topics_per_drop?: number; max_l3?: number}) {
+  const { bySlug } = byLevelMap(topics);
+  const maxL3 = Math.max(0, params.max_l3 ?? Math.max(0, (params.max_topics_per_drop ?? 5) - 2));
+
+  const l1 = bySlug.get(result.l1);
+  const l2 = bySlug.get(result.l2);
+  const l3 = (result.l3 || []).map(s => bySlug.get(s)).filter(Boolean) as Topic[];
+
+  // Pick-first fallback if wrong level/missing
+  const pickOne = (arr: Topic[], level: number) => (arr.find(t => t.level === level) ?? arr[0]);
+
+  const candidatesL1 = topics.filter(t => t.level === 1);
+  const candidatesL2 = topics.filter(t => t.level === 2);
+
+  const finalL1 = (l1?.level === 1 ? l1 : pickOne(candidatesL1, 1)).slug;
+  const finalL2 = (l2?.level === 2 ? l2 : pickOne(candidatesL2, 2)).slug;
+
+  // L3: only level 3, unique, cap
+  const finalL3 = Array.from(new Set(l3.filter(t => t.level === 3).map(t => t.slug))).slice(0, maxL3);
+
+  return { l1: finalL1, l2: finalL2, l3: finalL3 };
+}
+
+// ===== Write topics via RPC =====
+async function setTopicsBySlugs(dropId: number, slugs: string[]) {
+  await supa(`/rest/v1/rpc/set_drop_topics_by_slugs`, {
+    method: "POST",
+    body: JSON.stringify({ _drop_id: dropId, _topic_slugs: slugs }),
   });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`Failed to update drop ${dropId}:`, errorText);
-    throw new Error(`Failed to update drop ${dropId}: ${errorText}`);
-  }
-  
-  console.log(`Successfully updated drop ${dropId}`);
 }
 
-// Process drops for tagging with concurrency support
-async function processDropTagging(limit = 25, concurrent_requests = 1): Promise<ProcessResult> {
-  const result: ProcessResult = {
-    processed: 0,
-    tagged: 0,
-    errors: 0,
-    details: []
-  };
-
-  try {
-    console.log(`Fetching topics and drops (concurrent_requests: ${concurrent_requests})...`);
-    
-    // Fetch available topics and drops in parallel
-    const [topics, drops] = await Promise.all([
-      fetchTopics(),
-      fetchDropsToTag(limit)
-    ]);
-
-    if (topics.length === 0) {
-      throw new Error('No topics found in database');
-    }
-
-    if (drops.length === 0) {
-      console.log('No drops need tagging');
-      return result;
-    }
-
-    const topicSlugs = topics.map(t => t.slug);
-    console.log(`Found ${topics.length} topics and ${drops.length} drops to process`);
-    console.log('Available topics:', topicSlugs.join(', '));
-
-    // Process drops with controlled concurrency
-    const processDrop = async (drop: Drop) => {
-      try {
-        console.log(`Processing drop ${drop.id}: ${drop.title}`);
-        
-        const classification = await classifyDrop(drop, topicSlugs);
-        console.log(`Classification result for ${drop.id}:`, classification);
-        
-        await updateDrop(drop.id, classification.topics, classification.language);
-        
-        result.tagged++;
-        result.details.push({
-          id: drop.id,
-          url: drop.url,
-          status: 'success',
-          topics: classification.topics,
-          language: classification.language
-        });
-        
-        console.log(`Successfully tagged drop ${drop.id} with topics: ${classification.topics.join(', ')}, language: ${classification.language}`);
-        
-      } catch (error) {
-        console.error(`Error processing drop ${drop.id}:`, error);
-        
-        result.errors++;
-        result.details.push({
-          id: drop.id,
-          url: drop.url,
-          status: 'error',
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
-      }
-      
-      result.processed++;
-    };
-
-    // Process in batches with concurrency control
-    if (concurrent_requests > 1) {
-      // Process with controlled concurrency
-      const batches = [];
-      for (let i = 0; i < drops.length; i += concurrent_requests) {
-        const batch = drops.slice(i, i + concurrent_requests);
-        batches.push(batch);
-      }
-      
-      for (const batch of batches) {
-        await Promise.all(batch.map(processDrop));
-        // Small delay between batches to respect rate limits
-        if (batches.indexOf(batch) < batches.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 200));
-        }
-      }
-    } else {
-      // Sequential processing (original behavior)
-      for (const drop of drops) {
-        await processDrop(drop);
-        // Small delay to avoid overwhelming the API
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-    }
-
-    console.log(`Processing complete: ${result.processed} processed, ${result.tagged} tagged, ${result.errors} errors`);
-    return result;
-
-  } catch (error) {
-    console.error('Error in processDropTagging:', error);
-    throw error;
-  }
+async function updateDropMeta(dropId: number, language?: string) {
+  const payload: any = { tag_done: true };
+  if (language) payload.language = language;
+  await supa(`/rest/v1/drops?id=eq.${dropId}`, { method: "PATCH", body: JSON.stringify(payload) });
 }
 
+// ===== Handler =====
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  console.log('Tag-drops function started');
-  console.log('OPENAI_API_KEY present:', !!OPENAI_API_KEY);
-  console.log('SERVICE_ROLE_KEY present:', !!SERVICE_ROLE_KEY);
-
-  if (!OPENAI_API_KEY) {
-    console.error('OPENAI_API_KEY is missing');
-    return new Response(JSON.stringify({ 
-      error: 'OPENAI_API_KEY not configured',
-      processed: 0,
-      tagged: 0,
-      errors: 1,
-      details: []
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-
-  if (!SERVICE_ROLE_KEY) {
-    console.error('SERVICE_ROLE_KEY is missing');
-    return new Response(JSON.stringify({ 
-      error: 'SERVICE_ROLE_KEY not configured',
-      processed: 0,
-      tagged: 0,
-      errors: 1,
-      details: []
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    let limit = 25; // Process 25 drops by default
-    let concurrent_requests = 1; // Default sequential processing
+    const url = new URL(req.url);
+    const limitParam = url.searchParams.get("limit");
+    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+    const limit = Number(limitParam ?? body.limit ?? 25);
+    const max_l3 = Number(body.max_l3 ?? 3);
 
-    // Parse parameters from request body (POST) or query params (GET)
-    if (req.method === 'POST') {
+    // Load config
+    const [topics, drops] = await Promise.all([fetchTopics(), fetchDrops(limit)]);
+    if (!topics.length) return jres(400, { error: "No topics found" });
+    if (!drops.length)  return jres(200, { message: "No drops need tagging", processed: 0 });
+
+    const allSlugs = topics.map(t => t.slug);
+    const results: any[] = [];
+
+    for (const drop of drops) {
       try {
-        const body = await req.json();
-        if (body.batch_size && typeof body.batch_size === 'number' && body.batch_size > 0) {
-          limit = Math.min(body.batch_size, 100); // INCREASED: Cap at 100 (was 50)
-        }
-        if (body.concurrent_requests && typeof body.concurrent_requests === 'number' && body.concurrent_requests > 0) {
-          concurrent_requests = Math.min(body.concurrent_requests, 10); // Max 10 concurrent
-        }
-        // Support legacy limit parameter
-        if (body.limit && typeof body.limit === 'number' && body.limit > 0) {
-          limit = Math.min(body.limit, 100);
-        }
-      } catch (error) {
-        console.log('Invalid JSON body, using default parameters');
-      }
-    } else if (req.method === 'GET') {
-      const url = new URL(req.url);
-      const limitParam = url.searchParams.get('limit');
-      if (limitParam) {
-        const parsedLimit = parseInt(limitParam, 10);
-        if (parsedLimit > 0) {
-          limit = Math.min(parsedLimit, 100);
-        }
+        const raw = await classifyDrop(drop, allSlugs, { max_l3 });
+        const enforced = enforce121(raw, topics, { max_l3 });
+
+        await setTopicsBySlugs(drop.id, [enforced.l1, enforced.l2, ...enforced.l3]);
+        await updateDropMeta(drop.id, raw.language);
+
+        results.push({ id: drop.id, l1: enforced.l1, l2: enforced.l2, l3: enforced.l3, language: raw.language ?? null, ok: true });
+      } catch (e) {
+        results.push({ id: drop.id, error: String(e), ok: false });
       }
     }
 
-    console.log(`Starting drop tagging with limit: ${limit}, concurrent_requests: ${concurrent_requests}`);
-    console.log('About to call processDropTagging...');
-    const result = await processDropTagging(limit, concurrent_requests);
-    console.log('processDropTagging completed:', result);
-
-    return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
-  } catch (error) {
-    console.error('Error in tag-drops function:', error);
-    return new Response(JSON.stringify({ 
-      processed: 0,
-      tagged: 0,
-      errors: 1,
-      details: [],
-      error: error instanceof Error ? error.message : 'Internal server error' 
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return jres(200, { processed: results.length, results });
+  } catch (err) {
+    console.error(err);
+    return jres(500, { error: "Internal error", details: String(err) });
   }
-});
-
-/*
-CURL EXAMPLES:
-
-# Tag drops with default limit (25)
-curl -X POST https://qimelntuxquptqqynxzv.supabase.co/functions/v1/tag-drops \
-  -H "Content-Type: application/json"
-
-# Tag drops with custom limit
-curl -X POST https://qimelntuxquptqqynxzv.supabase.co/functions/v1/tag-drops \
-  -H "Content-Type: application/json" \
-  -d '{"limit": 10}'
-
-# Manual trigger via GET
-curl -X GET https://qimelntuxquptqqynxzv.supabase.co/functions/v1/tag-drops
-
-# GET with limit parameter
-curl -X GET "https://qimelntuxquptqqynxzv.supabase.co/functions/v1/tag-drops?limit=5"
-*/
+}, { onListen: ({ hostname, port }) => console.log(`tag-drops running at http://${hostname}:${port}`) });
