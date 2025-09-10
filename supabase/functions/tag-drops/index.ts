@@ -137,18 +137,24 @@ function enforce121(result: ClassifyOut, topics: Topic[], params: {max_topics_pe
   return { l1: finalL1, l2: finalL2, l3: finalL3 };
 }
 
-// ===== Write topics via RPC =====
-async function setTopicsBySlugs(dropId: number, slugs: string[]) {
-  await supa(`/rest/v1/rpc/set_drop_topics_by_slugs`, {
+// ===== Write topics using new RPC =====
+async function setDropTags(dropId: number, tags: string[], language?: string) {
+  await supa(`/rest/v1/rpc/set_drop_tags`, {
     method: "POST",
-    body: JSON.stringify({ _drop_id: dropId, _topic_slugs: slugs }),
+    body: JSON.stringify({ 
+      p_id: dropId, 
+      p_tags: tags, 
+      p_tag_done: true 
+    }),
   });
-}
-
-async function updateDropMeta(dropId: number, language?: string) {
-  const payload: any = { tag_done: true };
-  if (language) payload.language = language;
-  await supa(`/rest/v1/drops?id=eq.${dropId}`, { method: "PATCH", body: JSON.stringify(payload) });
+  
+  // Update language separately if provided
+  if (language) {
+    await supa(`/rest/v1/drops?id=eq.${dropId}`, { 
+      method: "PATCH", 
+      body: JSON.stringify({ language }) 
+    });
+  }
 }
 
 // ===== Handler =====
@@ -175,8 +181,9 @@ serve(async (req) => {
         const raw = await classifyDrop(drop, allSlugs, { max_l3 });
         const enforced = enforce121(raw, topics, { max_l3 });
 
-        await setTopicsBySlugs(drop.id, [enforced.l1, enforced.l2, ...enforced.l3]);
-        await updateDropMeta(drop.id, raw.language);
+        // Use new RPC that handles tags -> topics sync automatically
+        const tags = [enforced.l1, enforced.l2, ...enforced.l3];
+        await setDropTags(drop.id, tags, raw.language);
 
         results.push({ id: drop.id, l1: enforced.l1, l2: enforced.l2, l3: enforced.l3, language: raw.language ?? null, ok: true });
       } catch (e) {

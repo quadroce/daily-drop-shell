@@ -356,13 +356,9 @@ const AdminSources = () => {
                 <Switch
                   id="official"
                   checked={newSource.official}
-                  onCheckedChange={(checked) => {
-  setSelectedTopics(prev => {
-    const id = Number(topic.id);
-    if (checked) return Array.from(new Set([...(prev ?? []).map(Number), id]));
-    return (prev ?? []).map(Number).filter(x => x !== id);
-  });
-}}
+                  onCheckedChange={(checked) =>
+                    setNewSource(prev => ({ ...prev, official: checked }))
+                  }
 
                 />
                 <Label htmlFor="official">Sorgente Ufficiale</Label>

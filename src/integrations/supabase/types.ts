@@ -73,6 +73,13 @@ export type Database = {
             foreignKeyName: "bookmarks_drop_id_fkey"
             columns: ["drop_id"]
             isOneToOne: false
+            referencedRelation: "content"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookmarks_drop_id_fkey"
+            columns: ["drop_id"]
+            isOneToOne: false
             referencedRelation: "drops"
             referencedColumns: ["id"]
           },
@@ -81,6 +88,13 @@ export type Database = {
             columns: ["drop_id"]
             isOneToOne: false
             referencedRelation: "drops_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookmarks_drop_id_fkey"
+            columns: ["drop_id"]
+            isOneToOne: false
+            referencedRelation: "tagging_status"
             referencedColumns: ["id"]
           },
           {
@@ -116,6 +130,13 @@ export type Database = {
             foreignKeyName: "content_topics_content_id_fkey"
             columns: ["content_id"]
             isOneToOne: false
+            referencedRelation: "content"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_topics_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
             referencedRelation: "drops"
             referencedColumns: ["id"]
           },
@@ -124,6 +145,13 @@ export type Database = {
             columns: ["content_id"]
             isOneToOne: false
             referencedRelation: "drops_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_topics_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "tagging_status"
             referencedColumns: ["id"]
           },
           {
@@ -222,6 +250,13 @@ export type Database = {
             foreignKeyName: "daily_batch_items_drop_id_fkey"
             columns: ["drop_id"]
             isOneToOne: false
+            referencedRelation: "content"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_batch_items_drop_id_fkey"
+            columns: ["drop_id"]
+            isOneToOne: false
             referencedRelation: "drops"
             referencedColumns: ["id"]
           },
@@ -230,6 +265,13 @@ export type Database = {
             columns: ["drop_id"]
             isOneToOne: false
             referencedRelation: "drops_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_batch_items_drop_id_fkey"
+            columns: ["drop_id"]
+            isOneToOne: false
+            referencedRelation: "tagging_status"
             referencedColumns: ["id"]
           },
         ]
@@ -270,8 +312,11 @@ export type Database = {
           embeddings: string | null
           id: number
           image_url: string | null
+          l1_topic_id: number | null
+          l2_topic_id: number | null
           lang_code: string | null
           lang_id: number | null
+          language: string | null
           og_scraped: boolean
           popularity_score: number | null
           published_at: string | null
@@ -292,8 +337,11 @@ export type Database = {
           embeddings?: string | null
           id?: number
           image_url?: string | null
+          l1_topic_id?: number | null
+          l2_topic_id?: number | null
           lang_code?: string | null
           lang_id?: number | null
+          language?: string | null
           og_scraped?: boolean
           popularity_score?: number | null
           published_at?: string | null
@@ -314,8 +362,11 @@ export type Database = {
           embeddings?: string | null
           id?: number
           image_url?: string | null
+          l1_topic_id?: number | null
+          l2_topic_id?: number | null
           lang_code?: string | null
           lang_id?: number | null
+          language?: string | null
           og_scraped?: boolean
           popularity_score?: number | null
           published_at?: string | null
@@ -342,14 +393,21 @@ export type Database = {
             foreignKeyName: "drops_source_id_fkey"
             columns: ["source_id"]
             isOneToOne: false
-            referencedRelation: "drops_view"
-            referencedColumns: ["source_id"]
+            referencedRelation: "sources"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "drops_source_id_fkey"
-            columns: ["source_id"]
+            foreignKeyName: "fk_drops_l1_topic"
+            columns: ["l1_topic_id"]
             isOneToOne: false
-            referencedRelation: "sources"
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_drops_l2_topic"
+            columns: ["l2_topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
             referencedColumns: ["id"]
           },
         ]
@@ -387,6 +445,13 @@ export type Database = {
             foreignKeyName: "engagement_events_drop_id_fkey"
             columns: ["drop_id"]
             isOneToOne: false
+            referencedRelation: "content"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engagement_events_drop_id_fkey"
+            columns: ["drop_id"]
+            isOneToOne: false
             referencedRelation: "drops"
             referencedColumns: ["id"]
           },
@@ -395,6 +460,13 @@ export type Database = {
             columns: ["drop_id"]
             isOneToOne: false
             referencedRelation: "drops_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engagement_events_drop_id_fkey"
+            columns: ["drop_id"]
+            isOneToOne: false
+            referencedRelation: "tagging_status"
             referencedColumns: ["id"]
           },
           {
@@ -477,13 +549,6 @@ export type Database = {
           url?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "ingestion_queue_source_id_fkey"
-            columns: ["source_id"]
-            isOneToOne: false
-            referencedRelation: "drops_view"
-            referencedColumns: ["source_id"]
-          },
           {
             foreignKeyName: "ingestion_queue_source_id_fkey"
             columns: ["source_id"]
@@ -866,26 +931,148 @@ export type Database = {
       }
     }
     Views: {
-      drops_view: {
+      content: {
         Row: {
-          authority_score: number | null
           created_at: string | null
           id: number | null
           image_url: string | null
-          popularity_score: number | null
+          l1_topic_id: number | null
+          l2_topic_id: number | null
+          l3_count: number | null
+          language: string | null
           published_at: string | null
-          quality_score: number | null
           source_id: number | null
-          source_name: string | null
           summary: string | null
           tag_done: boolean | null
           tags: string[] | null
           title: string | null
-          topic_labels: string[] | null
+          type: Database["public"]["Enums"]["drop_type"] | null
+          url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number | null
+          image_url?: string | null
+          l1_topic_id?: number | null
+          l2_topic_id?: number | null
+          l3_count?: never
+          language?: string | null
+          published_at?: string | null
+          source_id?: number | null
+          summary?: string | null
+          tag_done?: boolean | null
+          tags?: string[] | null
+          title?: string | null
+          type?: Database["public"]["Enums"]["drop_type"] | null
+          url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: number | null
+          image_url?: string | null
+          l1_topic_id?: number | null
+          l2_topic_id?: number | null
+          l3_count?: never
+          language?: string | null
+          published_at?: string | null
+          source_id?: number | null
+          summary?: string | null
+          tag_done?: boolean | null
+          tags?: string[] | null
+          title?: string | null
+          type?: Database["public"]["Enums"]["drop_type"] | null
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drops_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_drops_l1_topic"
+            columns: ["l1_topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_drops_l2_topic"
+            columns: ["l2_topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      drops_view: {
+        Row: {
+          created_at: string | null
+          id: number | null
+          image_url: string | null
+          l1_slug: string | null
+          l2_slug: string | null
+          l3_slugs: string[] | null
+          language: string | null
+          published_at: string | null
+          quality_score: number | null
+          source_name: string | null
+          summary: string | null
+          title: string | null
           type: Database["public"]["Enums"]["drop_type"] | null
           url: string | null
         }
         Relationships: []
+      }
+      tagging_status: {
+        Row: {
+          actual_topic_count: number | null
+          id: number | null
+          l1_topic_id: number | null
+          l2_topic_id: number | null
+          l3_count: number | null
+          tag_done: boolean | null
+          tags: string[] | null
+          title: string | null
+        }
+        Insert: {
+          actual_topic_count?: never
+          id?: number | null
+          l1_topic_id?: number | null
+          l2_topic_id?: number | null
+          l3_count?: never
+          tag_done?: boolean | null
+          tags?: string[] | null
+          title?: string | null
+        }
+        Update: {
+          actual_topic_count?: never
+          id?: number | null
+          l1_topic_id?: number | null
+          l2_topic_id?: number | null
+          l3_count?: never
+          tag_done?: boolean | null
+          tags?: string[] | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_drops_l1_topic"
+            columns: ["l1_topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_drops_l2_topic"
+            columns: ["l2_topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
@@ -895,6 +1082,10 @@ export type Database = {
       }
       admin_update_drop_tags: {
         Args: { _drop_id: number; _topic_ids: number[] }
+        Returns: undefined
+      }
+      apply_topics_from_tags: {
+        Args: { p_drop_id: number }
         Returns: undefined
       }
       binary_quantize: {
@@ -925,8 +1116,11 @@ export type Database = {
           embeddings: string | null
           id: number
           image_url: string | null
+          l1_topic_id: number | null
+          l2_topic_id: number | null
           lang_code: string | null
           lang_id: number | null
+          language: string | null
           og_scraped: boolean
           popularity_score: number | null
           published_at: string | null
@@ -1044,7 +1238,13 @@ export type Database = {
         Returns: undefined
       }
       set_article_topics: {
-        Args: { _content_id: number; _topic_ids: number[] }
+        Args:
+          | { _content_id: number; _topic_ids: number[] }
+          | { p_id: number; p_tags: string[] }
+        Returns: undefined
+      }
+      set_drop_tags: {
+        Args: { p_id: number; p_tag_done?: boolean; p_tags: string[] }
         Returns: undefined
       }
       sparsevec_out: {

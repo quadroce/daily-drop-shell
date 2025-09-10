@@ -1,5 +1,5 @@
 import { FunctionsHttpError } from "@supabase/supabase-js";
-import { toast } from "sonner"; // o il tuo sistema di toast
+import { toast } from "sonner";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -49,7 +49,7 @@ import {
   Search,
   Filter,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -58,11 +58,11 @@ interface Drop {
   title: string;
   url: string;
   source_name?: string;
-  topic_labels?: string[];   // opzionale
+  tag_done?: boolean;
   created_at: string;
-  tag_done?: boolean;        // opzionale
-  tags?: string[];           // opzionale
-  l1_slug?: string;          // se usi la view nuova
+  tags?: string[];
+  topic_labels?: string[];
+  l1_slug?: string;
   l2_slug?: string;
   l3_slugs?: string[];
 }
@@ -88,52 +88,67 @@ const AdminArticles = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSource, setSelectedSource] = useState("");
   const [showUntaggedOnly, setShowUntaggedOnly] = useState(false);
-  
-  // Modal states
+
   const [editTagsModal, setEditTagsModal] = useState<{ open: boolean; drop?: Drop }>({ open: false });
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; drop?: Drop }>({ open: false });
   const [selectedTopics, setSelectedTopics] = useState<number[]>([]);
-  
+
   const { toast } = useToast();
   const itemsPerPage = 100;
 
   const fetchDrops = useCallback(async () => {
     setLoading(true);
     try {
-      let query = supabase
-        .from('drops_view')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false });
-
-      // Apply filters
-      if (searchQuery) {
-        query = query.or(`title.ilike.%${searchQuery}%,summary.ilike.%${searchQuery}%,url.ilike.%${searchQuery}%`);
-      }
-      
-      if (selectedSource) {
-        query = query.eq('source_name', selectedSource);
-      }
-      
-      if (showUntaggedOnly) {
-        query = query.eq('tag_done', false);
-      }
-
-      // Pagination
       const from = (currentPage - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
-      query = query.range(from, to);
 
-      const { data, error, count } = await query;
+      // Build query step by step to avoid deep type instantiation
+      const baseQuery = supabase
+        .from('drops')
+        .select('*, sources(name)')
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
-      if (error) throw error;
+      let finalQuery = baseQuery;
 
-      setDrops(data || []);
-      setTotalCount(count || 0);
+      if (searchQuery) {
+        finalQuery = finalQuery.or(`title.ilike.%${searchQuery}%,summary.ilike.%${searchQuery}%,url.ilike.%${searchQuery}%`);
+      }
+
+      if (selectedSource) {
+        finalQuery = finalQuery.eq('sources.name', selectedSource);
+      }
+
+      if (showUntaggedOnly) {
+        finalQuery = finalQuery.eq('tag_done', false);
+      }
+
+      // Get count separately to avoid complex type chaining
+      const countQuery = supabase
+        .from('drops')
+        .select('*', { count: 'exact', head: true });
+
+      const [dataResult, countResult] = await Promise.all([
+        finalQuery,
+        countQuery
+      ]);
+
+      if (dataResult.error) throw dataResult.error;
+      if (countResult.error) throw countResult.error;
+
+      // Transform data to match our Drop interface
+      const transformedData = (dataResult.data || []).map((item: any) => ({
+        ...item,
+        source_name: item.sources?.name || 'N/A'
+      }));
+
+      setDrops(transformedData);
+      setTotalCount(countResult.count || 0);
     } catch (error) {
       console.error('Error fetching drops:', error);
       toast({
         title: "Errore",
-        description: "Errore nel caricamento degli articoli",
+        description: "Errore nel caricamento degli articles",
         variant: "destructive",
       });
     }
@@ -144,8 +159,7 @@ const AdminArticles = () => {
     try {
       const { data, error } = await supabase
         .from('topics')
-        .select('*')
-        .eq('is_active', true)
+        .select('id, label, level')
         .order('level, label');
 
       if (error) throw error;
@@ -160,7 +174,6 @@ const AdminArticles = () => {
       const { data, error } = await supabase
         .from('sources')
         .select('id, name')
-        .eq('status', 'active')
         .order('name');
 
       if (error) throw error;
@@ -177,12 +190,12 @@ const AdminArticles = () => {
         .select('*');
 
       if (error) throw error;
-      
+
       const params: TaggingParams = {};
       data?.forEach((param) => {
         params[param.param_name] = param.param_value;
       });
-      
+
       setTaggingParams(params);
     } catch (error) {
       console.error('Error fetching tagging params:', error);
@@ -209,36 +222,39 @@ const AdminArticles = () => {
 
       toast({
         title: "Successo",
-        description: "Articolo ritaggato con successo",
+        description: "Articolo ri-taggato con successo"
       });
 
-      fetchDrops(); // Refresh the list
+      fetchDrops();
     } catch (error) {
       console.error('Error retagging drop:', error);
       toast({
         title: "Errore",
-        description: "Errore nel ritaggare l'articolo",
+        description: "Errore nel ri-tagging dell'articolo",
         variant: "destructive",
       });
     }
   };
 
   const handleEditTags = async () => {
-  if (!editTagsModal.drop) return;
+    if (!editTagsModal.drop) return;
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const dropId = Number(editTagsModal.drop.id);
+      const topicIds = selectedTopics.map((v) => Number(v));
+
       const { error } = await supabase.functions.invoke('admin-update-tags', {
-        body: { 
-          dropId: editTagsModal.drop.id,
-          topicIds: selectedTopics
-        }
+        body: { dropId, topicIds },
+        headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
       });
 
       if (error) throw error;
 
       toast({
-        title: "Successo",
-        description: "Tag aggiornati con successo",
+        title: "Successo", 
+        description: "Tag aggiornati"
       });
 
       setEditTagsModal({ open: false });
@@ -251,9 +267,7 @@ const AdminArticles = () => {
         variant: "destructive",
       });
     }
-  }
-};
-
+  };
 
   const handleDelete = async () => {
     if (!deleteModal.drop) return;
@@ -267,7 +281,7 @@ const AdminArticles = () => {
 
       toast({
         title: "Successo",
-        description: "Articolo eliminato con successo",
+        description: "Articolo eliminato con successo"
       });
 
       setDeleteModal({ open: false });
@@ -292,7 +306,7 @@ const AdminArticles = () => {
 
       toast({
         title: "Successo",
-        description: "Parametri di tagging aggiornati con successo",
+        description: "Parametri aggiornati con successo"
       });
     } catch (error) {
       console.error('Error updating tagging params:', error);
@@ -306,7 +320,6 @@ const AdminArticles = () => {
 
   const openEditTagsModal = async (drop: Drop) => {
     try {
-      // Carica i topic esistenti dalla tabella content_topics
       const { data: contentTopics, error } = await supabase
         .from('content_topics')
         .select('topic_id')
@@ -341,38 +354,37 @@ const AdminArticles = () => {
           </Button>
         </div>
 
-        {/* Filters */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center">
-              <Filter className="mr-2 h-4 w-4" />
+            <CardTitle className="flex items-center gap-2">
+              <Filter className="h-5 w-5" />
               Filtri
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <Label htmlFor="search">Ricerca</Label>
+                <Label htmlFor="search">Cerca</Label>
                 <div className="relative">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                   <Input
                     id="search"
-                    placeholder="Cerca per titolo, sommario o URL..."
-                    className="pl-8"
+                    placeholder="Titolo, riassunto o URL..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
                   />
                 </div>
               </div>
               
               <div>
-                <Label htmlFor="source">Source</Label>
-                <Select value={selectedSource || "all"} onValueChange={(value) => setSelectedSource(value === "all" ? "" : value)}>
+                <Label htmlFor="source">Fonte</Label>
+                <Select value={selectedSource} onValueChange={setSelectedSource}>
                   <SelectTrigger>
                     <SelectValue placeholder="Tutte le fonti" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Tutte le fonti</SelectItem>
+                    <SelectItem value="">Tutte le fonti</SelectItem>
                     {sources.map((source) => (
                       <SelectItem key={source.id} value={source.name}>
                         {source.name}
@@ -389,133 +401,107 @@ const AdminArticles = () => {
                   checked={showUntaggedOnly}
                   onChange={(e) => setShowUntaggedOnly(e.target.checked)}
                 />
-                <Label htmlFor="untagged">Solo non taggati</Label>
+                <Label htmlFor="untagged">Solo articoli non taggati</Label>
               </div>
             </div>
-
-            <Button onClick={fetchDrops}>
-              Applica Filtri
-            </Button>
           </CardContent>
         </Card>
 
-        {/* Articles Table */}
         <Card>
           <CardHeader>
-            <CardTitle>
-              Articoli ({totalCount} totali)
-            </CardTitle>
+            <CardTitle>Articoli ({totalCount})</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Titolo</TableHead>
-                  <TableHead>Source</TableHead>
-                  <TableHead>Topics</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Azioni</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {drops.map((drop) => (
-                  <TableRow key={drop.id}>
-                    <TableCell>#{drop.id}</TableCell>
-                    <TableCell className="max-w-xs truncate" title={drop.title}>
-                      {drop.title}
-                    </TableCell>
-                    <TableCell>{drop.source_name || 'N/A'}</TableCell>
-                    <TableCell>
-  <div className="flex flex-wrap gap-1">
-    {/* 1) prova la nuova tassonomia se esposta dalla view */}
-    { (drop.l1_slug || drop.l2_slug || (drop.l3_slugs?.length ?? 0) > 0)
-      ? (
-        [drop.l1_slug, drop.l2_slug, ...(drop.l3_slugs ?? [])]
-          .filter(Boolean)
-          .map((slug, idx) => (
-            <Badge key={idx} variant="outline" className="text-xs">
-              {slug}
-            </Badge>
-          ))
-      )
-      /* 2) altrimenti: se topic_labels esiste, usala */
-      : (drop.topic_labels?.length
-          ? drop.topic_labels.map((topic, idx) => (
-              <Badge key={idx} variant="outline" className="text-xs">
-                {topic}
-              </Badge>
-            ))
-          /* 3) fallback legacy: tags (con guardie) */
-          : (drop.tags ?? [])
-              .filter(tag => tag !== 'deleted')
-              .map((tag, idx) => (
-                <Badge key={idx} variant="secondary" className="text-xs">
-                  {tag}
-                </Badge>
-              ))
-        )
-    }
-
-    {/* deleted badge (guardia) */}
-    { (drop.tags ?? []).includes('deleted') && (
-      <Badge variant="destructive">Eliminato</Badge>
-    )}
-  </div>
-</TableCell>
-<TableCell>
-                      {format(new Date(drop.created_at), 'dd/MM/yyyy HH:mm')}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={drop.tag_done ? "default" : "secondary"}>
-  {drop.tag_done ? 'Taggato' : 'Da taggare'}
-</Badge>
-
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleRetag(drop.id)}
-                        >
-                          <RefreshCw className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openEditTagsModal(drop)}
-                        >
-                          <Edit className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setDeleteModal({ open: true, drop })}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          asChild
-                        >
-                          <a href={drop.url} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        </Button>
-                      </div>
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Titolo</TableHead>
+                    <TableHead>Fonte</TableHead>
+                    <TableHead>Topics</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Azioni</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {drops.map((drop) => (
+                    <TableRow key={drop.id}>
+                      <TableCell className="max-w-xs">
+                        <div className="space-y-1">
+                          <div className="font-medium line-clamp-2">{drop.title}</div>
+                          <a 
+                            href={drop.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
+                          >
+                            Apri <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
+                      </TableCell>
+                      <TableCell>{drop.source_name || 'N/A'}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {drop.topic_labels && drop.topic_labels.length > 0 ? (
+                            drop.topic_labels.map((label, index) => (
+                              <Badge key={index} variant="outline" className="text-xs">
+                                {label}
+                              </Badge>
+                            ))
+                          ) : drop.tags && drop.tags.length > 0 ? (
+                            drop.tags.slice(0, 3).map((tag, index) => (
+                              <Badge key={index} variant="secondary" className="text-xs">
+                                {tag}
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-gray-400 text-sm">Nessun tag</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={drop.tag_done ? "default" : "secondary"}>
+                          {drop.tag_done ? "Taggato" : "Da taggare"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-600">
+                        {format(new Date(drop.created_at), 'dd/MM/yyyy HH:mm')}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex space-x-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openEditTagsModal(drop)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleRetag(drop.id)}
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => setDeleteModal({ open: true, drop })}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
 
-            {/* Pagination */}
-            <div className="flex justify-between items-center mt-4">
-              <div className="text-sm text-muted-foreground">
-                Pagina {currentPage} di {totalPages} ({totalCount} articoli)
+            <div className="flex items-center justify-between pt-4">
+              <div className="text-sm text-gray-600">
+                Pagina {currentPage} di {totalPages} ({totalCount} risultati)
               </div>
               <div className="flex space-x-2">
                 <Button
@@ -539,7 +525,6 @@ const AdminArticles = () => {
           </CardContent>
         </Card>
 
-        {/* Tagging Parameters Panel */}
         <Card>
           <CardHeader>
             <CardTitle>Parametri di Tagging</CardTitle>
@@ -566,7 +551,6 @@ const AdminArticles = () => {
           </CardContent>
         </Card>
 
-        {/* Edit Tags Modal */}
         <Dialog open={editTagsModal.open} onOpenChange={(open) => setEditTagsModal({ open })}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
@@ -617,7 +601,6 @@ const AdminArticles = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Delete Confirmation */}
         <AlertDialog open={deleteModal.open} onOpenChange={(open) => setDeleteModal({ open })}>
           <AlertDialogContent>
             <AlertDialogHeader>
