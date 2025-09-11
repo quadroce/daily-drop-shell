@@ -60,18 +60,20 @@ async function fetchDrops(limit: number): Promise<Drop[]> {
 // ===== LLM classification =====
 function buildPrompt(availableSlugs: string[], params: { max_l3?: number }) {
   const list = availableSlugs.join(", ");
-  const maxL3 = Math.max(0, params.max_l3 ?? 3);
+  const maxL3 = Math.max(1, params.max_l3 ?? 3); // Ensure at least 1 L3 tag
   return `You are a strict taxonomy router. You MUST return a JSON object with this exact shape:
 {
   "l1": "<one slug>",
   "l2": "<one slug>",
-  "l3": ["<zero or more slugs>"],
+  "l3": ["<one to three slugs>"],
   "language": "<optional 2-letter code>"
 }
 Rules:
 - Allowed slugs are ONLY from this list: [${list}]
-- Exactly 1 for l1, exactly 1 for l2, and 0..${maxL3} for l3 (all distinct).
+- Exactly 1 for l1, exactly 1 for l2, and 1..${maxL3} for l3 (all distinct).
 - l1 must be a Level-1 topic, l2 Level-2, l3 Level-3.
+- L3 tags are MANDATORY - you must always provide at least 1 L3 tag.
+- Choose the most specific and relevant L3 tags for the content.
 - Prefer concise and accurate mapping.
 If you cannot satisfy the constraints, pick the closest valid slugs.`;
 }
@@ -116,7 +118,7 @@ function byLevelMap(topics: Topic[]) {
 
 function enforce121(result: ClassifyOut, topics: Topic[], params: {max_topics_per_drop?: number; max_l3?: number}) {
   const { bySlug } = byLevelMap(topics);
-  const maxL3 = Math.max(0, params.max_l3 ?? Math.max(0, (params.max_topics_per_drop ?? 5) - 2));
+  const maxL3 = Math.max(1, params.max_l3 ?? 3); // Ensure at least 1 L3 tag
 
   const l1 = bySlug.get(result.l1);
   const l2 = bySlug.get(result.l2);
@@ -127,12 +129,20 @@ function enforce121(result: ClassifyOut, topics: Topic[], params: {max_topics_pe
 
   const candidatesL1 = topics.filter(t => t.level === 1);
   const candidatesL2 = topics.filter(t => t.level === 2);
+  const candidatesL3 = topics.filter(t => t.level === 3);
 
   const finalL1Topic = l1?.level === 1 ? l1 : pickOne(candidatesL1, 1);
   const finalL2Topic = l2?.level === 2 ? l2 : pickOne(candidatesL2, 2);
 
-  // L3: only level 3, unique, cap
-  const finalL3Slugs = Array.from(new Set(l3.filter(t => t.level === 3).map(t => t.slug))).slice(0, maxL3);
+  // L3: only level 3, unique, cap - but ensure at least 1
+  let finalL3Slugs = Array.from(new Set(l3.filter(t => t.level === 3).map(t => t.slug))).slice(0, maxL3);
+  
+  // If no L3 tags were assigned, pick a default one based on L2 topic
+  if (finalL3Slugs.length === 0 && candidatesL3.length > 0) {
+    // Try to find related L3 tags or fallback to first available
+    const defaultL3 = candidatesL3[0];
+    finalL3Slugs = [defaultL3.slug];
+  }
 
   return { 
     l1TopicId: finalL1Topic?.id ?? null, 
