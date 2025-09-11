@@ -6,9 +6,11 @@ export type SeoProps = {
   canonical?: string;
   noindex?: boolean;
   jsonLd?: Record<string, any>;
+  ogImage?: string;
+  ogType?: string;
 };
 
-export const Seo = ({ title, description, canonical, noindex, jsonLd }: SeoProps) => {
+export const Seo = ({ title, description, canonical, noindex, jsonLd, ogImage, ogType = "website" }: SeoProps) => {
   useEffect(() => {
     // Set document title
     document.title = title;
@@ -44,6 +46,39 @@ export const Seo = ({ title, description, canonical, noindex, jsonLd }: SeoProps
     }
     robotsMeta.setAttribute('content', noindex ? 'noindex, nofollow' : 'index, follow');
 
+    // Add Open Graph meta tags
+    const setOrUpdateMeta = (property: string, content: string) => {
+      let meta = document.querySelector(`meta[property="${property}"]`);
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.setAttribute('property', property);
+        document.head.appendChild(meta);
+      }
+      meta.setAttribute('content', content);
+    };
+
+    setOrUpdateMeta('og:title', title);
+    setOrUpdateMeta('og:type', ogType);
+    if (description) setOrUpdateMeta('og:description', description);
+    if (canonical) setOrUpdateMeta('og:url', canonical);
+    if (ogImage) setOrUpdateMeta('og:image', ogImage);
+
+    // Add Twitter Card meta tags
+    const setOrUpdateTwitterMeta = (name: string, content: string) => {
+      let meta = document.querySelector(`meta[name="${name}"]`);
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.setAttribute('name', name);
+        document.head.appendChild(meta);
+      }
+      meta.setAttribute('content', content);
+    };
+
+    setOrUpdateTwitterMeta('twitter:card', 'summary_large_image');
+    setOrUpdateTwitterMeta('twitter:title', title);
+    if (description) setOrUpdateTwitterMeta('twitter:description', description);
+    if (ogImage) setOrUpdateTwitterMeta('twitter:image', ogImage);
+
     // Add JSON-LD structured data
     if (jsonLd) {
       let structuredData = document.querySelector('script[type="application/ld+json"]');
@@ -55,7 +90,7 @@ export const Seo = ({ title, description, canonical, noindex, jsonLd }: SeoProps
       structuredData.textContent = JSON.stringify(jsonLd);
       document.head.appendChild(structuredData);
     }
-  }, [title, description, canonical, noindex, jsonLd]);
+  }, [title, description, canonical, noindex, jsonLd, ogImage, ogType]);
 
   return null;
 };

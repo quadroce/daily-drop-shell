@@ -79,7 +79,9 @@ export const TopicLandingPage = () => {
 
   const { topic, children } = topicData;
   const canonical = `${window.location.origin}/topics/${slug}`;
-  const description = `Learn about ${topic.label}`;
+  const description = topic.intro 
+    ? `${topic.intro.slice(0, 150)}${topic.intro.length > 150 ? '...' : ''}`
+    : `Explore ${topic.label} - Level ${topic.level} topic with articles, subtopics and latest content`;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -131,123 +133,199 @@ export const TopicLandingPage = () => {
           </div>
         </header>
 
-        {/* Children Topics */}
-        {children.length > 0 ? (
-          <section className="mb-12">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-semibold text-foreground">
-                {topic.level === 1 ? "Subtopics" : "Related Topics"}
-              </h2>
-              <Button variant="outline" asChild>
-                <Link to={`/topics/${slug}/archive`}>View Archive</Link>
-              </Button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {children.map(child => (
-                <div key={child.id.toString()} className="space-y-3">
-                  <TopicCard
-                    to={`/topics/${child.slug}`}
-                    label={child.label}
-                    intro={child.intro}
-                    level={child.level}
-                  />
-                  
-                  {/* Show L3 children for L1 topics */}
-                  {topic.level === 1 && grandchildrenByParent?.[child.id.toString()]?.length > 0 && (
-                    <div className="pl-4">
-                      <div className="flex flex-wrap gap-2">
-                        {grandchildrenByParent[child.id.toString()].map((grandchild: Topic) => (
-                          <ChipLink key={grandchild.id.toString()} to={`/topics/${grandchild.slug}`}>
-                            {grandchild.label}
-                          </ChipLink>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
-        ) : (
-          <section className="mb-12">
-            <div className="bg-muted/30 rounded-2xl p-8 text-center">
-              <h2 className="text-xl font-semibold text-foreground mb-4">
-                {topic.level === 3 ? "Specialized Topic" : "Topic Details"}
-              </h2>
-              <div className="text-muted-foreground mb-6">
-                {topic.intro ? (
-                  <div className="prose prose-sm max-w-none mx-auto text-muted-foreground">
-                    <p>{topic.intro}</p>
-                  </div>
-                ) : (
-                  <p>
-                    {topic.level === 3 
-                      ? "This is a focused topic area. Content and discussions here dive deep into specific aspects of the subject."
-                      : "This topic area is currently being organized. Check back soon for more content."
-                    }
-                  </p>
-                )}
-              </div>
-              <div className="flex justify-center gap-4">
-                <Button asChild>
+        {/* For L1 and L2: Show Articles first, then Subtopics */}
+        {(topic.level === 1 || topic.level === 2) ? (
+          <>
+            {/* Topic Articles */}
+            <section className="mb-12">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-semibold text-foreground">
+                  Latest from {topic.label}
+                </h2>
+                <Button variant="outline" asChild>
                   <Link to={`/topics/${slug}/archive`}>View Archive</Link>
                 </Button>
+              </div>
+              
+              {articlesLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {[1, 2, 3, 4, 5, 6].map(i => (
+                    <div key={i} className="space-y-3">
+                      <Skeleton className="aspect-video rounded-lg" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-3/4" />
+                    </div>
+                  ))}
+                </div>
+              ) : articles && articles.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {articles.map(article => (
+                    <FeedCard
+                      key={article.id}
+                      {...article}
+                      onEngage={(action) => {
+                        track('open_item', { 
+                          itemId: action.itemId, 
+                          topic: slug,
+                          action: action.action
+                        });
+                      }}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-muted/30 rounded-2xl p-8 text-center">
+                  <p className="text-muted-foreground mb-4">
+                    No articles found for this topic yet. Check back soon!
+                  </p>
+                  <button className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
+                    Follow Topic for Updates
+                  </button>
+                </div>
+              )}
+            </section>
+
+            {/* Children Topics */}
+            {children.length > 0 && (
+              <section className="mb-12">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-semibold text-foreground">
+                    {topic.level === 1 ? "Subtopics" : "Related Topics"}
+                  </h2>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {children.map(child => (
+                    <div key={child.id.toString()} className="space-y-3">
+                      <TopicCard
+                        to={`/topics/${child.slug}`}
+                        label={child.label}
+                        intro={child.intro}
+                        level={child.level}
+                      />
+                      
+                      {/* Show L3 children for L1 topics */}
+                      {topic.level === 1 && grandchildrenByParent?.[child.id.toString()]?.length > 0 && (
+                        <div className="pl-4">
+                          <div className="flex flex-wrap gap-2">
+                            {grandchildrenByParent[child.id.toString()].map((grandchild: Topic) => (
+                              <ChipLink key={grandchild.id.toString()} to={`/topics/${grandchild.slug}`}>
+                                {grandchild.label}
+                              </ChipLink>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
+        ) : (
+          // For L3: Show Subtopics first, then Articles (original order)
+          <>
+            {/* Children Topics */}
+            {children.length > 0 ? (
+              <section className="mb-12">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-semibold text-foreground">
+                    Related Topics
+                  </h2>
+                  <Button variant="outline" asChild>
+                    <Link to={`/topics/${slug}/archive`}>View Archive</Link>
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {children.map(child => (
+                    <TopicCard
+                      key={child.id.toString()}
+                      to={`/topics/${child.slug}`}
+                      label={child.label}
+                      intro={child.intro}
+                      level={child.level}
+                    />
+                  ))}
+                </div>
+              </section>
+            ) : (
+              <section className="mb-12">
+                <div className="bg-muted/30 rounded-2xl p-8 text-center">
+                  <h2 className="text-xl font-semibold text-foreground mb-4">
+                    Specialized Topic
+                  </h2>
+                  <div className="text-muted-foreground mb-6">
+                    {topic.intro ? (
+                      <div className="prose prose-sm max-w-none mx-auto text-muted-foreground">
+                        <p>{topic.intro}</p>
+                      </div>
+                    ) : (
+                      <p>
+                        This is a focused topic area. Content and discussions here dive deep into specific aspects of the subject.
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex justify-center gap-4">
+                    <Button asChild>
+                      <Link to={`/topics/${slug}/archive`}>View Archive</Link>
+                    </Button>
+                    <Button variant="outline" asChild>
+                      <Link to="/topics">Browse All Topics</Link>
+                    </Button>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* Topic Articles */}
+            <section className="mb-12">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-semibold text-foreground">
+                  Latest from {topic.label}
+                </h2>
                 <Button variant="outline" asChild>
-                  <Link to="/topics">Browse All Topics</Link>
+                  <Link to={`/topics/${slug}/archive`}>View Archive</Link>
                 </Button>
               </div>
-            </div>
-          </section>
-        )}
-
-        {/* Topic Articles */}
-        <section className="mb-12">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-semibold text-foreground">
-              Latest from {topic.label}
-            </h2>
-            <Button variant="outline" asChild>
-              <Link to={`/topics/${slug}/archive`}>View Archive</Link>
-            </Button>
-          </div>
-          
-          {articlesLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3, 4, 5, 6].map(i => (
-                <div key={i} className="space-y-3">
-                  <Skeleton className="aspect-video rounded-lg" />
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-3/4" />
+              
+              {articlesLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {[1, 2, 3, 4, 5, 6].map(i => (
+                    <div key={i} className="space-y-3">
+                      <Skeleton className="aspect-video rounded-lg" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-3/4" />
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          ) : articles && articles.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {articles.map(article => (
-                <FeedCard
-                  key={article.id}
-                  {...article}
-                  onEngage={(action) => {
-                    track('open_item', { 
-                      itemId: action.itemId, 
-                      topic: slug,
-                      action: action.action
-                    });
-                  }}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="bg-muted/30 rounded-2xl p-8 text-center">
-              <p className="text-muted-foreground mb-4">
-                No articles found for this topic yet. Check back soon!
-              </p>
-              <button className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
-                Follow Topic for Updates
-              </button>
-            </div>
-          )}
-        </section>
+              ) : articles && articles.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {articles.map(article => (
+                    <FeedCard
+                      key={article.id}
+                      {...article}
+                      onEngage={(action) => {
+                        track('open_item', { 
+                          itemId: action.itemId, 
+                          topic: slug,
+                          action: action.action
+                        });
+                      }}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-muted/30 rounded-2xl p-8 text-center">
+                  <p className="text-muted-foreground mb-4">
+                    No articles found for this topic yet. Check back soon!
+                  </p>
+                  <button className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
+                    Follow Topic for Updates
+                  </button>
+                </div>
+              )}
+            </section>
+          </>
+        )}
       </div>
     </>
   );
