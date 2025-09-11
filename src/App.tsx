@@ -9,6 +9,7 @@ import Layout from "./components/Layout";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Feed from "./pages/Feed";
+import Search from "./pages/Search";
 import Preferences from "./pages/Preferences";
 import Profile from "./pages/Profile";
 import Newsletter from "./pages/Newsletter";
@@ -47,6 +48,7 @@ const App = () => (
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/feed" element={<Feed />} />
+                <Route path="/search" element={<Search />} />
                 <Route path="/preferences" element={
                   <ProtectedRoute>
                     <Preferences />

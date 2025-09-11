@@ -8,6 +8,7 @@ import { Menu, ChevronDown, Droplets } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { HeaderSearch } from "@/components/HeaderSearch";
 
 const Header = () => {
   const location = useLocation();
@@ -69,6 +70,7 @@ const Header = () => {
   const navLinks = [
     { label: "Feed", path: "/feed" },
     { label: "Topics", path: "/topics" },
+    { label: "Search", path: "/search" },
     { label: "Pricing", path: "/pricing" },
     { label: "Newsletter", path: "/newsletter" },
     ...(isAdmin ? [{ label: "Admin", path: "/admin" }] : [])
@@ -103,12 +105,21 @@ const Header = () => {
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center space-x-8">
-          <NavLinks />
-        </nav>
+        <div className="hidden md:flex items-center space-x-6">
+          <nav className="flex items-center space-x-8">
+            <NavLinks />
+          </nav>
+          
+          {/* Search */}
+          <HeaderSearch />
+        </div>
 
         {/* User Menu */}
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2">
+          {/* Mobile Search */}
+          <div className="md:hidden">
+            <HeaderSearch />
+          </div>
           {loading ? (
             <div className="hidden md:flex items-center space-x-2">
               <div className="h-8 w-8 bg-muted rounded-full animate-pulse" />

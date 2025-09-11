@@ -9,7 +9,10 @@ export type AnalyticsEvent =
   | 'open_item'
   | 'video_play'
   | 'signup_click'
-  | 'upgrade_click';
+  | 'upgrade_click'
+  | 'search_performed'
+  | 'filters_applied'
+  | 'search_result_engaged';
 
 export type AnalyticsParams = {
   [key: string]: string | number | boolean;
