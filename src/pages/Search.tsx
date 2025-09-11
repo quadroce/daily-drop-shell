@@ -210,7 +210,6 @@ const Search = () => {
                   <SelectValue placeholder="Select a topic" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Topics</SelectItem>
                   <SelectItem value="ai">Artificial Intelligence</SelectItem>
                   <SelectItem value="ml">Machine Learning</SelectItem>
                   <SelectItem value="deep-learning">Deep Learning</SelectItem>
