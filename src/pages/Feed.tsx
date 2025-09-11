@@ -210,25 +210,24 @@ const Feed = () => {
         console.log('[Feed] Found ranked drops:', data.length);
         
         if (data) {
-          // Fetch source names for ranked drops
+          // Add favicon and preserve existing source names
           const dropsWithSources = await Promise.all(
             data.map(async (drop) => {
-              if (drop.source_id) {
+              let sourceName = drop.source; // Use existing source name from backend
+              
+              // Only fetch from database if no source name exists
+              if (!sourceName && drop.source_id) {
                 const { data: source } = await supabase
                   .from('sources')
                   .select('name')
                   .eq('id', drop.source_id)
                   .single();
-                
-                return {
-                  ...drop,
-                  source: source?.name || 'Unknown Source',
-                  favicon: drop.type === 'video' ? '📺' : '📄'
-                };
+                sourceName = source?.name;
               }
+              
               return {
                 ...drop,
-                source: 'Unknown Source',
+                source: sourceName || 'Unknown Source',
                 favicon: drop.type === 'video' ? '📺' : '📄'
               };
             })
