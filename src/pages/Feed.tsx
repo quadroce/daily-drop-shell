@@ -371,7 +371,7 @@ const Feed = () => {
                   </CardTitle>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-sm">{drop.favicon}</span>
-                    <span className="text-xs text-muted-foreground truncate">{drop.source || 'Unknown Source'}</span>
+                    <span className="text-xs text-muted-foreground truncate">{drop.source || drop.source_name || 'Unknown Source'}</span>
                     <span className="text-xs text-muted-foreground">•</span>
                     <time className="text-xs text-muted-foreground whitespace-nowrap">
                       {drop.published_at ? new Date(drop.published_at).toLocaleDateString('en-US', { 
