@@ -7,6 +7,7 @@ export type Topic = {
   level: number;
   parent_id: number | null;
   is_active: boolean;
+  intro?: string | null;
 };
 
 // Add article fetching for topics
@@ -84,38 +85,37 @@ function extractYouTubeId(url: string): string | undefined {
 export async function getAllTopics(): Promise<Topic[]> {
   const { data, error } = await supabase
     .from('topics')
-    .select('id,slug,label,level,parent_id,is_active')
+    .select('id,slug,label,level,parent_id,is_active,intro')
     .eq('is_active', true)
     .order('level', { ascending: true })
     .order('label', { ascending: true });
   
   if (error) throw error;
-  return data ?? [];
+  return data as any as Topic[] ?? [];
 }
 
 export async function getTopicBySlug(slug: string): Promise<Topic> {
   const { data, error } = await supabase
     .from('topics')
-    .select('id,slug,label,level,parent_id,is_active')
+    .select('id,slug,label,level,parent_id,is_active,intro')
     .eq('slug', slug)
     .eq('is_active', true)
     .single();
   
   if (error) throw error;
-  return data as Topic;
+  return data as any as Topic;
 }
 
 export async function getChildren(parentId: number): Promise<Topic[]> {
   const { data, error } = await supabase
     .from('topics')
-    .select('id,slug,label,level,parent_id,is_active')
+    .select('id,slug,label,level,parent_id,is_active,intro')
     .eq('parent_id', parentId)
     .eq('is_active', true)
-    .order('level', { ascending: true })
     .order('label', { ascending: true });
   
   if (error) throw error;
-  return data ?? [];
+  return data as any as Topic[] ?? [];
 }
 
 export async function getTopicWithChildren(slug: string): Promise<{
@@ -157,13 +157,13 @@ export async function buildBreadcrumb(topic: Topic): Promise<Array<{ label: stri
   while (current.parent_id) {
     const { data: parent } = await supabase
       .from('topics')
-      .select('id,slug,label,level,parent_id,is_active')
+      .select('id,slug,label,level,parent_id,is_active,intro')
       .eq('id', current.parent_id)
       .single();
     
     if (parent) {
-      hierarchy.unshift(parent as Topic);
-      current = parent as Topic;
+      hierarchy.unshift(parent as any as Topic);
+      current = parent as any as Topic;
     } else {
       break;
     }

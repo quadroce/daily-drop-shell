@@ -114,13 +114,18 @@ export const TopicLandingPage = () => {
           <h1 className="text-3xl font-bold text-foreground mb-4">{topic.label}</h1>
           <div className="text-muted-foreground mb-4">
             <p>Level {topic.level} topic</p>
-            {topic.level === 3 && (
+            {topic.intro && (
+              <div className="mt-4 prose prose-sm max-w-none text-muted-foreground">
+                <p>{topic.intro}</p>
+              </div>
+            )}
+            {!topic.intro && topic.level === 3 && (
               <p className="mt-2">This is a specialized topic with focused content and discussions.</p>
             )}
-            {topic.level === 2 && (
+            {!topic.intro && topic.level === 2 && (
               <p className="mt-2">Explore subtopics and specialized areas within {topic.label}.</p>
             )}
-            {topic.level === 1 && (
+            {!topic.intro && topic.level === 1 && (
               <p className="mt-2">Browse all subtopics and specialized areas in {topic.label}.</p>
             )}
           </div>
@@ -129,16 +134,21 @@ export const TopicLandingPage = () => {
         {/* Children Topics */}
         {children.length > 0 ? (
           <section className="mb-12">
-            <h2 className="text-2xl font-semibold text-foreground mb-6">
-              {topic.level === 1 ? "Subtopics" : "Related Topics"}
-            </h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-semibold text-foreground">
+                {topic.level === 1 ? "Subtopics" : "Related Topics"}
+              </h2>
+              <Button variant="outline" asChild>
+                <Link to={`/topics/${slug}/archive`}>View Archive</Link>
+              </Button>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {children.map(child => (
                 <div key={child.id.toString()} className="space-y-3">
                   <TopicCard
                     to={`/topics/${child.slug}`}
                     label={child.label}
-                    intro={null}
+                    intro={child.intro}
                     level={child.level}
                   />
                   
@@ -164,12 +174,20 @@ export const TopicLandingPage = () => {
               <h2 className="text-xl font-semibold text-foreground mb-4">
                 {topic.level === 3 ? "Specialized Topic" : "Topic Details"}
               </h2>
-              <p className="text-muted-foreground mb-6">
-                {topic.level === 3 
-                  ? "This is a focused topic area. Content and discussions here dive deep into specific aspects of the subject."
-                  : "This topic area is currently being organized. Check back soon for more content."
-                }
-              </p>
+              <div className="text-muted-foreground mb-6">
+                {topic.intro ? (
+                  <div className="prose prose-sm max-w-none mx-auto text-muted-foreground">
+                    <p>{topic.intro}</p>
+                  </div>
+                ) : (
+                  <p>
+                    {topic.level === 3 
+                      ? "This is a focused topic area. Content and discussions here dive deep into specific aspects of the subject."
+                      : "This topic area is currently being organized. Check back soon for more content."
+                    }
+                  </p>
+                )}
+              </div>
               <div className="flex justify-center gap-4">
                 <Button asChild>
                   <Link to={`/topics/${slug}/archive`}>View Archive</Link>
