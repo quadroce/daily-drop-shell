@@ -50,6 +50,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "admin_audit_log_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       bookmarks: {
@@ -73,28 +80,7 @@ export type Database = {
             foreignKeyName: "bookmarks_drop_id_fkey"
             columns: ["drop_id"]
             isOneToOne: false
-            referencedRelation: "content"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "bookmarks_drop_id_fkey"
-            columns: ["drop_id"]
-            isOneToOne: false
             referencedRelation: "drops"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "bookmarks_drop_id_fkey"
-            columns: ["drop_id"]
-            isOneToOne: false
-            referencedRelation: "drops_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "bookmarks_drop_id_fkey"
-            columns: ["drop_id"]
-            isOneToOne: false
-            referencedRelation: "tagging_status"
             referencedColumns: ["id"]
           },
           {
@@ -102,6 +88,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookmarks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -130,28 +123,7 @@ export type Database = {
             foreignKeyName: "content_topics_content_id_fkey"
             columns: ["content_id"]
             isOneToOne: false
-            referencedRelation: "content"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "content_topics_content_id_fkey"
-            columns: ["content_id"]
-            isOneToOne: false
             referencedRelation: "drops"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "content_topics_content_id_fkey"
-            columns: ["content_id"]
-            isOneToOne: false
-            referencedRelation: "drops_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "content_topics_content_id_fkey"
-            columns: ["content_id"]
-            isOneToOne: false
-            referencedRelation: "tagging_status"
             referencedColumns: ["id"]
           },
           {
@@ -194,6 +166,13 @@ export type Database = {
             columns: ["corp_user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "corporate_sources_corp_user_id_fkey"
+            columns: ["corp_user_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -250,28 +229,7 @@ export type Database = {
             foreignKeyName: "daily_batch_items_drop_id_fkey"
             columns: ["drop_id"]
             isOneToOne: false
-            referencedRelation: "content"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "daily_batch_items_drop_id_fkey"
-            columns: ["drop_id"]
-            isOneToOne: false
             referencedRelation: "drops"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "daily_batch_items_drop_id_fkey"
-            columns: ["drop_id"]
-            isOneToOne: false
-            referencedRelation: "drops_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "daily_batch_items_drop_id_fkey"
-            columns: ["drop_id"]
-            isOneToOne: false
-            referencedRelation: "tagging_status"
             referencedColumns: ["id"]
           },
         ]
@@ -301,6 +259,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_batches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -445,28 +410,7 @@ export type Database = {
             foreignKeyName: "engagement_events_drop_id_fkey"
             columns: ["drop_id"]
             isOneToOne: false
-            referencedRelation: "content"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "engagement_events_drop_id_fkey"
-            columns: ["drop_id"]
-            isOneToOne: false
             referencedRelation: "drops"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "engagement_events_drop_id_fkey"
-            columns: ["drop_id"]
-            isOneToOne: false
-            referencedRelation: "drops_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "engagement_events_drop_id_fkey"
-            columns: ["drop_id"]
-            isOneToOne: false
-            referencedRelation: "tagging_status"
             referencedColumns: ["id"]
           },
           {
@@ -474,6 +418,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engagement_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -600,6 +551,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "newsletter_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       preferences: {
@@ -627,6 +585,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: true
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -739,6 +704,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "sponsor_contents_sponsor_user_id_fkey"
+            columns: ["sponsor_user_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       tagging_params: {
@@ -772,6 +744,13 @@ export type Database = {
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tagging_params_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -808,6 +787,7 @@ export type Database = {
       topics: {
         Row: {
           id: number
+          intro: string | null
           is_active: boolean
           label: string
           level: number
@@ -816,6 +796,7 @@ export type Database = {
         }
         Insert: {
           id?: number
+          intro?: string | null
           is_active?: boolean
           label: string
           level: number
@@ -824,6 +805,7 @@ export type Database = {
         }
         Update: {
           id?: number
+          intro?: string | null
           is_active?: boolean
           label?: string
           level?: number
@@ -927,152 +909,46 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "whatsapp_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
     Views: {
-      content: {
+      public_profiles: {
         Row: {
           created_at: string | null
-          id: number | null
-          image_url: string | null
-          l1_topic_id: number | null
-          l2_topic_id: number | null
-          l3_count: number | null
-          language: string | null
-          published_at: string | null
-          source_id: number | null
-          summary: string | null
-          tag_done: boolean | null
-          tags: string[] | null
-          title: string | null
-          type: Database["public"]["Enums"]["drop_type"] | null
-          url: string | null
+          display_name: string | null
+          id: string | null
+          subscription_tier:
+            | Database["public"]["Enums"]["subscription_tier"]
+            | null
+          username: string | null
         }
         Insert: {
           created_at?: string | null
-          id?: number | null
-          image_url?: string | null
-          l1_topic_id?: number | null
-          l2_topic_id?: number | null
-          l3_count?: never
-          language?: string | null
-          published_at?: string | null
-          source_id?: number | null
-          summary?: string | null
-          tag_done?: boolean | null
-          tags?: string[] | null
-          title?: string | null
-          type?: Database["public"]["Enums"]["drop_type"] | null
-          url?: string | null
+          display_name?: string | null
+          id?: string | null
+          subscription_tier?:
+            | Database["public"]["Enums"]["subscription_tier"]
+            | null
+          username?: string | null
         }
         Update: {
           created_at?: string | null
-          id?: number | null
-          image_url?: string | null
-          l1_topic_id?: number | null
-          l2_topic_id?: number | null
-          l3_count?: never
-          language?: string | null
-          published_at?: string | null
-          source_id?: number | null
-          summary?: string | null
-          tag_done?: boolean | null
-          tags?: string[] | null
-          title?: string | null
-          type?: Database["public"]["Enums"]["drop_type"] | null
-          url?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "drops_source_id_fkey"
-            columns: ["source_id"]
-            isOneToOne: false
-            referencedRelation: "sources"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_drops_l1_topic"
-            columns: ["l1_topic_id"]
-            isOneToOne: false
-            referencedRelation: "topics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_drops_l2_topic"
-            columns: ["l2_topic_id"]
-            isOneToOne: false
-            referencedRelation: "topics"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      drops_view: {
-        Row: {
-          created_at: string | null
-          id: number | null
-          image_url: string | null
-          l1_slug: string | null
-          l2_slug: string | null
-          l3_slugs: string[] | null
-          language: string | null
-          published_at: string | null
-          quality_score: number | null
-          source_name: string | null
-          summary: string | null
-          title: string | null
-          type: Database["public"]["Enums"]["drop_type"] | null
-          url: string | null
+          display_name?: string | null
+          id?: string | null
+          subscription_tier?:
+            | Database["public"]["Enums"]["subscription_tier"]
+            | null
+          username?: string | null
         }
         Relationships: []
-      }
-      tagging_status: {
-        Row: {
-          actual_topic_count: number | null
-          id: number | null
-          l1_topic_id: number | null
-          l2_topic_id: number | null
-          l3_count: number | null
-          tag_done: boolean | null
-          tags: string[] | null
-          title: string | null
-        }
-        Insert: {
-          actual_topic_count?: never
-          id?: number | null
-          l1_topic_id?: number | null
-          l2_topic_id?: number | null
-          l3_count?: never
-          tag_done?: boolean | null
-          tags?: string[] | null
-          title?: string | null
-        }
-        Update: {
-          actual_topic_count?: never
-          id?: number | null
-          l1_topic_id?: number | null
-          l2_topic_id?: number | null
-          l3_count?: never
-          tag_done?: boolean | null
-          tags?: string[] | null
-          title?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_drops_l1_topic"
-            columns: ["l1_topic_id"]
-            isOneToOne: false
-            referencedRelation: "topics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_drops_l2_topic"
-            columns: ["l2_topic_id"]
-            isOneToOne: false
-            referencedRelation: "topics"
-            referencedColumns: ["id"]
-          },
-        ]
       }
     }
     Functions: {
@@ -1135,6 +1011,20 @@ export type Database = {
           url: string
           url_hash: string | null
         }[]
+      }
+      get_current_user_profile: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          auth_provider: Database["public"]["Enums"]["auth_provider"]
+          created_at: string
+          display_name: string | null
+          email: string
+          id: string
+          preference_embeddings: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          subscription_tier: Database["public"]["Enums"]["subscription_tier"]
+          username: string | null
+        }
       }
       get_ranked_drops: {
         Args: { limit_n?: number }
@@ -1268,6 +1158,20 @@ export type Database = {
       trigger_background_ranking: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      update_user_profile: {
+        Args: { _display_name?: string; _username?: string }
+        Returns: {
+          auth_provider: Database["public"]["Enums"]["auth_provider"]
+          created_at: string
+          display_name: string | null
+          email: string
+          id: string
+          preference_embeddings: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          subscription_tier: Database["public"]["Enums"]["subscription_tier"]
+          username: string | null
+        }
       }
       upsert_preferences: {
         Args: { _langs: number[]; _topics: number[] }
