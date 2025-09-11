@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 export const SitemapXml = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [xmlContent, setXmlContent] = useState<string>('');
 
   useEffect(() => {
     const serveSitemap = async () => {
@@ -19,12 +20,20 @@ export const SitemapXml = () => {
 
         const text = await data.text();
         
-        // Set proper XML content type and serve the sitemap
-        const blob = new Blob([text], { type: 'application/xml' });
+        // Create a response with proper XML headers and serve it
+        const response = new Response(text, {
+          headers: {
+            'Content-Type': 'application/xml; charset=utf-8',
+            'Cache-Control': 'public, max-age=3600'
+          }
+        });
+
+        // Convert response to blob and create object URL
+        const blob = await response.blob();
         const url = URL.createObjectURL(blob);
         
-        // Replace the current page with the XML content
-        window.location.replace(url);
+        // Navigate to the XML content
+        window.open(url, '_self');
 
       } catch (err) {
         console.error('Error serving sitemap:', err);
