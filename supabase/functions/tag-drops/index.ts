@@ -70,9 +70,9 @@ function buildPrompt(availableSlugs: string[], params: { max_l3?: number }) {
 }
 Rules:
 - Allowed slugs are ONLY from this list: [${list}]
-- Exactly 1 for l1, exactly 1 for l2, and 1..${maxL3} for l3 (all distinct).
+- Exactly 1 for l1, exactly 1 for l2, and 0..${maxL3} for l3 (all distinct).
 - l1 must be a Level-1 topic, l2 Level-2, l3 Level-3.
-- L3 tags are MANDATORY - you must always provide at least 1 L3 tag.
+- L3 tags are OPTIONAL - only include them if they are truly relevant to the content.
 - Choose the most specific and relevant L3 tags for the content.
 - Prefer concise and accurate mapping.
 If you cannot satisfy the constraints, pick the closest valid slugs.`;
@@ -134,16 +134,10 @@ function enforce121(result: ClassifyOut, topics: Topic[], params: {max_topics_pe
   const finalL1Topic = l1?.level === 1 ? l1 : pickOne(candidatesL1, 1);
   const finalL2Topic = l2?.level === 2 ? l2 : pickOne(candidatesL2, 2);
 
-  // L3: only level 3, unique, cap - but ensure at least 1
+  // L3: only level 3, unique, cap - no minimum required
   let finalL3Slugs = Array.from(new Set(l3.filter(t => t.level === 3).map(t => t.slug))).slice(0, maxL3);
   
-  // If no L3 tags were assigned, try to find a more appropriate fallback
-  if (finalL3Slugs.length === 0 && candidatesL3.length > 0) {
-    // First try to find a generic "other" tag or similar
-    const genericTag = candidatesL3.find(t => t.slug.includes('other') || t.slug.includes('general') || t.slug.includes('misc'));
-    const defaultL3 = genericTag || candidatesL3.find(t => !t.slug.includes('ab-testing')) || candidatesL3[0];
-    finalL3Slugs = [defaultL3.slug];
-  }
+  // Don't force L3 tags if none are appropriate
 
   return { 
     l1TopicId: finalL1Topic?.id ?? null, 
@@ -154,7 +148,7 @@ function enforce121(result: ClassifyOut, topics: Topic[], params: {max_topics_pe
 
 // ===== Write topics using new structure =====
 async function setDropTags(dropId: number, l1TopicId: number | null, l2TopicId: number | null, l3Tags: string[], language?: string) {
-  const tagDone = l1TopicId !== null && l2TopicId !== null && l3Tags.length > 0 && l3Tags.length <= 3;
+  const tagDone = l1TopicId !== null && l2TopicId !== null && l3Tags.length <= 3;
   
   await supa(`/rest/v1/drops?id=eq.${dropId}`, {
     method: "PATCH",
