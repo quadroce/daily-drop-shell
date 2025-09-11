@@ -84,12 +84,12 @@ async function classifyDrop(drop: Drop, topicSlugs: string[], params: { max_l3?:
     method: "POST",
     headers: { "Authorization": `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model: "gpt-5-mini-2025-08-07",
       messages: [
         { role: "system", content: system },
         { role: "user", content: user }
       ],
-      temperature: 0.1,
+      max_completion_tokens: 500,
       response_format: { type: "json_object" }
     }),
   });
@@ -128,32 +128,61 @@ function enforce121(result: ClassifyOut, topics: Topic[], params: {max_topics_pe
   const candidatesL1 = topics.filter(t => t.level === 1);
   const candidatesL2 = topics.filter(t => t.level === 2);
 
-  const finalL1 = (l1?.level === 1 ? l1 : pickOne(candidatesL1, 1)).slug;
-  const finalL2 = (l2?.level === 2 ? l2 : pickOne(candidatesL2, 2)).slug;
+  const finalL1Topic = l1?.level === 1 ? l1 : pickOne(candidatesL1, 1);
+  const finalL2Topic = l2?.level === 2 ? l2 : pickOne(candidatesL2, 2);
 
   // L3: only level 3, unique, cap
-  const finalL3 = Array.from(new Set(l3.filter(t => t.level === 3).map(t => t.slug))).slice(0, maxL3);
+  const finalL3Slugs = Array.from(new Set(l3.filter(t => t.level === 3).map(t => t.slug))).slice(0, maxL3);
 
-  return { l1: finalL1, l2: finalL2, l3: finalL3 };
+  return { 
+    l1TopicId: finalL1Topic?.id ?? null, 
+    l2TopicId: finalL2Topic?.id ?? null, 
+    l3Tags: finalL3Slugs 
+  };
 }
 
-// ===== Write topics using new RPC =====
-async function setDropTags(dropId: number, tags: string[], language?: string) {
-  await supa(`/rest/v1/rpc/set_drop_tags`, {
-    method: "POST",
+// ===== Write topics using new structure =====
+async function setDropTags(dropId: number, l1TopicId: number | null, l2TopicId: number | null, l3Tags: string[], language?: string) {
+  const tagDone = l1TopicId !== null && l2TopicId !== null && l3Tags.length > 0 && l3Tags.length <= 3;
+  
+  await supa(`/rest/v1/drops?id=eq.${dropId}`, {
+    method: "PATCH",
     body: JSON.stringify({ 
-      p_id: dropId, 
-      p_tags: tags, 
-      p_tag_done: true 
+      l1_topic_id: l1TopicId,
+      l2_topic_id: l2TopicId,
+      tags: l3Tags,
+      tag_done: tagDone,
+      lang_code: language
     }),
   });
   
-  // Update language separately if provided
-  if (language) {
-    await supa(`/rest/v1/drops?id=eq.${dropId}`, { 
-      method: "PATCH", 
-      body: JSON.stringify({ language }) 
+  // Update content_topics junction table
+  if (tagDone) {
+    // Delete existing topics
+    await supa(`/rest/v1/content_topics?content_id=eq.${dropId}`, {
+      method: "DELETE"
     });
+    
+    // Insert new topics
+    const topicInserts = [];
+    if (l1TopicId) topicInserts.push({ content_id: dropId, topic_id: l1TopicId });
+    if (l2TopicId) topicInserts.push({ content_id: dropId, topic_id: l2TopicId });
+    
+    // Add L3 topics
+    for (const l3Tag of l3Tags) {
+      const l3TopicRes = await supa(`/rest/v1/topics?slug=eq.${l3Tag}&level=eq.3&select=id`);
+      const l3Topics = await l3TopicRes.json();
+      if (l3Topics.length > 0) {
+        topicInserts.push({ content_id: dropId, topic_id: l3Topics[0].id });
+      }
+    }
+    
+    if (topicInserts.length > 0) {
+      await supa(`/rest/v1/content_topics`, {
+        method: "POST",
+        body: JSON.stringify(topicInserts),
+      });
+    }
   }
 }
 
@@ -181,11 +210,17 @@ serve(async (req) => {
         const raw = await classifyDrop(drop, allSlugs, { max_l3 });
         const enforced = enforce121(raw, topics, { max_l3 });
 
-        // Use new RPC that handles tags -> topics sync automatically
-        const tags = [enforced.l1, enforced.l2, ...enforced.l3];
-        await setDropTags(drop.id, tags, raw.language);
+        // Use new structure: separate L1, L2, L3
+        await setDropTags(drop.id, enforced.l1TopicId, enforced.l2TopicId, enforced.l3Tags, raw.language);
 
-        results.push({ id: drop.id, l1: enforced.l1, l2: enforced.l2, l3: enforced.l3, language: raw.language ?? null, ok: true });
+        results.push({ 
+          id: drop.id, 
+          l1_topic_id: enforced.l1TopicId, 
+          l2_topic_id: enforced.l2TopicId, 
+          l3_tags: enforced.l3Tags, 
+          language: raw.language ?? null, 
+          ok: true 
+        });
       } catch (e) {
         results.push({ id: drop.id, error: String(e), ok: false });
       }

@@ -60,10 +60,10 @@ interface Drop {
   tag_done?: boolean;
   created_at: string;
   tags?: string[];
-  topic_labels?: string[];
-  l1_slug?: string;
-  l2_slug?: string;
-  l3_slugs?: string[];
+  l1_topic_id?: number;
+  l2_topic_id?: number;
+  l1_label?: string;
+  l2_label?: string;
 }
 
 interface Topic {
@@ -90,7 +90,9 @@ const AdminArticles = () => {
 
   const [editTagsModal, setEditTagsModal] = useState<{ open: boolean; drop?: Drop }>({ open: false });
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; drop?: Drop }>({ open: false });
-  const [selectedTopics, setSelectedTopics] = useState<number[]>([]);
+  const [selectedL1, setSelectedL1] = useState<number | null>(null);
+  const [selectedL2, setSelectedL2] = useState<number | null>(null);
+  const [selectedL3, setSelectedL3] = useState<number[]>([]);
 
   const { toast } = useToast();
   const itemsPerPage = 100;
@@ -102,12 +104,14 @@ const AdminArticles = () => {
       const from = (currentPage - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
 
-      // Simple query first - let's get basic drops data
+      // Enhanced query with L1, L2 topic labels
       const { data: dropsData, error: dropsError } = await supabase
         .from('drops')
         .select(`
-          id, title, url, tag_done, created_at, tags,
-          sources!inner(name)
+          id, title, url, tag_done, created_at, tags, l1_topic_id, l2_topic_id,
+          sources!inner(name),
+          l1_topic:topics!l1_topic_id(id, label),
+          l2_topic:topics!l2_topic_id(id, label)
         `)
         .order('created_at', { ascending: false })
         .range(from, to);
@@ -132,7 +136,9 @@ const AdminArticles = () => {
       // Transform data to match our Drop interface
       const transformedData = (dropsData || []).map((item: any) => ({
         ...item,
-        source_name: item.sources?.name || 'N/A'
+        source_name: item.sources?.name || 'N/A',
+        l1_label: item.l1_topic?.label,
+        l2_label: item.l2_topic?.label
       }));
 
       setDrops(transformedData);
@@ -234,10 +240,20 @@ const AdminArticles = () => {
     if (!editTagsModal.drop) return;
 
     try {
+      // Validate constraints
+      if (!selectedL1 || !selectedL2 || selectedL3.length === 0 || selectedL3.length > 3) {
+        toast({
+          title: "Errore di validazione",
+          description: "Devi selezionare 1 topic L1, 1 topic L2 e 1-3 topic L3",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       
       const dropId = Number(editTagsModal.drop.id);
-      const topicIds = selectedTopics.map((v) => Number(v));
+      const topicIds = [selectedL1, selectedL2, ...selectedL3];
 
       const { error } = await supabase.functions.invoke('admin-update-tags', {
         body: { dropId, topicIds },
@@ -314,22 +330,33 @@ const AdminArticles = () => {
 
   const openEditTagsModal = async (drop: Drop) => {
     try {
-      const { data: contentTopics, error } = await supabase
-        .from('content_topics')
-        .select('topic_id')
-        .eq('content_id', drop.id);
-
-      if (error) {
-        console.error('Error loading existing topics:', error);
-        setSelectedTopics([]);
-      } else {
-        const existingTopicIds = (contentTopics || []).map(ct => ct.topic_id);
-        console.log('Loading existing topics for drop:', drop.id, 'Found topic IDs:', existingTopicIds);
-        setSelectedTopics(existingTopicIds);
+      // Set current L1, L2, L3 selections
+      setSelectedL1(drop.l1_topic_id || null);
+      setSelectedL2(drop.l2_topic_id || null);
+      
+      // Get L3 topics from tags
+      const l3TopicIds: number[] = [];
+      if (drop.tags) {
+        for (const tag of drop.tags) {
+          const { data: l3Topics } = await supabase
+            .from('topics')
+            .select('id')
+            .eq('slug', tag)
+            .eq('level', 3)
+            .single();
+          
+          if (l3Topics) {
+            l3TopicIds.push(l3Topics.id);
+          }
+        }
       }
+      setSelectedL3(l3TopicIds);
+      
     } catch (error) {
       console.error('Error in openEditTagsModal:', error);
-      setSelectedTopics([]);
+      setSelectedL1(null);
+      setSelectedL2(null);
+      setSelectedL3([]);
     }
     
     setEditTagsModal({ open: true, drop });
@@ -435,21 +462,26 @@ const AdminArticles = () => {
                         </div>
                       </TableCell>
                       <TableCell>{drop.source_name || 'N/A'}</TableCell>
-                      <TableCell>
+                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {drop.topic_labels && drop.topic_labels.length > 0 ? (
-                            drop.topic_labels.map((label, index) => (
-                              <Badge key={index} variant="outline" className="text-xs">
-                                {label}
+                          {drop.l1_label && (
+                            <Badge variant="default" className="text-xs bg-blue-100 text-blue-800">
+                              L1: {drop.l1_label}
+                            </Badge>
+                          )}
+                          {drop.l2_label && (
+                            <Badge variant="default" className="text-xs bg-green-100 text-green-800">
+                              L2: {drop.l2_label}
+                            </Badge>
+                          )}
+                          {drop.tags && drop.tags.length > 0 ? (
+                            drop.tags.map((tag, index) => (
+                              <Badge key={index} variant="secondary" className="text-xs bg-purple-100 text-purple-800">
+                                L3: {tag}
                               </Badge>
                             ))
-                          ) : drop.tags && drop.tags.length > 0 ? (
-                            drop.tags.slice(0, 3).map((tag, index) => (
-                              <Badge key={index} variant="secondary" className="text-xs">
-                                {tag}
-                              </Badge>
-                            ))
-                          ) : (
+                          ) : null}
+                          {(!drop.l1_label && !drop.l2_label && (!drop.tags || drop.tags.length === 0)) && (
                             <span className="text-gray-400 text-sm">Nessun tag</span>
                           )}
                         </div>
@@ -552,42 +584,106 @@ const AdminArticles = () => {
                 Modifica Tag - {editTagsModal.drop?.title}
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              <div className="max-h-96 overflow-y-auto">
-                {[1, 2, 3].map(level => (
-                  <div key={level} className="mb-4">
-                    <Label className="text-sm font-medium">
-                      Livello {level}
-                    </Label>
-                    <div className="grid grid-cols-2 gap-2 mt-2">
-                      {topics
-                        .filter(topic => topic.level === level)
-                        .map(topic => (
-                          <label key={topic.id} className="flex items-center space-x-2">
-                            <input
-                              type="checkbox"
-                              checked={selectedTopics.includes(topic.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedTopics(prev => [...prev, topic.id]);
+            <div className="space-y-6">
+              <div>
+                <Label className="text-sm font-medium">Livello 1 (obbligatorio)</Label>
+                <Select 
+                  value={selectedL1?.toString() || ""} 
+                  onValueChange={(value) => setSelectedL1(value ? Number(value) : null)}
+                >
+                  <SelectTrigger className="mt-2">
+                    <SelectValue placeholder="Seleziona topic L1" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {topics
+                      .filter(topic => topic.level === 1)
+                      .map(topic => (
+                        <SelectItem key={topic.id} value={topic.id.toString()}>
+                          {topic.label}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium">Livello 2 (obbligatorio)</Label>
+                <Select 
+                  value={selectedL2?.toString() || ""} 
+                  onValueChange={(value) => setSelectedL2(value ? Number(value) : null)}
+                >
+                  <SelectTrigger className="mt-2">
+                    <SelectValue placeholder="Seleziona topic L2" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {topics
+                      .filter(topic => topic.level === 2)
+                      .map(topic => (
+                        <SelectItem key={topic.id} value={topic.id.toString()}>
+                          {topic.label}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium">Livello 3 (1-3 topic)</Label>
+                <div className="mt-2 max-h-48 overflow-y-auto border rounded-md p-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    {topics
+                      .filter(topic => topic.level === 3)
+                      .map(topic => (
+                        <label key={topic.id} className="flex items-center space-x-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={selectedL3.includes(topic.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                if (selectedL3.length < 3) {
+                                  setSelectedL3(prev => [...prev, topic.id]);
                                 } else {
-                                  setSelectedTopics(prev => prev.filter(id => id !== topic.id));
+                                  toast({
+                                    title: "Limite raggiunto",
+                                    description: "Massimo 3 topic L3 consentiti",
+                                    variant: "destructive",
+                                  });
                                 }
-                              }}
-                            />
-                            <span className="text-sm">{topic.label}</span>
-                          </label>
-                        ))}
-                    </div>
+                              } else {
+                                setSelectedL3(prev => prev.filter(id => id !== topic.id));
+                              }
+                            }}
+                            disabled={!selectedL3.includes(topic.id) && selectedL3.length >= 3}
+                          />
+                          <span className={selectedL3.includes(topic.id) ? "font-medium" : ""}>
+                            {topic.label}
+                          </span>
+                        </label>
+                      ))}
                   </div>
-                ))}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Selezionati: {selectedL3.length}/3
+                </div>
+              </div>
+
+              <div className="p-4 bg-gray-50 rounded-md">
+                <Label className="text-sm font-medium">Validazione</Label>
+                <div className="text-xs text-gray-600 mt-1">
+                  {selectedL1 ? "✓ L1 selezionato" : "✗ L1 richiesto"}<br/>
+                  {selectedL2 ? "✓ L2 selezionato" : "✗ L2 richiesto"}<br/>
+                  {selectedL3.length > 0 ? `✓ ${selectedL3.length} L3 selezionati` : "✗ Almeno 1 L3 richiesto"}
+                </div>
               </div>
               
               <div className="flex justify-end space-x-2">
                 <Button variant="outline" onClick={() => setEditTagsModal({ open: false })}>
                   Annulla
                 </Button>
-                <Button onClick={handleEditTags}>
+                <Button 
+                  onClick={handleEditTags}
+                  disabled={!selectedL1 || !selectedL2 || selectedL3.length === 0 || selectedL3.length > 3}
+                >
                   Salva Tag
                 </Button>
               </div>
