@@ -103,7 +103,7 @@ export const FeedCard = ({
       <CardContent className="p-0">
         <div className="flex flex-col h-full">
           {/* Image/Video Section */}
-          <div className="relative w-full aspect-video overflow-hidden">
+          <div className="relative w-full aspect-square overflow-hidden">
             {showInlineVideo ? (
               <YouTubePlayer
                 videoId={youtubeId!}
@@ -150,12 +150,13 @@ export const FeedCard = ({
                   {title}
                 </h3>
                 <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                  <span className="truncate">{source.name}</span>
+                  <span className="truncate">{source.name || 'Unknown Source'}</span>
                   <span>•</span>
                   <time dateTime={publishedAt} className="whitespace-nowrap">
                     {new Date(publishedAt).toLocaleDateString('en-US', { 
                       month: 'short', 
-                      day: 'numeric' 
+                      day: 'numeric',
+                      year: 'numeric'
                     })}
                   </time>
                 </div>
@@ -171,13 +172,23 @@ export const FeedCard = ({
 
             <div className="flex items-center justify-between gap-2 mt-auto">
               <div className="flex gap-1 flex-wrap min-w-0 flex-1">
-                {tags.slice(0, 2).map((tag, index) => (
-                  <Badge key={index} variant="outline" className="text-xs py-0 px-2 truncate">
-                    {tag}
-                  </Badge>
-                ))}
+                {tags.slice(0, 2).map((tag, index) => {
+                  const getTagVariant = (tagIndex: number) => {
+                    switch (tagIndex) {
+                      case 0: return "tag-l1"; // Blue for L1
+                      case 1: return "tag-l2"; // Green for L2  
+                      default: return "tag-l3"; // Purple for L3+
+                    }
+                  };
+                  
+                  return (
+                    <Badge key={index} variant={getTagVariant(index)} className="text-xs py-0 px-2 truncate">
+                      {tag}
+                    </Badge>
+                  );
+                })}
                 {tags.length > 2 && (
-                  <Badge variant="outline" className="text-xs py-0 px-2">
+                  <Badge variant="tag-l3" className="text-xs py-0 px-2">
                     +{tags.length - 2}
                   </Badge>
                 )}
