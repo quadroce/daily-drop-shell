@@ -507,7 +507,7 @@ const Feed = () => {
             </div>
             
             {/* Image Section - Right */}
-            <div className="relative w-24 h-24 m-4 overflow-hidden rounded-lg flex-shrink-0">
+            <div className="relative w-28 h-28 m-4 overflow-hidden rounded-lg flex-shrink-0">
               {imageUrl ? (
                 <div className="relative w-full h-full">
                   <img 
