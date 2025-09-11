@@ -9,11 +9,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Topic, getTopicWithChildren, buildBreadcrumb, getChildren, getTopicArticles } from "@/lib/topics";
 import { useAnalytics } from "@/lib/analytics";
+import { useEngagement } from "@/hooks/useEngagement";
 import { useEffect } from "react";
 
 export const TopicLandingPage = () => {
   const { slug } = useParams<{ slug: string }>();
   const { track } = useAnalytics();
+
+  // Track engagement on this page
+  useEngagement();
 
   useEffect(() => {
     track('page_view', { page: 'topic_landing', slug });

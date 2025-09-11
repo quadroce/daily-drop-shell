@@ -1,5 +1,14 @@
 import { useCallback } from 'react';
 
+export const isProd = import.meta.env.PROD;
+
+declare global {
+  interface Window { 
+    dataLayer?: any[]; 
+    gtag?: (...args: any[]) => void; 
+  }
+}
+
 export type AnalyticsEvent = 
   | 'page_view'
   | 'save_item'
@@ -8,32 +17,75 @@ export type AnalyticsEvent =
   | 'dislike_item'
   | 'open_item'
   | 'video_play'
+  | 'video_progress'
+  | 'video_complete'
   | 'signup_click'
   | 'upgrade_click'
   | 'search_performed'
   | 'filters_applied'
-  | 'search_result_engaged';
+  | 'search_result_engaged'
+  | 'onboarding_start'
+  | 'preferences_completed'
+  | 'onboarding_done'
+  | 'view_pricing'
+  | 'begin_checkout'
+  | 'subscription_upgrade'
+  | 'scroll_50'
+  | 'scroll_90'
+  | 'dwell_time'
+  | 'dwell_time_total';
 
 export type AnalyticsParams = {
   [key: string]: string | number | boolean;
 };
 
+export function ensureGA() {
+  if (!window.dataLayer) window.dataLayer = [];
+  if (!window.gtag) window.gtag = function(){ window.dataLayer!.push(arguments as any); };
+}
+
+export function initGA(userId?: string) {
+  if (!isProd) return;
+  ensureGA();
+  if (userId) {
+    window.gtag!('config', 'G-1S2C81YQGW', { user_id: userId, send_page_view: false });
+  }
+}
+
+export function pageview(path: string, title?: string) {
+  if (!isProd) return;
+  ensureGA();
+  window.gtag!('event', 'page_view', {
+    page_path: path,
+    page_title: title || document.title
+  });
+}
+
+export function track(event: string, params: Record<string, any> = {}) {
+  if (!isProd) return;
+  ensureGA();
+  window.gtag!('event', event, params);
+}
+
+export function identify(userId?: string) {
+  if (!isProd || !userId) return;
+  ensureGA();
+  window.gtag!('config', 'G-1S2C81YQGW', { user_id: userId, send_page_view: false });
+}
+
 export const useAnalytics = () => {
-  const track = useCallback((event: AnalyticsEvent, params?: AnalyticsParams) => {
-    // For now, just log to console. Later, integrate with GA4 or other analytics
-    console.log(`🔍 Analytics: ${event}`, params);
-    
-    // Future GA4 integration would look like:
-    // if (typeof gtag !== 'undefined') {
-    //   gtag('event', event, params);
-    // }
+  const trackEvent = useCallback((event: AnalyticsEvent, params?: AnalyticsParams) => {
+    track(event, params);
   }, []);
 
-  return { track };
+  return { track: trackEvent };
 };
 
-// Utility to initialize analytics (for future use)
+// Utility to initialize analytics
 export const initializeAnalytics = () => {
-  console.log('📊 Analytics initialized (console logging mode)');
-  // Future: Load GA4 script, set up tracking IDs, etc.
+  if (isProd) {
+    console.log('📊 Analytics initialized (GA4 mode)');
+  } else {
+    console.log('📊 Analytics initialized (dev mode - no tracking)');
+  }
 };

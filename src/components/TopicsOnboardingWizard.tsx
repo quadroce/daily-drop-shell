@@ -8,6 +8,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Separator } from "@/components/ui/separator";
 import { Search, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { fetchTopicsTree } from "@/lib/api/topics";
+import { trackOnboardingStart, trackPreferencesCompleted } from "@/lib/trackers/onboarding";
 
 interface Topic {
   id: number;
@@ -66,6 +67,11 @@ export const TopicsOnboardingWizard: React.FC<TopicsOnboardingWizardProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Track onboarding start
+  useEffect(() => {
+    trackOnboardingStart();
+  }, []);
 
   // Fetch topics data
   useEffect(() => {
@@ -179,7 +185,12 @@ export const TopicsOnboardingWizard: React.FC<TopicsOnboardingWizardProps> = ({
   const handleSave = async () => {
     setSaving(true);
     try {
-      await onSave(Array.from(selectedTopics));
+      const topicIds = Array.from(selectedTopics);
+      
+      // Track preferences completion
+      trackPreferencesCompleted(topicIds.length);
+      
+      await onSave(topicIds);
     } catch (error) {
       console.error('Failed to save preferences:', error);
     } finally {

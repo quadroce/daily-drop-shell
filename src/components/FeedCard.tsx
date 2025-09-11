@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ExternalLink, Play, Heart, Bookmark, X } from "lucide-react";
 import { useAnalytics } from "@/lib/analytics";
+import { trackOpen, trackSave, trackDismiss, trackLike, trackDislike } from "@/lib/trackers/content";
+import YouTubePlayer from "./YouTubePlayer";
 
 export type FeedCardProps = {
   id: string;
@@ -21,6 +23,7 @@ export type FeedCardProps = {
 type FeedCardComponentProps = FeedCardProps & {
   user?: { isLoggedIn: boolean; isPremium: boolean };
   onEngage?: (e: { itemId: string; action: "save"|"dismiss"|"like"|"dislike"|"open"|"video_play" }) => void;
+  position?: number;
 };
 
 export const FeedCard = ({ 
@@ -36,18 +39,50 @@ export const FeedCard = ({
   youtubeId, 
   isPremium, 
   user,
-  onEngage 
+  onEngage,
+  position 
 }: FeedCardComponentProps) => {
   const { track } = useAnalytics();
 
-  const handleAction = (action: "save_item"|"dismiss_item"|"like_item"|"dislike_item"|"open_item"|"video_play") => {
-    track(action, { itemId: id, type, source: source.name });
-    const engageAction = action.replace('_item', '') as "save"|"dismiss"|"like"|"dislike"|"open"|"video_play";
-    onEngage?.({ itemId: id, action: engageAction });
+  const baseParams = {
+    content_id: id,
+    source: source.name,
+    topic_l1: tags[0] || '',
+    topic_l2: tags[1] || '',
+    topic_l3: tags[2] || '',
+    position: position || 0,
+    is_premium: isPremium || false
+  };
+
+  const handleAction = (action: "save"|"dismiss"|"like"|"dislike"|"open"|"video_play") => {
+    // Track with content tracker
+    switch(action) {
+      case 'save':
+        trackSave(baseParams);
+        break;
+      case 'dismiss':
+        trackDismiss(baseParams);
+        break;
+      case 'like':
+        trackLike(baseParams);
+        break;
+      case 'dislike':
+        trackDislike(baseParams);
+        break;
+      case 'open':
+        trackOpen(baseParams);
+        break;
+      case 'video_play':
+        track('video_play', { ...baseParams, video_id: youtubeId });
+        break;
+    }
+
+    // Call legacy handler if provided
+    onEngage?.({ itemId: id, action });
   };
 
   const handleOpen = () => {
-    handleAction("open_item");
+    handleAction("open");
     window.open(href, "_blank", "noopener,noreferrer");
   };
 
@@ -69,11 +104,10 @@ export const FeedCard = ({
           {/* Image/Video Section */}
           <div className="relative w-full aspect-video overflow-hidden">
             {showInlineVideo ? (
-              <iframe
-                src={`https://www.youtube.com/embed/${youtubeId}`}
+              <YouTubePlayer
+                videoId={youtubeId!}
+                contentId={id}
                 className="w-full h-full"
-                allowFullScreen
-                title={title}
               />
             ) : (
               <div 
@@ -154,7 +188,7 @@ export const FeedCard = ({
                 <Button 
                   variant="ghost" 
                   size="sm"
-                  onClick={() => handleAction("like_item")}
+                  onClick={() => handleAction("like")}
                   className="h-7 w-7 p-0"
                 >
                   <Heart className="h-3 w-3" />
@@ -162,7 +196,7 @@ export const FeedCard = ({
                 <Button 
                   variant="ghost" 
                   size="sm"
-                  onClick={() => handleAction("save_item")}
+                  onClick={() => handleAction("save")}
                   className="h-7 w-7 p-0"
                 >
                   <Bookmark className="h-3 w-3" />
@@ -170,7 +204,7 @@ export const FeedCard = ({
                 <Button 
                   variant="ghost" 
                   size="sm"
-                  onClick={() => handleAction("dismiss_item")}
+                  onClick={() => handleAction("dismiss")}
                   className="h-7 w-7 p-0"
                 >
                   <X className="h-3 w-3" />

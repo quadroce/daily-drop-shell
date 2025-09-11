@@ -2,9 +2,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Check, Star, Users, Building, Zap, Mail, Smartphone, Globe, TrendingUp } from "lucide-react";
+import { track } from "@/lib/analytics";
+import { useEffect } from "react";
 
 const Pricing = () => {
-  // TODO: Connect to Stripe for payment processing
+  // Track pricing page view
+  useEffect(() => {
+    track('view_pricing', {});
+  }, []);
+
+  const handleUpgradeClick = (plan: string) => {
+    track('begin_checkout', { plan });
+    // TODO: Connect to Stripe for payment processing
+  };
+
   // TODO: Implement plan selection and checkout flow
 
   const plans = [
@@ -161,6 +172,7 @@ const Pricing = () => {
                   variant={plan.buttonVariant}
                   className="w-full"
                   disabled={plan.disabled}
+                  onClick={() => !plan.disabled && handleUpgradeClick(plan.name.toLowerCase())}
                 >
                   {plan.buttonText}
                 </Button>

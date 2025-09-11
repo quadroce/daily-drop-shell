@@ -19,6 +19,16 @@
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:site" content="@lovable_dev" />
   <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-1S2C81YQGW"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    // We will disable auto page_view and send them manually for SPA
+    gtag('js', new Date());
+    gtag('config', 'G-1S2C81YQGW', { send_page_view: false });
+  </script>
 </head>
 
 <body>

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { PreferencesProvider } from "@/contexts/PreferencesContext";
 import { AuthProvider } from "@/hooks/useAuth";
+import { AnalyticsProvider } from "@/components/AnalyticsProvider";
 import Layout from "./components/Layout";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
@@ -42,54 +43,56 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <Layout>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/feed" element={<Feed />} />
-                <Route path="/search" element={<Search />} />
-                <Route path="/preferences" element={
-                  <ProtectedRoute>
-                    <Preferences />
-                  </ProtectedRoute>
-                } />
-                <Route path="/profile" element={
-                  <ProtectedRoute>
-                    <Profile />
-                  </ProtectedRoute>
-                } />
-                <Route path="/newsletter" element={<Newsletter />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/pricing" element={<Pricing />} />
-                <Route path="/premium" element={<Premium />} />
-                <Route path="/corporate" element={<Corporate />} />
-                <Route path="/sponsor" element={<Sponsor />} />
-                <Route path="/admin" element={<Admin />} />
-                <Route path="/admin/dashboard" element={
-                  <ProtectedRoute>
-                    <AdminDashboard />
-                  </ProtectedRoute>
-                } />
-                <Route path="/admin/sources" element={
-                  <ProtectedRoute>
-                    <AdminSources />
-                  </ProtectedRoute>
-                } />
-                <Route path="/admin/articles" element={
-                  <ProtectedRoute>
-                    <AdminArticles />
-                  </ProtectedRoute>  
-                } />
-                <Route path="/topics" element={<TopicsIndexPage />} />
-                <Route path="/topics/:slug" element={<TopicLandingPage />} />
-                <Route path="/topics/:slug/archive" element={<TopicArchiveIndexPage />} />
-                <Route path="/topics/:slug/:date" element={<TopicDailyArchivePage />} />
-                <Route path="/sitemap.xml" element={<SitemapPage />} />
-                <Route path="/u/:username" element={<PublicProfile />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Layout>
+            <AnalyticsProvider>
+              <Layout>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/auth" element={<Auth />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route path="/feed" element={<Feed />} />
+                  <Route path="/search" element={<Search />} />
+                  <Route path="/preferences" element={
+                    <ProtectedRoute>
+                      <Preferences />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/profile" element={
+                    <ProtectedRoute>
+                      <Profile />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/newsletter" element={<Newsletter />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="/pricing" element={<Pricing />} />
+                  <Route path="/premium" element={<Premium />} />
+                  <Route path="/corporate" element={<Corporate />} />
+                  <Route path="/sponsor" element={<Sponsor />} />
+                  <Route path="/admin" element={<Admin />} />
+                  <Route path="/admin/dashboard" element={
+                    <ProtectedRoute>
+                      <AdminDashboard />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/admin/sources" element={
+                    <ProtectedRoute>
+                      <AdminSources />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/admin/articles" element={
+                    <ProtectedRoute>
+                      <AdminArticles />
+                    </ProtectedRoute>  
+                  } />
+                  <Route path="/topics" element={<TopicsIndexPage />} />
+                  <Route path="/topics/:slug" element={<TopicLandingPage />} />
+                  <Route path="/topics/:slug/archive" element={<TopicArchiveIndexPage />} />
+                  <Route path="/topics/:slug/:date" element={<TopicDailyArchivePage />} />
+                  <Route path="/sitemap.xml" element={<SitemapPage />} />
+                  <Route path="/u/:username" element={<PublicProfile />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Layout>
+            </AnalyticsProvider>
           </BrowserRouter>
         </PreferencesProvider>
       </AuthProvider>

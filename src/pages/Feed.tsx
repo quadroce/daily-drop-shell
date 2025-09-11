@@ -10,6 +10,8 @@ import { toast } from "@/hooks/use-toast";
 import { usePreferences } from "@/contexts/PreferencesContext";
 import { getYouTubeThumbnailFromUrl, getYouTubeFallbackThumbnail } from "@/lib/youtube";
 import { requireSession } from "@/lib/auth";
+import { useEngagement } from "@/hooks/useEngagement";
+import { track } from "@/lib/analytics";
 
 const Feed = () => {
   const navigate = useNavigate();
@@ -17,6 +19,9 @@ const Feed = () => {
   const [drops, setDrops] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasPreferences, setHasPreferences] = useState<boolean | null>(null);
+
+  // Track engagement on this page
+  useEngagement();
 
   const mockDrops = [
     {
