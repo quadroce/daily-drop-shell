@@ -42,7 +42,8 @@ export const FeedCard = ({
 
   const handleAction = (action: "save_item"|"dismiss_item"|"like_item"|"dislike_item"|"open_item"|"video_play") => {
     track(action, { itemId: id, type, source: source.name });
-    onEngage?.({ itemId: id, action });
+    const engageAction = action.replace('_item', '') as "save"|"dismiss"|"like"|"dislike"|"open"|"video_play";
+    onEngage?.({ itemId: id, action: engageAction });
   };
 
   const handleOpen = () => {
