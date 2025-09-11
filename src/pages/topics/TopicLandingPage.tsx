@@ -4,8 +4,9 @@ import { Seo } from "@/components/Seo";
 import { TopicCard } from "@/components/TopicCard";
 import { ChipLink } from "@/components/ChipLink";
 import { Breadcrumb } from "@/components/Breadcrumb";
+import { FeedCard } from "@/components/FeedCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Topic, getTopicWithChildren, buildBreadcrumb, getChildren } from "@/lib/topics";
+import { Topic, getTopicWithChildren, buildBreadcrumb, getChildren, getTopicArticles } from "@/lib/topics";
 import { useAnalytics } from "@/lib/analytics";
 import { useEffect } from "react";
 
@@ -42,6 +43,12 @@ export const TopicLandingPage = () => {
       return grandchildrenMap;
     },
     enabled: !!topicData && topicData.topic.level === 1,
+  });
+
+  const { data: articles, isLoading: articlesLoading } = useQuery({
+    queryKey: ['topic-articles', slug],
+    queryFn: () => getTopicArticles(slug!),
+    enabled: !!slug,
   });
 
   if (!slug) {
@@ -173,6 +180,50 @@ export const TopicLandingPage = () => {
             </div>
           </section>
         )}
+
+        {/* Topic Articles */}
+        <section className="mb-12">
+          <h2 className="text-2xl font-semibold text-foreground mb-6">
+            Latest from {topic.label}
+          </h2>
+          
+          {articlesLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3, 4, 5, 6].map(i => (
+                <div key={i} className="space-y-3">
+                  <Skeleton className="aspect-video rounded-lg" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                </div>
+              ))}
+            </div>
+          ) : articles && articles.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {articles.map(article => (
+                <FeedCard
+                  key={article.id}
+                  {...article}
+                  onEngage={(action) => {
+                    track('open_item', { 
+                      itemId: action.itemId, 
+                      topic: slug,
+                      action: action.action
+                    });
+                  }}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="bg-muted/30 rounded-2xl p-8 text-center">
+              <p className="text-muted-foreground mb-4">
+                No articles found for this topic yet. Check back soon!
+              </p>
+              <button className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
+                Follow Topic for Updates
+              </button>
+            </div>
+          )}
+        </section>
       </div>
     </>
   );
