@@ -360,7 +360,7 @@ const Feed = () => {
       <TooltipProvider>
         <Card className={`group hover:bg-card-hover transition-all duration-200 ${isSponsored ? 'border-warning/40 bg-warning/5' : ''}`}>
           {/* Image Area */}
-          <div className="relative h-48 overflow-hidden rounded-t-lg">
+          <div className="relative aspect-square overflow-hidden rounded-t-lg">
             {imageUrl ? (
               <div className="relative w-full h-full">
                 <img 
@@ -419,7 +419,19 @@ const Feed = () => {
                 </CardTitle>
                 <div className="flex items-center gap-2 mt-2">
                   <span className="text-lg">{drop.favicon}</span>
-                  <span className="text-sm text-muted-foreground truncate">{drop.source}</span>
+                  <span className="text-sm text-muted-foreground truncate">{drop.source || 'Unknown Source'}</span>
+                  <span className="text-xs text-muted-foreground">•</span>
+                  <time className="text-xs text-muted-foreground whitespace-nowrap">
+                    {drop.published_at ? new Date(drop.published_at).toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric',
+                      year: 'numeric'
+                    }) : new Date().toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}
+                  </time>
                   {isSponsored && (
                     <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30">
                       <Star className="w-3 h-3 mr-1" />
@@ -467,11 +479,21 @@ const Feed = () => {
             {/* Tags and Actions */}
             <div className="flex items-center justify-between">
               <div className="flex flex-wrap gap-1">
-                {drop.tags?.slice(0, 3).map((tag: string) => (
-                  <Badge key={tag} variant="secondary" className="text-xs">
-                    {tag}
-                  </Badge>
-                ))}
+                {drop.tags?.slice(0, 3).map((tag: string, index: number) => {
+                  const getTagVariant = (tagIndex: number) => {
+                    switch (tagIndex) {
+                      case 0: return "tag-l1"; // Blue for L1
+                      case 1: return "tag-l2"; // Green for L2  
+                      default: return "tag-l3"; // Purple for L3+
+                    }
+                  };
+                  
+                  return (
+                    <Badge key={tag} variant={getTagVariant(index)} className="text-xs">
+                      {tag}
+                    </Badge>
+                  );
+                })}
               </div>
               
               <div className="flex items-center gap-1">
