@@ -12,6 +12,7 @@ import { X, Search as SearchIcon, Filter } from "lucide-react";
 import { useAnalytics } from "@/lib/analytics";
 import { supabase } from "@/integrations/supabase/client";
 import { getYouTubeVideoId } from "@/lib/youtube";
+import { fetchTopicsTree, TopicTreeItem } from "@/lib/api/topics";
 import type { FeedCardProps } from "@/components/FeedCard";
 
 interface SearchResult {
@@ -100,6 +101,23 @@ const Search = () => {
 
   const [currentQuery, setCurrentQuery] = useState(query);
   const [currentTag, setCurrentTag] = useState(tag);
+
+  // Load topics for filtering
+  const { data: topics = [], isLoading: topicsLoading } = useQuery({
+    queryKey: ['topics-tree'],
+    queryFn: fetchTopicsTree,
+  });
+
+  // Organize topics by level for display
+  const organizeTopics = (topics: TopicTreeItem[]) => {
+    const l1Topics = topics.filter(t => t.level === 1);
+    const l2Topics = topics.filter(t => t.level === 2);
+    const l3Topics = topics.filter(t => t.level === 3);
+    
+    return { l1Topics, l2Topics, l3Topics };
+  };
+
+  const { l1Topics, l2Topics, l3Topics } = organizeTopics(topics);
 
   useEffect(() => {
     track('page_view', { 
@@ -205,19 +223,78 @@ const Search = () => {
             </div>
             
             <div className="max-w-md mx-auto">
-              <Select value={currentTag} onValueChange={handleTagChange}>
+              <Select value={currentTag} onValueChange={handleTagChange} disabled={topicsLoading}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a topic" />
+                  <SelectValue placeholder={topicsLoading ? "Loading topics..." : "Select a topic"} />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ai">Artificial Intelligence</SelectItem>
-                  <SelectItem value="ml">Machine Learning</SelectItem>
-                  <SelectItem value="deep-learning">Deep Learning</SelectItem>
-                  <SelectItem value="nlp">Natural Language Processing</SelectItem>
-                  <SelectItem value="computer-vision">Computer Vision</SelectItem>
-                  <SelectItem value="robotics">Robotics</SelectItem>
-                  <SelectItem value="gpt">GPT & Language Models</SelectItem>
-                  <SelectItem value="neural-networks">Neural Networks</SelectItem>
+                <SelectContent className="bg-background border shadow-lg z-50">
+                  {/* Level 1 Topics */}
+                  {l1Topics.length > 0 && (
+                    <>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Main Categories
+                      </div>
+                      {l1Topics.map(topic => (
+                        <SelectItem 
+                          key={topic.id} 
+                          value={topic.slug}
+                          className="font-medium"
+                        >
+                          {topic.label}
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+                  
+                  {/* Level 2 Topics */}
+                  {l2Topics.length > 0 && (
+                    <>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-t mt-1 pt-2">
+                        Subcategories
+                      </div>
+                      {l2Topics.map(topic => (
+                        <SelectItem 
+                          key={topic.id} 
+                          value={topic.slug}
+                          className="pl-4"
+                        >
+                          {topic.label}
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+                  
+                  {/* Level 3 Topics */}
+                  {l3Topics.length > 0 && (
+                    <>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-t mt-1 pt-2">
+                        Specific Topics
+                      </div>
+                      {l3Topics.map(topic => (
+                        <SelectItem 
+                          key={topic.id} 
+                          value={topic.slug}
+                          className="pl-6 text-sm"
+                        >
+                          {topic.label}
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+                  
+                  {/* Loading state */}
+                  {topicsLoading && (
+                    <div className="px-2 py-4 text-center text-muted-foreground text-sm">
+                      Loading topics...
+                    </div>
+                  )}
+                  
+                  {/* Empty state */}
+                  {!topicsLoading && topics.length === 0 && (
+                    <div className="px-2 py-4 text-center text-muted-foreground text-sm">
+                      No topics available
+                    </div>
+                  )}
                 </SelectContent>
               </Select>
             </div>
