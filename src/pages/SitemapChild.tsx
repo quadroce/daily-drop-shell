@@ -1,57 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 
 export const SitemapChild = () => {
   const { filename } = useParams<{ filename: string }>();
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const serveSitemap = async () => {
-      if (!filename) {
-        setError('Invalid sitemap filename');
-        setLoading(false);
-        return;
-      }
+    if (!filename) {
+      setError('Invalid sitemap filename');
+      return;
+    }
 
-      try {
-        // Try to fetch sitemap from storage
-        const { data, error: storageError } = await supabase.storage
-          .from('public-sitemaps')
-          .download(`sitemaps/${filename}`);
-
-        if (storageError || !data) {
-          throw new Error('Sitemap not found in storage');
-        }
-
-        const text = await data.text();
-        
-        // Set proper XML content type and serve the sitemap
-        const blob = new Blob([text], { type: 'application/xml' });
-        const url = URL.createObjectURL(blob);
-        
-        // Replace the current page with the XML content
-        window.location.replace(url);
-
-      } catch (err) {
-        console.error('Error serving sitemap:', err);
-        setError('Sitemap not available');
-        setLoading(false);
-      }
-    };
-
-    serveSitemap();
+    // Redirect directly to the public sitemap file in Supabase storage
+    const sitemapUrl = `https://qimelntuxquptqqynxzv.supabase.co/storage/v1/object/public/public-sitemaps/sitemaps/${filename}`;
+    window.location.replace(sitemapUrl);
   }, [filename]);
-
-  if (loading) {
-    return (
-      <div className="max-w-2xl mx-auto p-8 text-center">
-        <h1 className="text-2xl font-bold mb-4">Loading Sitemap...</h1>
-        <p className="text-muted-foreground">Please wait while we fetch the sitemap.</p>
-      </div>
-    );
-  }
 
   if (error) {
     return (
@@ -65,5 +28,11 @@ export const SitemapChild = () => {
     );
   }
 
-  return null;
+  // Show a brief loading message while redirecting
+  return (
+    <div className="max-w-2xl mx-auto p-8 text-center">
+      <h1 className="text-2xl font-bold mb-4">Redirecting to Sitemap...</h1>
+      <p className="text-muted-foreground">Please wait while we redirect you to the sitemap.</p>
+    </div>
+  );
 };
