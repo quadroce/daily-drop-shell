@@ -1,11 +1,11 @@
 import { useParams, Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Seo } from "@/components/Seo";
-import { TopicIntro } from "@/components/TopicIntro";
-import { CtaBanner } from "@/components/CtaBanner";
-import { TopicFeedPreview } from "@/components/TopicFeedPreview";
+import { TopicCard } from "@/components/TopicCard";
+import { ChipLink } from "@/components/ChipLink";
+import { Breadcrumb } from "@/components/Breadcrumb";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getTopicData, getTopicPreview } from "@/lib/api/topics";
+import { Topic, getTopicWithChildren, buildBreadcrumb, getChildren } from "@/lib/topics";
 import { useAnalytics } from "@/lib/analytics";
 import { useEffect } from "react";
 
@@ -17,16 +17,31 @@ export const TopicLandingPage = () => {
     track('page_view', { page: 'topic_landing', slug });
   }, [slug, track]);
 
-  const { data: topic, isLoading: topicLoading, error: topicError } = useQuery({
-    queryKey: ['topic', slug],
-    queryFn: () => getTopicData(slug!),
+  const { data: topicData, isLoading: topicLoading, error: topicError } = useQuery({
+    queryKey: ['topic-with-children', slug],
+    queryFn: () => getTopicWithChildren(slug!),
     enabled: !!slug,
   });
 
-  const { data: preview, isLoading: previewLoading } = useQuery({
-    queryKey: ['topic-preview', slug],
-    queryFn: () => getTopicPreview(slug!),
-    enabled: !!slug,
+  const { data: breadcrumb, isLoading: breadcrumbLoading } = useQuery({
+    queryKey: ['topic-breadcrumb', slug],
+    queryFn: () => topicData ? buildBreadcrumb(topicData.topic) : Promise.resolve([]),
+    enabled: !!topicData,
+  });
+
+  const { data: grandchildrenByParent, isLoading: grandchildrenLoading } = useQuery({
+    queryKey: ['grandchildren-by-parent', slug],
+    queryFn: async () => {
+      if (!topicData || topicData.topic.level !== 1) return {};
+      
+      const grandchildrenMap: Record<string, Topic[]> = {};
+      for (const child of topicData.children) {
+        const grandchildren = await getChildren(child.id);
+        grandchildrenMap[child.id.toString()] = grandchildren;
+      }
+      return grandchildrenMap;
+    },
+    enabled: !!topicData && topicData.topic.level === 1,
   });
 
   if (!slug) {
@@ -37,11 +52,12 @@ export const TopicLandingPage = () => {
     return <Navigate to="/404" replace />;
   }
 
-  if (topicLoading) {
+  if (topicLoading || breadcrumbLoading) {
     return (
-      <div className="space-y-8">
-        <div className="py-8 px-4">
-          <div className="max-w-4xl mx-auto space-y-4">
+      <div className="container mx-auto px-4 py-8">
+        <div className="space-y-8">
+          <Skeleton className="h-6 w-64" />
+          <div className="space-y-4">
             <Skeleton className="h-12 w-96" />
             <Skeleton className="h-6 w-full" />
             <Skeleton className="h-6 w-3/4" />
@@ -51,75 +67,79 @@ export const TopicLandingPage = () => {
     );
   }
 
+  if (!topicData) return null;
+
+  const { topic, children } = topicData;
   const canonical = `${window.location.origin}/topics/${slug}`;
+  const description = `Learn about ${topic.label}`;
 
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
-    "name": topic?.title,
-    "description": topic?.introHtml.replace(/<[^>]*>/g, '').substring(0, 160),
+    "name": topic.label,
+    "description": description,
     "url": canonical,
     "breadcrumb": {
       "@type": "BreadcrumbList",
-      "itemListElement": [
-        {
-          "@type": "ListItem",
-          "position": 1,
-          "name": "Topics",
-          "item": `${window.location.origin}/topics`
-        },
-        {
-          "@type": "ListItem", 
-          "position": 2,
-          "name": topic?.title,
-          "item": canonical
-        }
-      ]
+      "itemListElement": breadcrumb?.map((item, index) => ({
+        "@type": "ListItem",
+        "position": index + 1,
+        "name": item.label,
+        "item": item.to ? `${window.location.origin}${item.to}` : canonical
+      })) || []
     }
   };
 
   return (
     <>
       <Seo
-        title={`${topic?.title} - Latest Updates & News`}
-        description={topic?.introHtml.replace(/<[^>]*>/g, '').substring(0, 160)}
+        title={`${topic.label} - Topics`}
+        description={description}
         canonical={canonical}
         jsonLd={jsonLd}
       />
       
-      {topic && (
-        <TopicIntro 
-          title={topic.title}
-          introHtml={topic.introHtml}
-          slug={topic.slug}
-        />
-      )}
+      <div className="container mx-auto px-4 py-8">
+        {breadcrumb && <Breadcrumb items={breadcrumb} />}
+        
+        <header className="mb-8">
+          <h1 className="text-3xl font-bold text-foreground mb-4">{topic.label}</h1>
+        </header>
 
-      <CtaBanner
-        headline="Get the full Drop delivered every morning – sign up free"
-        primaryLabel="Sign up"
-        href="/auth"
-        variant="signup"
-      />
-
-      {previewLoading ? (
-        <div className="py-8 px-4">
-          <div className="max-w-4xl mx-auto space-y-6">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="flex gap-4">
-                <Skeleton className="h-32 w-48 flex-shrink-0" />
-                <div className="space-y-2 flex-1">
-                  <Skeleton className="h-6 w-full" />
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
+        {/* Children Topics */}
+        {children.length > 0 && (
+          <section className="mb-12">
+            <h2 className="text-2xl font-semibold text-foreground mb-6">
+              {topic.level === 1 ? "Subtopics" : "Related Topics"}
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {children.map(child => (
+                <div key={child.id.toString()} className="space-y-3">
+                  <TopicCard
+                    to={`/topics/${child.slug}`}
+                    label={child.label}
+                    intro={null}
+                    level={child.level}
+                  />
+                  
+                  {/* Show L3 children for L1 topics */}
+                  {topic.level === 1 && grandchildrenByParent?.[child.id.toString()]?.length > 0 && (
+                    <div className="pl-4">
+                      <div className="flex flex-wrap gap-2">
+                        {grandchildrenByParent[child.id.toString()].map((grandchild: Topic) => (
+                          <ChipLink key={grandchild.id.toString()} to={`/topics/${grandchild.slug}`}>
+                            {grandchild.label}
+                          </ChipLink>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : preview && (
-        <TopicFeedPreview items={preview} slug={slug} />
-      )}
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
     </>
   );
 };

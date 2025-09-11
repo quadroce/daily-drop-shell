@@ -25,6 +25,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import AdminSources from "./pages/AdminSources";
 import AdminArticles from "./pages/admin/AdminArticles";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { TopicsIndexPage } from "./pages/topics/TopicsIndexPage";
 import { TopicLandingPage } from "./pages/topics/TopicLandingPage";
 import { TopicArchiveIndexPage } from "./pages/topics/TopicArchiveIndexPage";
 import { TopicDailyArchivePage } from "./pages/topics/TopicDailyArchivePage";
@@ -78,6 +79,7 @@ const App = () => (
                     <AdminArticles />
                   </ProtectedRoute>  
                 } />
+                <Route path="/topics" element={<TopicsIndexPage />} />
                 <Route path="/topics/:slug" element={<TopicLandingPage />} />
                 <Route path="/topics/:slug/archive" element={<TopicArchiveIndexPage />} />
                 <Route path="/topics/:slug/:date" element={<TopicDailyArchivePage />} />

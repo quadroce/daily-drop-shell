@@ -68,7 +68,7 @@ const Header = () => {
 
   const navLinks = [
     { label: "Feed", path: "/feed" },
-    { label: "Topics", path: "/topics/ai-ml" },
+    { label: "Topics", path: "/topics" },
     { label: "Pricing", path: "/pricing" },
     { label: "Newsletter", path: "/newsletter" },
     ...(isAdmin ? [{ label: "Admin", path: "/admin" }] : [])
