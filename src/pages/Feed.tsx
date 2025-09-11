@@ -359,202 +359,204 @@ const Feed = () => {
     return (
       <TooltipProvider>
         <Card className={`group hover:bg-card-hover transition-all duration-200 ${isSponsored ? 'border-warning/40 bg-warning/5' : ''}`}>
-          {/* Image Area */}
-          <div className="relative aspect-square overflow-hidden rounded-t-lg">
-            {imageUrl ? (
-              <div className="relative w-full h-full">
-                <img 
-                  src={imageUrl} 
-                  alt={drop.title}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    // Try fallback for YouTube videos
-                    if (drop.type === 'video' && drop.url) {
-                      const fallbackUrl = getYouTubeFallbackThumbnail(drop.url);
-                      if (fallbackUrl && e.currentTarget.src !== fallbackUrl) {
-                        e.currentTarget.src = fallbackUrl;
-                        return;
-                      }
-                    }
-                    
-                    // Hide image and show placeholder
-                    e.currentTarget.style.display = 'none';
-                    const placeholder = e.currentTarget.closest('.relative')?.querySelector('[data-placeholder]');
-                    placeholder?.classList.remove('hidden');
-                  }}
-                />
-                {drop.type === 'video' && (
-                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                    <div className="bg-black/60 rounded-full p-3">
-                      <Play className="h-6 w-6 text-white fill-white" />
+          <div className="flex">
+            {/* Content Section - Left */}
+            <div className="flex-1 p-4">
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex-1 min-w-0">
+                  <CardTitle className="text-base leading-tight group-hover:text-primary transition-colors">
+                    <a href={drop.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                      {drop.title}
+                    </a>
+                  </CardTitle>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-sm">{drop.favicon}</span>
+                    <span className="text-xs text-muted-foreground truncate">{drop.source || 'Unknown Source'}</span>
+                    <span className="text-xs text-muted-foreground">•</span>
+                    <time className="text-xs text-muted-foreground whitespace-nowrap">
+                      {drop.published_at ? new Date(drop.published_at).toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric',
+                        year: 'numeric'
+                      }) : new Date().toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </time>
+                    {isSponsored && (
+                      <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30 text-xs">
+                        <Star className="w-3 h-3 mr-1" />
+                        Sponsored
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  {/* Ranking reason */}
+                  {drop.reason_for_ranking && (
+                    <div className="mt-1">
+                      <Badge variant="outline" className="text-xs bg-primary/5 text-primary/80 border-primary/20">
+                        {drop.reason_for_ranking}
+                      </Badge>
                     </div>
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-black/10 group-hover:bg-black/5 transition-colors" />
-                
-                {/* Fallback placeholder (hidden by default) */}
-                <div data-placeholder className="hidden absolute inset-0 bg-muted flex items-center justify-center">
-                  <div className="text-center text-muted-foreground">
-                    <Image className="h-8 w-8 mx-auto mb-2" />
-                    <p className="text-sm">No image available</p>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-            <div className={`${imageUrl ? 'hidden' : 'flex'} w-full h-full bg-muted items-center justify-center`}>
-              <div className="text-center text-muted-foreground">
-                <Image className="h-8 w-8 mx-auto mb-2" />
-                <p className="text-sm">No image available</p>
-              </div>
-            </div>
-          </div>
-
-          <CardHeader className="pb-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <CardTitle className="text-lg leading-tight group-hover:text-primary transition-colors">
-                  <a href={drop.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                    {drop.title}
-                  </a>
-                </CardTitle>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-lg">{drop.favicon}</span>
-                  <span className="text-sm text-muted-foreground truncate">{drop.source || 'Unknown Source'}</span>
-                  <span className="text-xs text-muted-foreground">•</span>
-                  <time className="text-xs text-muted-foreground whitespace-nowrap">
-                    {drop.published_at ? new Date(drop.published_at).toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      day: 'numeric',
-                      year: 'numeric'
-                    }) : new Date().toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      day: 'numeric',
-                      year: 'numeric'
-                    })}
-                  </time>
-                  {isSponsored && (
-                    <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30">
-                      <Star className="w-3 h-3 mr-1" />
-                      Sponsored
-                    </Badge>
                   )}
                 </div>
-                
-                {/* Ranking reason */}
-                {drop.reason_for_ranking && (
-                  <div className="mt-2">
-                    <Badge variant="outline" className="text-xs bg-primary/5 text-primary/80 border-primary/20">
-                      {drop.reason_for_ranking}
-                    </Badge>
-                  </div>
-                )}
-              </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="shrink-0"
-                    onClick={() => {
-                      window.open(drop.url, '_blank');
-                      handleEngagement(drop.id, 'open');
-                    }}
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Open link</TooltipContent>
-              </Tooltip>
-            </div>
-          </CardHeader>
-          
-          <CardContent className="pt-0">
-            {/* Synopsis */}
-            <div className="mb-4">
-              <p className="text-sm text-muted-foreground line-clamp-3">
-                {drop.summary || "No summary available."}
-              </p>
-            </div>
-
-            {/* Tags and Actions */}
-            <div className="flex items-center justify-between">
-              <div className="flex flex-wrap gap-1">
-                {drop.tags?.slice(0, 3).map((tag: string, index: number) => {
-                  const getTagVariant = (tagIndex: number) => {
-                    switch (tagIndex) {
-                      case 0: return "tag-l1"; // Blue for L1
-                      case 1: return "tag-l2"; // Green for L2  
-                      default: return "tag-l3"; // Purple for L3+
-                    }
-                  };
-                  
-                  return (
-                    <Badge key={tag} variant={getTagVariant(index)} className="text-xs">
-                      {tag}
-                    </Badge>
-                  );
-                })}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="shrink-0 h-6 w-6"
+                      onClick={() => {
+                        window.open(drop.url, '_blank');
+                        handleEngagement(drop.id, 'open');
+                      }}
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Open link</TooltipContent>
+                </Tooltip>
               </div>
               
-              <div className="flex items-center gap-1">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8 hover:bg-success/10 hover:text-success" 
-                      onClick={() => handleSave(drop.id)}
-                    >
-                      <Bookmark className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Save</TooltipContent>
-                </Tooltip>
+              {/* Synopsis */}
+              <div className="mb-3">
+                <p className="text-xs text-muted-foreground line-clamp-2">
+                  {drop.summary || "No summary available."}
+                </p>
+              </div>
+
+              {/* Tags and Actions */}
+              <div className="flex items-center justify-between">
+                <div className="flex flex-wrap gap-1">
+                  {drop.tags?.slice(0, 2).map((tag: string, index: number) => {
+                    const getTagVariant = (tagIndex: number) => {
+                      switch (tagIndex) {
+                        case 0: return "tag-l1"; // Blue for L1
+                        case 1: return "tag-l2"; // Green for L2  
+                        default: return "tag-l3"; // Purple for L3+
+                      }
+                    };
+                    
+                    return (
+                      <Badge key={tag} variant={getTagVariant(index)} className="text-xs py-0 px-1">
+                        {tag}
+                      </Badge>
+                    );
+                  })}
+                </div>
                 
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive" 
-                      onClick={() => handleEngagement(drop.id, 'dismiss')}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Dismiss</TooltipContent>
-                </Tooltip>
-                
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8 hover:bg-primary/10 hover:text-primary" 
-                      onClick={() => handleEngagement(drop.id, 'like')}
-                    >
-                      <Heart className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Like</TooltipContent>
-                </Tooltip>
-                
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8 hover:bg-muted" 
-                      onClick={() => handleEngagement(drop.id, 'dislike')}
-                    >
-                      <ThumbsDown className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Dislike</TooltipContent>
-                </Tooltip>
+                <div className="flex items-center gap-1">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-6 w-6 hover:bg-success/10 hover:text-success" 
+                        onClick={() => handleSave(drop.id)}
+                      >
+                        <Bookmark className="h-3 w-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Save</TooltipContent>
+                  </Tooltip>
+                  
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-6 w-6 hover:bg-destructive/10 hover:text-destructive" 
+                        onClick={() => handleEngagement(drop.id, 'dismiss')}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Dismiss</TooltipContent>
+                  </Tooltip>
+                  
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-6 w-6 hover:bg-primary/10 hover:text-primary" 
+                        onClick={() => handleEngagement(drop.id, 'like')}
+                      >
+                        <Heart className="h-3 w-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Like</TooltipContent>
+                  </Tooltip>
+                  
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-6 w-6 hover:bg-muted" 
+                        onClick={() => handleEngagement(drop.id, 'dislike')}
+                      >
+                        <ThumbsDown className="h-3 w-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Dislike</TooltipContent>
+                  </Tooltip>
+                </div>
               </div>
             </div>
-          </CardContent>
+            
+            {/* Image Section - Right */}
+            <div className="relative w-24 h-24 m-4 overflow-hidden rounded-lg flex-shrink-0">
+              {imageUrl ? (
+                <div className="relative w-full h-full">
+                  <img 
+                    src={imageUrl} 
+                    alt={drop.title}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // Try fallback for YouTube videos
+                      if (drop.type === 'video' && drop.url) {
+                        const fallbackUrl = getYouTubeFallbackThumbnail(drop.url);
+                        if (fallbackUrl && e.currentTarget.src !== fallbackUrl) {
+                          e.currentTarget.src = fallbackUrl;
+                          return;
+                        }
+                      }
+                      
+                      // Hide image and show placeholder
+                      e.currentTarget.style.display = 'none';
+                      const placeholder = e.currentTarget.closest('.relative')?.querySelector('[data-placeholder]');
+                      placeholder?.classList.remove('hidden');
+                    }}
+                  />
+                  {drop.type === 'video' && (
+                    <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                      <div className="bg-black/60 rounded-full p-1">
+                        <Play className="h-3 w-3 text-white fill-white" />
+                      </div>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/10 group-hover:bg-black/5 transition-colors" />
+                  
+                  {/* Fallback placeholder (hidden by default) */}
+                  <div data-placeholder className="hidden absolute inset-0 bg-muted flex items-center justify-center">
+                    <div className="text-center text-muted-foreground">
+                      <Image className="h-4 w-4 mx-auto mb-1" />
+                      <p className="text-xs">No image</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="w-full h-full bg-muted flex items-center justify-center">
+                  <div className="text-center text-muted-foreground">
+                    <Image className="h-4 w-4 mx-auto mb-1" />
+                    <p className="text-xs">No image</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </Card>
       </TooltipProvider>
     );
