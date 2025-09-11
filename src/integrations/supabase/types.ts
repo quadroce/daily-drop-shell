@@ -50,13 +50,6 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "admin_audit_log_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "public_profiles"
-            referencedColumns: ["id"]
-          },
         ]
       }
       bookmarks: {
@@ -88,13 +81,6 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "bookmarks_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -166,13 +152,6 @@ export type Database = {
             columns: ["corp_user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "corporate_sources_corp_user_id_fkey"
-            columns: ["corp_user_id"]
-            isOneToOne: false
-            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -259,13 +238,6 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "daily_batches_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -420,13 +392,6 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "engagement_events_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "public_profiles"
-            referencedColumns: ["id"]
-          },
         ]
       }
       ingestion_logs: {
@@ -551,13 +516,6 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "newsletter_subscriptions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "public_profiles"
-            referencedColumns: ["id"]
-          },
         ]
       }
       preferences: {
@@ -585,13 +543,6 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: true
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "preferences_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -704,13 +655,6 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "sponsor_contents_sponsor_user_id_fkey"
-            columns: ["sponsor_user_id"]
-            isOneToOne: false
-            referencedRelation: "public_profiles"
-            referencedColumns: ["id"]
-          },
         ]
       }
       tagging_params: {
@@ -744,13 +688,6 @@ export type Database = {
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tagging_params_updated_by_fkey"
-            columns: ["updated_by"]
-            isOneToOne: false
-            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -909,47 +846,11 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "whatsapp_subscriptions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "public_profiles"
-            referencedColumns: ["id"]
-          },
         ]
       }
     }
     Views: {
-      public_profiles: {
-        Row: {
-          created_at: string | null
-          display_name: string | null
-          id: string | null
-          subscription_tier:
-            | Database["public"]["Enums"]["subscription_tier"]
-            | null
-          username: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          display_name?: string | null
-          id?: string | null
-          subscription_tier?:
-            | Database["public"]["Enums"]["subscription_tier"]
-            | null
-          username?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          display_name?: string | null
-          id?: string | null
-          subscription_tier?:
-            | Database["public"]["Enums"]["subscription_tier"]
-            | null
-          username?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       admin_soft_delete_drop: {
@@ -1025,6 +926,16 @@ export type Database = {
           subscription_tier: Database["public"]["Enums"]["subscription_tier"]
           username: string | null
         }
+      }
+      get_public_profile_by_username: {
+        Args: { _username: string }
+        Returns: {
+          created_at: string
+          display_name: string
+          id: string
+          subscription_tier: Database["public"]["Enums"]["subscription_tier"]
+          username: string
+        }[]
       }
       get_ranked_drops: {
         Args: { limit_n?: number }
