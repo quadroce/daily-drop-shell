@@ -58,55 +58,92 @@ async function fetchDrops(limit: number): Promise<Drop[]> {
 }
 
 // ===== LLM classification =====
-function buildPrompt(availableSlugs: string[], params: { max_l3?: number }) {
-  const list = availableSlugs.join(", ");
-  const maxL3 = Math.max(1, params.max_l3 ?? 3); // Ensure at least 1 L3 tag
-  return `You are a strict taxonomy router. You MUST return a JSON object with this exact shape:
+function buildPrompt(topics: Topic[], params: { max_l3?: number }) {
+  const l1Topics = topics.filter(t => t.level === 1).map(t => `${t.slug}:${t.label}`).join(", ");
+  const l2Topics = topics.filter(t => t.level === 2).map(t => `${t.slug}:${t.label}`).join(", ");
+  const l3Topics = topics.filter(t => t.level === 3).map(t => `${t.slug}:${t.label}`).join(", ");
+  const maxL3 = Math.max(1, params.max_l3 ?? 3);
+  
+  return `You are an expert content classifier. Analyze the article and classify it into our taxonomy.
+
+AVAILABLE TOPICS:
+
+Level 1 (broad categories): ${l1Topics}
+
+Level 2 (specific areas): ${l2Topics}
+
+Level 3 (detailed topics): ${l3Topics}
+
+TASK: Return a JSON object with this exact structure:
 {
-  "l1": "<one slug>",
-  "l2": "<one slug>",
-  "l3": ["<one to three slugs>"],
-  "language": "<optional 2-letter code>"
-}
-Rules:
-- Allowed slugs are ONLY from this list: [${list}]
-- Exactly 1 for l1, exactly 1 for l2, and 0..${maxL3} for l3 (all distinct).
-- l1 must be a Level-1 topic, l2 Level-2, l3 Level-3.
-- L3 tags are OPTIONAL - only include them if they are truly relevant to the content.
-- Choose the most specific and relevant L3 tags for the content.
-- Prefer concise and accurate mapping.
-If you cannot satisfy the constraints, pick the closest valid slugs.`;
+  "l1": "<level-1-slug>",
+  "l2": "<level-2-slug>", 
+  "l3": ["<level-3-slug>", "<level-3-slug>"],
+  "language": "<2-letter-code>"
 }
 
-async function classifyDrop(drop: Drop, topicSlugs: string[], params: { max_l3?: number }): Promise<ClassifyOut> {
-  const system = buildPrompt(topicSlugs, params);
-  const user = `${drop.title}\n\n${drop.summary ?? ""}`.slice(0, 8000);
+CLASSIFICATION RULES:
+1. Choose exactly ONE Level-1 topic that best represents the article's main domain
+2. Choose exactly ONE Level-2 topic that is most relevant to the article's specific focus
+3. Choose 1-${maxL3} Level-3 topics that add specific detail (only if truly relevant)
+4. Use ONLY the slugs provided above (before the colon)
+5. Be selective with L3 tags - only include if they add meaningful specificity
+6. Consider the article's primary focus, not just keywords mentioned
+
+Examples:
+- AI research article → "technology", "ai", ["machine-learning", "research"]
+- Startup funding news → "business", "startups", ["funding", "venture-capital"]
+- UX design tutorial → "design", "ux", ["user-research", "prototyping"]`;
+}
+
+async function classifyDrop(drop: Drop, topics: Topic[], params: { max_l3?: number }): Promise<ClassifyOut> {
+  const system = buildPrompt(topics, params);
+  const user = `TITLE: ${drop.title}\n\nSUMMARY: ${drop.summary ?? "No summary available"}`.slice(0, 8000);
+
+  console.log(`Classifying drop ${drop.id}: ${drop.title.slice(0, 50)}...`);
 
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: { "Authorization": `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "gpt-5-mini-2025-08-07",
+      model: "gpt-4.1-2025-04-14",
       messages: [
         { role: "system", content: system },
         { role: "user", content: user }
       ],
-      max_completion_tokens: 500,
+      max_tokens: 500,
+      temperature: 0.3,
       response_format: { type: "json_object" }
     }),
   });
-  if (!res.ok) throw new Error(`OpenAI ${res.status} ${await res.text()}`);
+  
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error(`OpenAI API error for drop ${drop.id}:`, errorText);
+    throw new Error(`OpenAI ${res.status} ${errorText}`);
+  }
+  
   const out = await res.json();
   const txt = out.choices?.[0]?.message?.content ?? "{}";
+  
+  console.log(`Raw OpenAI response for drop ${drop.id}:`, txt);
+  
   let parsed: any;
-  try { parsed = JSON.parse(txt); } catch {
+  try { 
+    parsed = JSON.parse(txt); 
+  } catch (e) {
+    console.error(`JSON parse error for drop ${drop.id}:`, e, "Raw text:", txt);
     parsed = { l1: "", l2: "", l3: [] };
   }
-  // Normalize
-  parsed.l1 = String(parsed.l1 || "");
-  parsed.l2 = String(parsed.l2 || "");
-  parsed.l3 = Array.isArray(parsed.l3) ? parsed.l3.map(String) : [];
+  
+  // Normalize and validate
+  parsed.l1 = String(parsed.l1 || "").toLowerCase();
+  parsed.l2 = String(parsed.l2 || "").toLowerCase();
+  parsed.l3 = Array.isArray(parsed.l3) ? parsed.l3.map(String).map(s => s.toLowerCase()) : [];
   if (parsed.language) parsed.language = String(parsed.language).slice(0, 5);
+  
+  console.log(`Parsed classification for drop ${drop.id}:`, parsed);
+  
   return parsed as ClassifyOut;
 }
 
@@ -207,13 +244,15 @@ serve(async (req) => {
     if (!topics.length) return jres(400, { error: "No topics found" });
     if (!drops.length)  return jres(200, { message: "No drops need tagging", processed: 0 });
 
-    const allSlugs = topics.map(t => t.slug);
+    console.log(`Starting tagging process for ${drops.length} drops with ${topics.length} topics`);
     const results: any[] = [];
 
     for (const drop of drops) {
       try {
-        const raw = await classifyDrop(drop, allSlugs, { max_l3 });
+        const raw = await classifyDrop(drop, topics, { max_l3 });
         const enforced = enforce121(raw, topics, { max_l3 });
+        
+        console.log(`Drop ${drop.id} enforced result:`, enforced);
 
         // Use new structure: separate L1, L2, L3
         await setDropTags(drop.id, enforced.l1TopicId, enforced.l2TopicId, enforced.l3Tags, raw.language);
