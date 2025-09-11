@@ -1,4 +1,4 @@
-import { useParams, Navigate } from "react-router-dom";
+import { useParams, Navigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Seo } from "@/components/Seo";
 import { TopicCard } from "@/components/TopicCard";
@@ -6,6 +6,7 @@ import { ChipLink } from "@/components/ChipLink";
 import { Breadcrumb } from "@/components/Breadcrumb";
 import { FeedCard } from "@/components/FeedCard";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { Topic, getTopicWithChildren, buildBreadcrumb, getChildren, getTopicArticles } from "@/lib/topics";
 import { useAnalytics } from "@/lib/analytics";
 import { useEffect } from "react";
@@ -170,12 +171,12 @@ export const TopicLandingPage = () => {
                 }
               </p>
               <div className="flex justify-center gap-4">
-                <button className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
-                  Follow Topic
-                </button>
-                <button className="px-6 py-2 border border-border rounded-lg hover:bg-accent transition-colors">
-                  Browse Related
-                </button>
+                <Button asChild>
+                  <Link to={`/topics/${slug}/archive`}>View Archive</Link>
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link to="/topics">Browse All Topics</Link>
+                </Button>
               </div>
             </div>
           </section>
@@ -183,9 +184,14 @@ export const TopicLandingPage = () => {
 
         {/* Topic Articles */}
         <section className="mb-12">
-          <h2 className="text-2xl font-semibold text-foreground mb-6">
-            Latest from {topic.label}
-          </h2>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-semibold text-foreground">
+              Latest from {topic.label}
+            </h2>
+            <Button variant="outline" asChild>
+              <Link to={`/topics/${slug}/archive`}>View Archive</Link>
+            </Button>
+          </div>
           
           {articlesLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

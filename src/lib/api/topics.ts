@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { FeedCardProps } from "@/components/FeedCard";
+import { format, parseISO } from "date-fns";
 
 export interface TopicTreeItem {
   id: number;
@@ -165,30 +166,36 @@ export type ArchiveIndex = {
   }[];
 };
 
-// Mock data functions for the new topic system
 export const getTopicData = async (slug: string): Promise<Topic> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 200));
-  
-  const topics: Record<string, Topic> = {
-    'ai-ml': {
-      slug: 'ai-ml',
-      title: 'AI & Machine Learning',
-      introHtml: `<p>Stay ahead of the curve with the latest developments in artificial intelligence and machine learning. From breakthrough research papers to practical applications, we curate the most important AI news that matters to your business and career. Our daily drops include expert analysis, tool reviews, and insights from leading researchers and practitioners in the field.</p>`
-    },
-    'technology': {
-      slug: 'technology',
-      title: 'Technology',
-      introHtml: `<p>Discover the latest in technology innovation, from cutting-edge startups to major industry shifts. We track emerging trends, product launches, and technological breakthroughs that are shaping the future. Get comprehensive coverage of software, hardware, and digital transformation across all industries.</p>`
+  try {
+    const { data: topic } = await supabase
+      .from('topics')
+      .select('slug, label')
+      .eq('slug', slug)
+      .eq('is_active', true)
+      .single();
+
+    if (!topic) {
+      return {
+        slug,
+        title: slug.charAt(0).toUpperCase() + slug.slice(1),
+        introHtml: `<p>Content about ${slug}.</p>`
+      };
     }
-  };
 
-  const topic = topics[slug];
-  if (!topic) {
-    throw new Error(`Topic ${slug} not found`);
+    return {
+      slug: topic.slug,
+      title: topic.label,
+      introHtml: `<p>Content about ${topic.label}.</p>`
+    };
+  } catch (error) {
+    console.error('Error fetching topic data:', error);
+    return {
+      slug,
+      title: slug.charAt(0).toUpperCase() + slug.slice(1),
+      introHtml: `<p>Content about ${slug}.</p>`
+    };
   }
-
-  return topic;
 };
 
 export const getTopicPreview = async (slug: string): Promise<FeedCardProps[]> => {
@@ -244,112 +251,174 @@ export const getTopicPreview = async (slug: string): Promise<FeedCardProps[]> =>
 };
 
 export const getTopicArchive = async (slug: string, isPremium: boolean): Promise<ArchiveIndex> => {
-  await new Promise(resolve => setTimeout(resolve, 400));
+  try {
+    // Get topic and its descendants 
+    const { data: topic } = await supabase
+      .from('topics')
+      .select('id')
+      .eq('slug', slug)
+      .eq('is_active', true)
+      .single();
 
-  // Generate mock dates (last 120 days)
-  const dates: string[] = [];
-  const today = new Date();
-  for (let i = 0; i < 120; i++) {
-    const date = new Date(today);
-    date.setDate(date.getDate() - i);
-    dates.push(date.toISOString().split('T')[0]);
-  }
+    if (!topic) {
+      return { availableDates: [], days: [] };
+    }
 
-  // Filter for premium users (unlimited) vs free users (90 days)
-  const availableDates = isPremium ? dates : dates.slice(0, 90);
+    // Get all descendant topic IDs
+    const { data: descendants } = await supabase
+      .rpc('topic_descendants', { root: topic.id });
+    
+    const topicIds = descendants?.map(d => d.id) || [topic.id];
 
-  const days = availableDates.slice(0, 20).map(date => ({
-    date,
-    items: [
-      {
-        id: `${date}-1`,
-        title: `AI Breakthrough on ${date}`,
-        href: `https://example.com/${date}-1`,
-        source: { name: 'TechNews', url: 'https://technews.com' }
-      },
-      {
-        id: `${date}-2`,
-        title: `Machine Learning Update ${date}`,
-        href: `https://example.com/${date}-2`,
-        source: { name: 'AI Weekly', url: 'https://aiweekly.com' }
-      },
-      {
-        id: `${date}-3`,
-        title: `Industry Analysis for ${date}`,
-        href: `https://example.com/${date}-3`,
-        source: { name: 'Forbes', url: 'https://forbes.com' }
+    // Get articles from the last 90 days (or 7 days for non-premium)
+    const daysBack = isPremium ? 90 : 7;
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysBack);
+
+    const { data: articles } = await supabase
+      .from('drops')
+      .select(`
+        id,
+        title,
+        url,
+        published_at,
+        created_at,
+        sources (
+          name
+        ),
+        content_topics!inner (
+          topic_id
+        )
+      `)
+      .in('content_topics.topic_id', topicIds)
+      .gte('published_at', cutoffDate.toISOString())
+      .eq('tag_done', true)
+      .order('published_at', { ascending: false })
+      .limit(300);
+
+    if (!articles) {
+      return { availableDates: [], days: [] };
+    }
+
+    // Group articles by date
+    const dayGroups = new Map<string, Array<Pick<FeedCardProps, "id"|"title"|"href"|"source">>>();
+    
+    articles.forEach(article => {
+      const date = format(parseISO(article.published_at || article.created_at), 'yyyy-MM-dd');
+      
+      if (!dayGroups.has(date)) {
+        dayGroups.set(date, []);
       }
-    ]
-  }));
+      
+      dayGroups.get(date)!.push({
+        id: article.id.toString(),
+        title: article.title,
+        href: article.url,
+        source: { 
+          name: article.sources?.name || 'Unknown Source',
+          url: article.sources?.name ? `https://${article.sources.name.toLowerCase().replace(/\s+/g, '')}.com` : '#'
+        }
+      });
+    });
 
-  return { availableDates, days };
+    // Convert to array and sort by date (newest first)
+    const days = Array.from(dayGroups.entries())
+      .map(([date, items]) => ({ date, items }))
+      .sort((a, b) => b.date.localeCompare(a.date));
+
+    return {
+      availableDates: days.map(d => d.date),
+      days
+    };
+  } catch (error) {
+    console.error('Error fetching topic archive:', error);
+    return { availableDates: [], days: [] };
+  }
 };
 
 export const getTopicDaily = async (slug: string, date: string): Promise<FeedCardProps[]> => {
-  await new Promise(resolve => setTimeout(resolve, 350));
+  try {
+    // Get topic and its descendants 
+    const { data: topic } = await supabase
+      .from('topics')
+      .select('id')
+      .eq('slug', slug)
+      .eq('is_active', true)
+      .single();
 
-  // Generate 5-10 items for the daily drop with constraints
-  const mockItems: FeedCardProps[] = [
-    {
-      id: `${date}-daily-1`,
-      type: 'video',
-      title: `Daily AI Insights for ${date}`,
-      summary: 'Comprehensive overview of the day\'s most important AI developments and their implications for the industry.',
-      imageUrl: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
-      publishedAt: `${date}T09:00:00Z`,
-      source: { name: 'AI Today', url: 'https://aitoday.com' },
-      tags: ['Daily', 'AI', 'Insights'],
-      href: `https://aitoday.com/${date}`,
-      youtubeId: 'dQw4w9WgXcQ',
-      isPremium: true
-    },
-    {
-      id: `${date}-daily-2`,
-      type: 'article',
-      title: `Breaking: New Startup Raises $100M for AI Infrastructure`,
-      summary: 'Emerging AI infrastructure company secures major funding round to build next-generation training platforms.',
-      imageUrl: 'https://via.placeholder.com/400x200/8b5cf6/ffffff?text=Startup+News',
-      publishedAt: `${date}T07:30:00Z`,
-      source: { name: 'VentureBeat', url: 'https://venturebeat.com' },
-      tags: ['Startup', 'Funding', 'Infrastructure'],
-      href: `https://venturebeat.com/${date}-funding`
-    },
-    {
-      id: `${date}-daily-3`,
-      type: 'article',
-      title: 'Research Paper: Improved Transformer Architecture Shows 40% Efficiency Gains',
-      summary: 'New academic research demonstrates significant improvements in transformer model efficiency while maintaining performance.',
-      imageUrl: 'https://via.placeholder.com/400x200/f59e0b/ffffff?text=Research',
-      publishedAt: `${date}T06:00:00Z`,
-      source: { name: 'arXiv', url: 'https://arxiv.org' },
-      tags: ['Research', 'Transformers', 'Efficiency'],
-      href: `https://arxiv.org/${date}-transformer`
-    },
-    {
-      id: `${date}-daily-4`,
-      type: 'article',
-      title: 'Industry Report: AI Adoption Reaches 85% Among Fortune 500 Companies',
-      summary: 'Comprehensive survey reveals widespread AI adoption across major corporations, with significant ROI reported.',
-      imageUrl: 'https://via.placeholder.com/400x200/ef4444/ffffff?text=Industry+Report',
-      publishedAt: `${date}T05:00:00Z`,
-      source: { name: 'McKinsey', url: 'https://mckinsey.com' },
-      tags: ['Industry', 'Adoption', 'Fortune 500'],
-      href: `https://mckinsey.com/${date}-ai-adoption`
-    },
-    {
-      id: `${date}-daily-5`,
-      type: 'article',
-      title: 'Tool Spotlight: New Open-Source Framework Simplifies ML Deployment',
-      summary: 'Community-driven project launches to make machine learning model deployment more accessible to developers.',
-      imageUrl: 'https://via.placeholder.com/400x200/06b6d4/ffffff?text=Open+Source',
-      publishedAt: `${date}T04:00:00Z`,
-      source: { name: 'GitHub Blog', url: 'https://github.blog' },
-      tags: ['Tools', 'Open Source', 'Deployment'],
-      href: `https://github.blog/${date}-ml-framework`
+    if (!topic) {
+      return [];
     }
-  ];
 
-  return mockItems;
+    // Get all descendant topic IDs
+    const { data: descendants } = await supabase
+      .rpc('topic_descendants', { root: topic.id });
+    
+    const topicIds = descendants?.map(d => d.id) || [topic.id];
+
+    // Get articles for the specific date
+    const startDate = `${date}T00:00:00Z`;
+    const endDate = `${date}T23:59:59Z`;
+
+    const { data: articles } = await supabase
+      .from('drops')
+      .select(`
+        id,
+        title,
+        url,
+        image_url,
+        summary,
+        published_at,
+        created_at,
+        type,
+        tags,
+        sources (
+          name
+        ),
+        content_topics!inner (
+          topic_id
+        )
+      `)
+      .in('content_topics.topic_id', topicIds)
+      .gte('published_at', startDate)
+      .lte('published_at', endDate)
+      .eq('tag_done', true)
+      .order('published_at', { ascending: false });
+
+    if (!articles) {
+      return [];
+    }
+
+    return articles.map(article => {
+      const youtubeId = article.type === 'video' ? extractYouTubeId(article.url) : null;
+      
+      return {
+        id: article.id.toString(),
+        title: article.title,
+        href: article.url,
+        source: { 
+          name: article.sources?.name || 'Unknown Source',
+          url: article.sources?.name ? `https://${article.sources.name.toLowerCase().replace(/\s+/g, '')}.com` : '#'
+        },
+        image: article.image_url,
+        summary: article.summary || '',
+        tags: article.tags || [slug],
+        publishedAt: article.published_at || article.created_at,
+        type: article.type === 'video' ? 'video' : 'article',
+        isBookmarked: false, // TODO: Check user bookmarks
+        youtubeId
+      };
+    });
+  } catch (error) {
+    console.error('Error fetching topic daily articles:', error);
+    return [];
+  }
+
+  function extractYouTubeId(url: string): string | null {
+    const regex = /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/;
+    const match = url.match(regex);
+    return match ? match[1] : null;
+  }
 };
 
 // Utility functions for sitemap
