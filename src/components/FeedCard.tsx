@@ -5,6 +5,7 @@ import { ExternalLink, Play, Heart, Bookmark, X } from "lucide-react";
 import { useAnalytics } from "@/lib/analytics";
 import { trackOpen, trackSave, trackDismiss, trackLike, trackDislike } from "@/lib/trackers/content";
 import YouTubePlayer from "./YouTubePlayer";
+import { ImagePlaceholder } from "./ui/image-placeholder";
 
 export type FeedCardProps = {
   id: string;
@@ -132,9 +133,7 @@ export const FeedCard = ({
                   </div>
                 )}
                 {!imageUrl && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-muted-foreground text-sm">No image available</div>
-                  </div>
+                  <ImagePlaceholder className="absolute inset-0 border-0 rounded-none" />
                 )}
               </div>
             )}
