@@ -104,10 +104,22 @@ export const TopicLandingPage = () => {
         
         <header className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-4">{topic.label}</h1>
+          <div className="text-muted-foreground mb-4">
+            <p>Level {topic.level} topic</p>
+            {topic.level === 3 && (
+              <p className="mt-2">This is a specialized topic with focused content and discussions.</p>
+            )}
+            {topic.level === 2 && (
+              <p className="mt-2">Explore subtopics and specialized areas within {topic.label}.</p>
+            )}
+            {topic.level === 1 && (
+              <p className="mt-2">Browse all subtopics and specialized areas in {topic.label}.</p>
+            )}
+          </div>
         </header>
 
         {/* Children Topics */}
-        {children.length > 0 && (
+        {children.length > 0 ? (
           <section className="mb-12">
             <h2 className="text-2xl font-semibold text-foreground mb-6">
               {topic.level === 1 ? "Subtopics" : "Related Topics"}
@@ -136,6 +148,28 @@ export const TopicLandingPage = () => {
                   )}
                 </div>
               ))}
+            </div>
+          </section>
+        ) : (
+          <section className="mb-12">
+            <div className="bg-muted/30 rounded-2xl p-8 text-center">
+              <h2 className="text-xl font-semibold text-foreground mb-4">
+                {topic.level === 3 ? "Specialized Topic" : "Topic Details"}
+              </h2>
+              <p className="text-muted-foreground mb-6">
+                {topic.level === 3 
+                  ? "This is a focused topic area. Content and discussions here dive deep into specific aspects of the subject."
+                  : "This topic area is currently being organized. Check back soon for more content."
+                }
+              </p>
+              <div className="flex justify-center gap-4">
+                <button className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
+                  Follow Topic
+                </button>
+                <button className="px-6 py-2 border border-border rounded-lg hover:bg-accent transition-colors">
+                  Browse Related
+                </button>
+              </div>
             </div>
           </section>
         )}
