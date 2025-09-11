@@ -14,21 +14,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { getYouTubeVideoId } from "@/lib/youtube";
 import type { FeedCardProps } from "@/components/FeedCard";
 
-interface SearchFilters {
-  source?: string;
-  tag?: string;
-  dateFrom?: string;
-  dateTo?: string;
-}
-
 interface SearchResult {
   results: FeedCardProps[];
   total: number;
-  page: number;
 }
 
-const searchContent = async (query: string, filters: SearchFilters, page: number = 1): Promise<SearchResult> => {
+const searchContent = async (query: string, tag?: string): Promise<SearchResult> => {
   try {
+    // Simple query without complex joins
     let supabaseQuery = supabase
       .from('drops')
       .select(`
@@ -39,50 +32,32 @@ const searchContent = async (query: string, filters: SearchFilters, page: number
         image_url,
         published_at,
         type,
-        tags,
-        source_id,
-        sources!inner(name, homepage_url)
+        tags
       `)
-      .eq('tag_done', true);
+      .eq('tag_done', true)
+      .order('published_at', { ascending: false })
+      .limit(12);
 
-    // Apply text search
+    // Apply text search if provided
     if (query) {
       supabaseQuery = supabaseQuery.or(
         `title.ilike.%${query}%,summary.ilike.%${query}%`
       );
     }
 
-    // Apply tag filter
-    if (filters.tag) {
-      supabaseQuery = supabaseQuery.contains('tags', [filters.tag]);
+    // Apply tag filter if provided
+    if (tag) {
+      supabaseQuery = supabaseQuery.contains('tags', [tag]);
     }
 
-    // Apply date filters
-    if (filters.dateFrom) {
-      supabaseQuery = supabaseQuery.gte('published_at', `${filters.dateFrom}T00:00:00Z`);
+    const { data: drops, error, count } = await supabaseQuery;
+
+    if (error) {
+      console.error('Search error:', error);
+      throw error;
     }
 
-    if (filters.dateTo) {
-      supabaseQuery = supabaseQuery.lte('published_at', `${filters.dateTo}T23:59:59Z`);
-    }
-
-    // Get total count
-    const { count } = await supabase
-      .from('drops')
-      .select('*', { count: 'exact', head: true })
-      .eq('tag_done', true);
-
-    // Apply pagination
-    const limit = 12;
-    const offset = (page - 1) * limit;
-    supabaseQuery = supabaseQuery
-      .order('published_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    const { data: drops, error } = await supabaseQuery;
-
-    if (error) throw error;
-
+    // Transform to FeedCardProps format
     const results: FeedCardProps[] = (drops || []).map(drop => ({
       id: String(drop.id),
       title: drop.title,
@@ -92,8 +67,8 @@ const searchContent = async (query: string, filters: SearchFilters, page: number
       type: drop.type,
       tags: drop.tags || [],
       source: {
-        name: drop.sources?.name || 'Unknown',
-        url: drop.sources?.homepage_url || ''
+        name: 'DailyDrops',
+        url: '#'
       },
       href: drop.url,
       youtubeId: drop.url && (drop.url.includes('youtube.com') || drop.url.includes('youtu.be'))
@@ -103,13 +78,15 @@ const searchContent = async (query: string, filters: SearchFilters, page: number
 
     return {
       results,
-      total: count || 0,
-      page
+      total: drops?.length || 0
     };
 
   } catch (error) {
-    console.error('Search error:', error);
-    throw error;
+    console.error('Search content error:', error);
+    return {
+      results: [],
+      total: 0
+    };
   }
 };
 
@@ -119,89 +96,59 @@ const Search = () => {
   
   // Extract URL parameters
   const query = searchParams.get("q") || "";
-  const source = searchParams.get("source") || "";
   const tag = searchParams.get("tag") || "";
-  const dateFrom = searchParams.get("date_from") || "";
-  const dateTo = searchParams.get("date_to") || "";
-  const page = parseInt(searchParams.get("page") || "1");
 
   const [currentQuery, setCurrentQuery] = useState(query);
-  const [filters, setFilters] = useState<SearchFilters>({
-    source,
-    tag,
-    dateFrom,
-    dateTo,
-  });
+  const [currentTag, setCurrentTag] = useState(tag);
 
   useEffect(() => {
     track('page_view', { 
       page: 'search',
       query,
-      hasFilters: !!(source || tag || dateFrom || dateTo)
+      tag
     });
-  }, [track, query, source, tag, dateFrom, dateTo]);
+  }, [track, query, tag]);
 
   // Search API call
   const { data: searchResults, isLoading, error } = useQuery({
-    queryKey: ['search', query, tag, dateFrom, dateTo, page],
-    queryFn: () => searchContent(query, filters, page),
-    enabled: !!(query || tag || dateFrom || dateTo),
+    queryKey: ['search', query, tag],
+    queryFn: () => searchContent(query, tag),
+    enabled: !!(query || tag),
   });
 
-  const updateSearchParams = (newQuery?: string, newFilters?: Partial<SearchFilters>) => {
+  const updateSearchParams = (newQuery?: string, newTag?: string) => {
     const params = new URLSearchParams();
     
-    const finalQuery = newQuery !== undefined ? newQuery : query;
-    const finalFilters = { ...filters, ...newFilters };
-    
-    if (finalQuery) params.set("q", finalQuery);
-    if (finalFilters.source) params.set("source", finalFilters.source);
-    if (finalFilters.tag) params.set("tag", finalFilters.tag);
-    if (finalFilters.dateFrom) params.set("date_from", finalFilters.dateFrom);
-    if (finalFilters.dateTo) params.set("date_to", finalFilters.dateTo);
+    if (newQuery) params.set("q", newQuery);
+    if (newTag) params.set("tag", newTag);
     
     setSearchParams(params);
   };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    updateSearchParams(currentQuery);
-    
-    track('search_performed', {
-      query: currentQuery,
-      source,
-      tag,
-      dateFrom,
-      dateTo
-    });
+    if (currentQuery.trim()) {
+      updateSearchParams(currentQuery.trim(), currentTag);
+      
+      track('search_performed', {
+        query: currentQuery.trim(),
+        tag: currentTag
+      });
+    }
   };
 
-  const handleFilterChange = (filterKey: keyof SearchFilters, value: string) => {
-    const newFilters = { ...filters, [filterKey]: value || undefined };
-    setFilters(newFilters);
-    updateSearchParams(undefined, { [filterKey]: value || undefined });
+  const handleTagChange = (value: string) => {
+    setCurrentTag(value);
+    updateSearchParams(query, value);
   };
 
-  const clearFilter = (filterKey: keyof SearchFilters) => {
-    const newFilters = { ...filters };
-    delete newFilters[filterKey];
-    setFilters(newFilters);
-    
-    const params = new URLSearchParams(searchParams);
-    const paramKey = filterKey === 'dateFrom' ? 'date_from' : 
-                     filterKey === 'dateTo' ? 'date_to' : 
-                     filterKey;
-    params.delete(paramKey);
-    setSearchParams(params);
-  };
-
-  const clearAllFilters = () => {
-    setFilters({});
+  const clearSearch = () => {
     setCurrentQuery("");
+    setCurrentTag("");
     setSearchParams(new URLSearchParams());
   };
 
-  const hasActiveFilters = query || tag || dateFrom || dateTo;
+  const hasActiveFilters = query || tag;
   const hasResults = searchResults && searchResults.results.length > 0;
 
   // SEO setup
@@ -211,16 +158,13 @@ const Search = () => {
   
   const seoDescription = query
     ? `Find articles, videos, and content related to "${query}". ${searchResults?.total || 0} results found.`
-    : "Search through thousands of AI & ML articles, videos, and resources with advanced filters.";
-
-  const canonical = `${window.location.origin}/search${window.location.search}`;
+    : "Search through thousands of AI & ML articles, videos, and resources.";
 
   return (
     <>
       <Seo
         title={seoTitle}
         description={seoDescription}
-        canonical={canonical}
       />
       
       <div className="container mx-auto px-4 py-8">
@@ -236,7 +180,7 @@ const Search = () => {
             </p>
           </div>
 
-          {/* Search Box */}
+          {/* Search Form */}
           <form onSubmit={handleSearch} className="mb-6">
             <div className="flex gap-4 max-w-2xl mx-auto">
               <Input
@@ -253,48 +197,28 @@ const Search = () => {
             </div>
           </form>
 
-          {/* Quick Filters */}
+          {/* Filters */}
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-4">
               <Filter className="w-4 h-4" />
-              <span className="font-medium">Filters</span>
+              <span className="font-medium">Filter by Topic</span>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Select
-                value={tag}
-                onValueChange={(value) => handleFilterChange('tag', value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Filter by tag" />
+            <div className="max-w-md mx-auto">
+              <Select value={currentTag} onValueChange={handleTagChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a topic" />
                 </SelectTrigger>
-                <SelectContent className="bg-background border shadow-md z-50">
-                  <SelectItem value="">All tags</SelectItem>
-                  <SelectItem value="ai">AI</SelectItem>
+                <SelectContent>
+                  <SelectItem value="">All Topics</SelectItem>
+                  <SelectItem value="ai">Artificial Intelligence</SelectItem>
                   <SelectItem value="ml">Machine Learning</SelectItem>
                   <SelectItem value="deep-learning">Deep Learning</SelectItem>
                   <SelectItem value="nlp">Natural Language Processing</SelectItem>
                   <SelectItem value="computer-vision">Computer Vision</SelectItem>
                   <SelectItem value="robotics">Robotics</SelectItem>
-                  <SelectItem value="gpt">GPT</SelectItem>
-                  <SelectItem value="llm">Large Language Models</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={source}
-                onValueChange={(value) => handleFilterChange('source', value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Filter by source" />
-                </SelectTrigger>
-                <SelectContent className="bg-background border shadow-md z-50">
-                  <SelectItem value="">All sources</SelectItem>
-                  <SelectItem value="youtube">YouTube</SelectItem>
-                  <SelectItem value="arxiv">ArXiv</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="github">GitHub</SelectItem>
-                  <SelectItem value="hugging face">Hugging Face</SelectItem>
+                  <SelectItem value="gpt">GPT & Language Models</SelectItem>
+                  <SelectItem value="neural-networks">Neural Networks</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -303,16 +227,16 @@ const Search = () => {
           {/* Active Filters */}
           {hasActiveFilters && (
             <div className="mb-6">
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 justify-center">
                 <span className="text-sm font-medium text-muted-foreground">Active filters:</span>
                 
                 {query && (
                   <Badge variant="secondary" className="flex items-center gap-1">
-                    Query: "{query}"
+                    Search: "{query}"
                     <button
                       onClick={() => {
                         setCurrentQuery("");
-                        updateSearchParams("");
+                        updateSearchParams("", currentTag);
                       }}
                       className="ml-1 hover:bg-muted-foreground/20 rounded-full p-0.5"
                     >
@@ -323,9 +247,12 @@ const Search = () => {
                 
                 {tag && (
                   <Badge variant="secondary" className="flex items-center gap-1">
-                    Tag: {tag}
+                    Topic: {tag}
                     <button
-                      onClick={() => clearFilter('tag')}
+                      onClick={() => {
+                        setCurrentTag("");
+                        updateSearchParams(query, "");
+                      }}
                       className="ml-1 hover:bg-muted-foreground/20 rounded-full p-0.5"
                     >
                       <X className="w-3 h-3" />
@@ -336,7 +263,7 @@ const Search = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={clearAllFilters}
+                  onClick={clearSearch}
                   className="text-xs"
                 >
                   Clear all
@@ -345,37 +272,67 @@ const Search = () => {
             </div>
           )}
 
-          {/* Results */}
+          {/* Quick Search Buttons */}
           {!hasActiveFilters && (
             <div className="bg-muted/30 rounded-2xl p-8 text-center">
               <SearchIcon className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <h2 className="text-xl font-semibold text-foreground mb-2">
                 Start your search
               </h2>
-              <p className="text-muted-foreground mb-4">
-                Enter keywords or use filters to find relevant content
+              <p className="text-muted-foreground mb-6">
+                Enter keywords or browse by topic to find relevant content
               </p>
-              <div className="flex flex-wrap justify-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => {
-                  setCurrentQuery("ai");
-                  updateSearchParams("ai");
-                }}>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-2xl mx-auto">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => {
+                    setCurrentQuery("artificial intelligence");
+                    updateSearchParams("artificial intelligence", "");
+                  }}
+                  className="text-xs"
+                >
                   AI Articles
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => {
-                  handleFilterChange('tag', 'ml');
-                }}>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    setCurrentTag("ml");
+                    updateSearchParams("", "ml");
+                  }}
+                  className="text-xs"
+                >
                   Machine Learning
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => {
-                  handleFilterChange('tag', 'deep-learning');
-                }}>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    setCurrentTag("deep-learning");
+                    updateSearchParams("", "deep-learning");
+                  }}
+                  className="text-xs"
+                >
                   Deep Learning
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    setCurrentQuery("neural networks");
+                    updateSearchParams("neural networks", "");
+                  }}
+                  className="text-xs"
+                >
+                  Neural Networks
                 </Button>
               </div>
             </div>
           )}
 
+          {/* Loading State */}
           {isLoading && hasActiveFilters && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[1, 2, 3, 4, 5, 6].map(i => (
@@ -388,20 +345,27 @@ const Search = () => {
             </div>
           )}
 
+          {/* Error State */}
           {error && (
             <div className="bg-destructive/10 border border-destructive/20 rounded-2xl p-8 text-center">
-              <p className="text-destructive font-medium">
+              <p className="text-destructive font-medium mb-4">
                 An error occurred while searching. Please try again.
               </p>
+              <Button variant="outline" onClick={() => window.location.reload()}>
+                Refresh Page
+              </Button>
             </div>
           )}
 
-          {searchResults && !isLoading && (
+          {/* Search Results */}
+          {searchResults && !isLoading && hasActiveFilters && (
             <>
               {/* Results Header */}
               <div className="mb-6">
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground text-center">
                   {searchResults.total} result{searchResults.total !== 1 ? 's' : ''} found
+                  {query && ` for "${query}"`}
+                  {tag && ` in ${tag}`}
                 </p>
               </div>
 
@@ -429,11 +393,16 @@ const Search = () => {
                     No results found
                   </h2>
                   <p className="text-muted-foreground mb-4">
-                    Try adjusting your search terms or filters
+                    Try different keywords or browse all content
                   </p>
-                  <Button variant="outline" onClick={clearAllFilters}>
-                    Clear filters
-                  </Button>
+                  <div className="flex gap-2 justify-center">
+                    <Button variant="outline" onClick={clearSearch}>
+                      Clear filters
+                    </Button>
+                    <Button asChild>
+                      <Link to="/feed">Browse All Content</Link>
+                    </Button>
+                  </div>
                 </div>
               )}
             </>
