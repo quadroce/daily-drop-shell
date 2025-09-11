@@ -78,7 +78,6 @@ export const SearchFilters = ({ filters, onChange, className }: SearchFiltersPro
               <SelectValue placeholder="Any source" />
             </SelectTrigger>
             <SelectContent className="bg-background border shadow-md z-50">
-              <SelectItem value="">Any source</SelectItem>
               {POPULAR_SOURCES.map(source => (
                 <SelectItem key={source} value={source.toLowerCase()}>
                   {source}
@@ -102,7 +101,6 @@ export const SearchFilters = ({ filters, onChange, className }: SearchFiltersPro
               <SelectValue placeholder="Any tag" />
             </SelectTrigger>
             <SelectContent className="bg-background border shadow-md z-50">
-              <SelectItem value="">Any tag</SelectItem>
               {POPULAR_TAGS.map(tag => (
                 <SelectItem key={tag} value={tag}>
                   {tag}
