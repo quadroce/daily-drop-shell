@@ -25,6 +25,10 @@ import AdminDashboard from "./pages/AdminDashboard";
 import AdminSources from "./pages/AdminSources";
 import AdminArticles from "./pages/admin/AdminArticles";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { TopicLandingPage } from "./pages/topics/TopicLandingPage";
+import { TopicArchiveIndexPage } from "./pages/topics/TopicArchiveIndexPage";
+import { TopicDailyArchivePage } from "./pages/topics/TopicDailyArchivePage";
+import { SitemapPage } from "./pages/SitemapPage";
 
 const queryClient = new QueryClient();
 
@@ -74,6 +78,10 @@ const App = () => (
                     <AdminArticles />
                   </ProtectedRoute>  
                 } />
+                <Route path="/topics/:slug" element={<TopicLandingPage />} />
+                <Route path="/topics/:slug/archive" element={<TopicArchiveIndexPage />} />
+                <Route path="/topics/:slug/:date" element={<TopicDailyArchivePage />} />
+                <Route path="/sitemap.xml" element={<SitemapPage />} />
                 <Route path="/u/:username" element={<PublicProfile />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
