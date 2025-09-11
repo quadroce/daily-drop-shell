@@ -1,3 +1,0 @@
-# Redirect all routes to index.html for React Router to handle
-# This ensures that /sitemap.xml and /sitemaps/* are handled by the React app
-/*    /index.html   200
