@@ -38,3 +38,6 @@ verify_jwt = true
 
 [functions.admin-update-tagging-params]
 verify_jwt = true
+
+[functions.retag-all-drops]
+verify_jwt = true

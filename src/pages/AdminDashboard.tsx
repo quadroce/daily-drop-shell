@@ -185,6 +185,32 @@ const AdminDashboard = () => {
     }
   };
 
+  const triggerRetagAll = async () => {
+    setRunning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('retag-all-drops', {});
+
+      if (error) throw error;
+
+      toast({
+        title: "Retroactive Tagging Started",
+        description: `Processing ${data.totalProcessed || 0} articles. ${data.totalErrors || 0} errors.`,
+      });
+
+      // Refresh data after completion
+      setTimeout(fetchData, 2000);
+    } catch (error) {
+      console.error('Error triggering retag-all:', error);
+      toast({
+        title: "Error",
+        description: "Failed to start retroactive tagging.",
+        variant: "destructive",
+      });
+    } finally {
+      setRunning(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     if (!dateString) return 'Never';
     const date = new Date(dateString);
@@ -323,6 +349,23 @@ const AdminDashboard = () => {
               </Button>
               <p className="text-xs text-muted-foreground text-center">
                 Force a manual content ingestion cycle
+              </p>
+              
+              <Button 
+                onClick={triggerRetagAll} 
+                disabled={running}
+                className="w-full"
+                variant="secondary"
+              >
+                {running ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Tags className="h-4 w-4 mr-2" />
+                )}
+                {running ? 'Tagging...' : 'Retag All Untagged Articles'}
+              </Button>
+              <p className="text-xs text-muted-foreground text-center">
+                Apply tags to all articles missing classification
               </p>
             </div>
           </CardContent>
