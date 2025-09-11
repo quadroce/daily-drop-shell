@@ -85,7 +85,7 @@ const AdminArticles = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedSource, setSelectedSource] = useState("");
+  const [selectedSource, setSelectedSource] = useState("ALL_SOURCES");
   const [showUntaggedOnly, setShowUntaggedOnly] = useState(false);
 
   const [editTagsModal, setEditTagsModal] = useState<{ open: boolean; drop?: Drop }>({ open: false });
@@ -378,7 +378,7 @@ const AdminArticles = () => {
                     <SelectValue placeholder="Tutte le fonti" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Tutte le fonti</SelectItem>
+                    <SelectItem value="ALL_SOURCES">Tutte le fonti</SelectItem>
                     {sources.map((source) => (
                       <SelectItem key={source.id} value={source.name}>
                         {source.name}
