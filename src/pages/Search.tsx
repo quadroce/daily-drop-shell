@@ -13,7 +13,7 @@ import { useAnalytics } from "@/lib/analytics";
 import { searchContent } from "@/lib/api/search";
 import type { SearchFiltersType, SearchResult } from "@/lib/api/search";
 
-export const Search = () => {
+const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { track } = useAnalytics();
   
