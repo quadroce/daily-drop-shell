@@ -137,10 +137,11 @@ function enforce121(result: ClassifyOut, topics: Topic[], params: {max_topics_pe
   // L3: only level 3, unique, cap - but ensure at least 1
   let finalL3Slugs = Array.from(new Set(l3.filter(t => t.level === 3).map(t => t.slug))).slice(0, maxL3);
   
-  // If no L3 tags were assigned, pick a default one based on L2 topic
+  // If no L3 tags were assigned, try to find a more appropriate fallback
   if (finalL3Slugs.length === 0 && candidatesL3.length > 0) {
-    // Try to find related L3 tags or fallback to first available
-    const defaultL3 = candidatesL3[0];
+    // First try to find a generic "other" tag or similar
+    const genericTag = candidatesL3.find(t => t.slug.includes('other') || t.slug.includes('general') || t.slug.includes('misc'));
+    const defaultL3 = genericTag || candidatesL3.find(t => !t.slug.includes('ab-testing')) || candidatesL3[0];
     finalL3Slugs = [defaultL3.slug];
   }
 
