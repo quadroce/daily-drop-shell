@@ -583,6 +583,45 @@ export type Database = {
         }
         Relationships: []
       }
+      sitemap_runs: {
+        Row: {
+          archive_urls_count: number | null
+          bing_ping_success: boolean | null
+          completed_at: string | null
+          error_message: string | null
+          google_ping_success: boolean | null
+          id: number
+          started_at: string
+          success: boolean | null
+          topics_count: number | null
+          total_urls: number | null
+        }
+        Insert: {
+          archive_urls_count?: number | null
+          bing_ping_success?: boolean | null
+          completed_at?: string | null
+          error_message?: string | null
+          google_ping_success?: boolean | null
+          id?: number
+          started_at?: string
+          success?: boolean | null
+          topics_count?: number | null
+          total_urls?: number | null
+        }
+        Update: {
+          archive_urls_count?: number | null
+          bing_ping_success?: boolean | null
+          completed_at?: string | null
+          error_message?: string | null
+          google_ping_success?: boolean | null
+          id?: number
+          started_at?: string
+          success?: boolean | null
+          topics_count?: number | null
+          total_urls?: number | null
+        }
+        Relationships: []
+      }
       sources: {
         Row: {
           created_at: string
