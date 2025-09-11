@@ -268,7 +268,7 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const baseUrl = 'https://dailydrop.com'; // TODO: Make this configurable
+    const baseUrl = 'https://dailydrops.cloud'; // TODO: Make this configurable
     
     const supabase = createClient(supabaseUrl, supabaseKey);
 
