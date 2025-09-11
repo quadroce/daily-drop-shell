@@ -116,7 +116,7 @@ export const TopicLandingPage = () => {
           <h1 className="text-3xl font-bold text-foreground mb-4">{topic.label}</h1>
           <div className="text-muted-foreground mb-4">
             <p>Level {topic.level} topic</p>
-            {topic.intro && (
+            {topic.intro && topic.level !== 3 && (
               <div className="mt-4 prose prose-sm max-w-none text-muted-foreground">
                 <p>{topic.intro}</p>
               </div>
