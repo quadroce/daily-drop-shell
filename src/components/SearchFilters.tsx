@@ -77,7 +77,7 @@ export const SearchFilters = ({ filters, onChange, className }: SearchFiltersPro
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Any source" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-background border shadow-md z-50">
               <SelectItem value="">Any source</SelectItem>
               {POPULAR_SOURCES.map(source => (
                 <SelectItem key={source} value={source.toLowerCase()}>
@@ -101,7 +101,7 @@ export const SearchFilters = ({ filters, onChange, className }: SearchFiltersPro
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Any tag" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-background border shadow-md z-50">
               <SelectItem value="">Any tag</SelectItem>
               {POPULAR_TAGS.map(tag => (
                 <SelectItem key={tag} value={tag}>
@@ -131,7 +131,7 @@ export const SearchFilters = ({ filters, onChange, className }: SearchFiltersPro
                 {filters.dateFrom ? format(new Date(filters.dateFrom), "MMM dd, yyyy") : "Select date"}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
+            <PopoverContent className="w-auto p-0 bg-background border shadow-md z-50" align="start">
               <CalendarComponent
                 mode="single"
                 selected={filters.dateFrom ? new Date(filters.dateFrom) : undefined}
@@ -163,7 +163,7 @@ export const SearchFilters = ({ filters, onChange, className }: SearchFiltersPro
                 {filters.dateTo ? format(new Date(filters.dateTo), "MMM dd, yyyy") : "Select date"}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
+            <PopoverContent className="w-auto p-0 bg-background border shadow-md z-50" align="start">
               <CalendarComponent
                 mode="single"
                 selected={filters.dateTo ? new Date(filters.dateTo) : undefined}

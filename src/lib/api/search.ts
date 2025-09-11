@@ -34,7 +34,7 @@ export const searchContent = async (params: SearchParams): Promise<SearchResult>
   } = params;
 
   try {
-    // Build the query
+    // Build the basic query
     let supabaseQuery = supabase
       .from('drops')
       .select(`
@@ -46,28 +46,24 @@ export const searchContent = async (params: SearchParams): Promise<SearchResult>
         published_at,
         type,
         tags,
-        sources:source_id(name, homepage_url)
+        source_id,
+        sources!inner(
+          name,
+          homepage_url
+        )
       `)
       .eq('tag_done', true);
 
-    // Apply text search
+    // Apply text search if provided
     if (query) {
       supabaseQuery = supabaseQuery.or(
         `title.ilike.%${query}%,summary.ilike.%${query}%`
       );
     }
 
-    // Apply source filter  
+    // Apply source filter
     if (source) {
-      const { data: sourceData } = await supabase
-        .from('sources')
-        .select('id')
-        .ilike('name', `%${source}%`)
-        .single();
-      
-      if (sourceData) {
-        supabaseQuery = supabaseQuery.eq('source_id', sourceData.id);
-      }
+      supabaseQuery = supabaseQuery.ilike('sources.name', `%${source}%`);
     }
 
     // Apply tag filter
@@ -84,11 +80,26 @@ export const searchContent = async (params: SearchParams): Promise<SearchResult>
       supabaseQuery = supabaseQuery.lte('published_at', `${dateTo}T23:59:59Z`);
     }
 
-    // Get total count first
-    const { count } = await supabase
+    // Get total count with simpler query
+    const countQuery = supabase
       .from('drops')
       .select('*', { count: 'exact', head: true })
       .eq('tag_done', true);
+
+    if (query) {
+      countQuery.or(`title.ilike.%${query}%,summary.ilike.%${query}%`);
+    }
+    if (tag) {
+      countQuery.contains('tags', [tag]);
+    }
+    if (dateFrom) {
+      countQuery.gte('published_at', `${dateFrom}T00:00:00Z`);
+    }
+    if (dateTo) {
+      countQuery.lte('published_at', `${dateTo}T23:59:59Z`);
+    }
+
+    const { count } = await countQuery;
 
     // Apply pagination and ordering
     const offset = (page - 1) * limit;
@@ -117,7 +128,7 @@ export const searchContent = async (params: SearchParams): Promise<SearchResult>
         url: drop.sources?.homepage_url || ''
       },
       href: drop.url,
-      youtubeId: drop.url.includes('youtube.com') || drop.url.includes('youtu.be') 
+      youtubeId: drop.url && (drop.url.includes('youtube.com') || drop.url.includes('youtu.be'))
         ? getYouTubeVideoId(drop.url) || undefined
         : undefined
     }));
