@@ -1,4 +1,4 @@
-import { ImageOff } from "lucide-react";
+import { Droplets } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ImagePlaceholderProps {
@@ -18,7 +18,7 @@ export const ImagePlaceholder = ({
       className
     )}>
       {showIcon && (
-        <ImageOff className="h-8 w-8 text-muted-foreground/40 mb-2" />
+        <Droplets className="h-8 w-8 text-muted-foreground/40 mb-2" />
       )}
       <span className="text-xs text-muted-foreground/60 font-medium">
         {text}
