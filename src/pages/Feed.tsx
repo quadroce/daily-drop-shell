@@ -13,12 +13,28 @@ import { getYouTubeThumbnailFromUrl, getYouTubeFallbackThumbnail } from "@/lib/y
 import { requireSession } from "@/lib/auth";
 import { useEngagement } from "@/hooks/useEngagement";
 import { useTopicsMap } from "@/hooks/useTopicsMap";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { FullWidthVideoCard } from "@/components/FullWidthVideoCard";
 import { track } from "@/lib/analytics";
+
+// Add YouTube preconnect for performance
+if (typeof document !== 'undefined') {
+  const preconnectYT = document.createElement('link');
+  preconnectYT.rel = 'preconnect';
+  preconnectYT.href = 'https://www.youtube-nocookie.com';
+  document.head.appendChild(preconnectYT);
+  
+  const preconnectYTImg = document.createElement('link');
+  preconnectYTImg.rel = 'preconnect';
+  preconnectYTImg.href = 'https://i.ytimg.com';
+  document.head.appendChild(preconnectYTImg);
+}
 
 const Feed = () => {
   const navigate = useNavigate();
   const { fallbackPrefs, isFallbackActive } = usePreferences();
   const { getTopicSlug, isLoading: topicsLoading } = useTopicsMap();
+  const { isPremium } = useUserProfile();
   const [drops, setDrops] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasPreferences, setHasPreferences] = useState<boolean | null>(null);
@@ -675,9 +691,28 @@ const Feed = () => {
       <div className="space-y-4">
         {drops.length > 0 ? (
           <>
-            {drops.map((drop) => (
-              <DropCard key={drop.id} drop={drop} />
-            ))}
+            {drops.map((drop) => {
+              // Check if this is a YouTube video
+              const isYouTube = !!drop.youtube_video_id || /youtu(\.be|be\.com)/.test(drop.url);
+              
+              // If premium user and YouTube video, render full-width video card
+              if (isPremium && isYouTube) {
+                return (
+                  <FullWidthVideoCard 
+                    key={drop.id} 
+                    item={drop} 
+                    isPremium={isPremium}
+                    onSave={handleSave}
+                    onLike={(id) => handleEngagement(Number(id), 'like')}
+                    onDismiss={(id) => handleEngagement(Number(id), 'dismiss')}
+                    onReport={(id) => handleEngagement(Number(id), 'report')}
+                  />
+                );
+              }
+              
+              // Otherwise render regular card
+              return <DropCard key={drop.id} drop={drop} />;
+            })}
             
             {/* Sponsored content */}
             <DropCard drop={sponsoredContent} isSponsored />
