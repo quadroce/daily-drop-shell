@@ -140,7 +140,7 @@ serve(async (req) => {
           .from('drops')
           .select(`
             id, title, url, image_url, summary, type, tags, source_id, published_at, created_at,
-            l1_topic_id, l2_topic_id
+            l1_topic_id, l2_topic_id, youtube_video_id, youtube_duration_seconds, youtube_view_count
           `)
           .in('id', dropIds);
         
@@ -198,6 +198,9 @@ serve(async (req) => {
                   tags: drop.tags || [],
                   l1_topic: l1Topic,
                   l2_topic: l2Topic,
+                  youtube_video_id: drop.youtube_video_id,
+                  youtube_duration_seconds: drop.youtube_duration_seconds,
+                  youtube_view_count: drop.youtube_view_count,
                   final_score: cached.final_score,
                   reason_for_ranking: cached.reason_for_ranking,
                   summary: drop.summary,

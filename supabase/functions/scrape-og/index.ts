@@ -332,24 +332,58 @@ serve(async (req) => {
 
     // Check if it's a YouTube URL
     const youtubeVideoId = getYouTubeVideoId(url);
+    let youtubeMetadata = null;
+    
     if (youtubeVideoId) {
       console.log(`YouTube video detected: ${youtubeVideoId}`);
       type = 'video';
       
-      // Parse title from HTML using DOMParser
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
-      
-      const ogTitle = doc.querySelector('meta[property="og:title"]')?.getAttribute('content');
-      const titleElement = doc.querySelector('title')?.textContent;
-      title = ogTitle || titleElement || 'YouTube Video';
-      
-      const ogDescription = doc.querySelector('meta[property="og:description"]')?.getAttribute('content');
-      const metaDescription = doc.querySelector('meta[name="description"]')?.getAttribute('content');
-      summary = ogDescription || metaDescription || '';
+      // Call YouTube metadata function
+      try {
+        console.log('Fetching YouTube metadata...');
+        const metadataResponse = await fetch(`${SUPABASE_URL}/functions/v1/youtube-metadata`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+            'apikey': SERVICE_ROLE_KEY,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ urlOrId: youtubeVideoId }),
+        });
 
-      // Use YouTube thumbnail with fallback
-      image_url = await getYouTubeThumbnail(youtubeVideoId);
+        if (metadataResponse.ok) {
+          youtubeMetadata = await metadataResponse.json();
+          console.log('YouTube metadata fetched:', youtubeMetadata);
+          
+          // Use YouTube metadata for title, description, and thumbnail
+          title = youtubeMetadata.title;
+          summary = ''; // YouTube API doesn't provide description in snippet
+          image_url = youtubeMetadata.youtube_thumbnail_url;
+        } else {
+          console.warn('Failed to fetch YouTube metadata, falling back to HTML parsing');
+          throw new Error('YouTube API failed');
+        }
+      } catch (error) {
+        console.warn('YouTube metadata fetch failed, using HTML fallback:', error);
+        youtubeMetadata = null;
+      }
+      
+      // Fallback to HTML parsing if YouTube API failed
+      if (!youtubeMetadata) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        const ogTitle = doc.querySelector('meta[property="og:title"]')?.getAttribute('content');
+        const titleElement = doc.querySelector('title')?.textContent;
+        title = ogTitle || titleElement || 'YouTube Video';
+        
+        const ogDescription = doc.querySelector('meta[property="og:description"]')?.getAttribute('content');
+        const metaDescription = doc.querySelector('meta[name="description"]')?.getAttribute('content');
+        summary = ogDescription || metaDescription || '';
+
+        // Use YouTube thumbnail with fallback
+        image_url = await getYouTubeThumbnail(youtubeVideoId);
+      }
       
     } else {
       // Regular article parsing using DOMParser
@@ -383,11 +417,21 @@ serve(async (req) => {
     // Calculate quality scores
     const qualityMetrics = await calculateQualityScore(title.trim(), summary.trim(), image_url, type);
     const authorityScore = await calculateAuthorityScore(source_id, canonical);
-    const popularityScore = await calculatePopularityScore(canonical, type);
+    
+    // Use YouTube view count for popularity if available, otherwise fallback to default calculation
+    let popularityScore;
+    if (youtubeMetadata?.youtube_view_count) {
+      // Normalize YouTube views using log1p (same as background-feed-ranking)
+      popularityScore = Math.log(1 + youtubeMetadata.youtube_view_count) / Math.log(1000);
+      popularityScore = Math.max(0, Math.min(1, popularityScore)); // Clamp 0-1
+      console.log(`Using YouTube view count for popularity: ${youtubeMetadata.youtube_view_count} views -> ${popularityScore}`);
+    } else {
+      popularityScore = await calculatePopularityScore(canonical, type);
+    }
 
     console.log(`Calculated scores - Authority: ${authorityScore}, Quality: ${qualityMetrics.quality_score}, Popularity: ${popularityScore}`);
 
-    // Prepare data for upsert
+    // Prepare data for upsert - include YouTube metadata if available
     const dropData = {
       url: canonical,
       url_hash,
@@ -398,12 +442,22 @@ serve(async (req) => {
       source_id,
       tags,
       lang_id,
-      published_at: finalPublishedAt,
+      published_at: youtubeMetadata?.youtube_published_at || finalPublishedAt,
       og_scraped: true,
       authority_score: authorityScore,
       quality_score: qualityMetrics.quality_score,
       popularity_score: popularityScore,
       created_at: new Date().toISOString(),
+      // YouTube-specific fields
+      ...(youtubeMetadata && {
+        youtube_video_id: youtubeMetadata.youtube_video_id,
+        youtube_channel_id: youtubeMetadata.youtube_channel_id,
+        youtube_published_at: youtubeMetadata.youtube_published_at,
+        youtube_category: youtubeMetadata.youtube_category,
+        youtube_duration_seconds: youtubeMetadata.youtube_duration_seconds,
+        youtube_view_count: youtubeMetadata.youtube_view_count,
+        youtube_thumbnail_url: youtubeMetadata.youtube_thumbnail_url,
+      }),
     };
 
     // Upsert into drops table using SERVICE_ROLE with merge-duplicates

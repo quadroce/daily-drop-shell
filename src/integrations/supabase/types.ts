@@ -267,6 +267,13 @@ export type Database = {
           type: Database["public"]["Enums"]["drop_type"]
           url: string
           url_hash: string | null
+          youtube_category: string | null
+          youtube_channel_id: string | null
+          youtube_duration_seconds: number | null
+          youtube_published_at: string | null
+          youtube_thumbnail_url: string | null
+          youtube_video_id: string | null
+          youtube_view_count: number | null
         }
         Insert: {
           authority_score?: number | null
@@ -292,6 +299,13 @@ export type Database = {
           type: Database["public"]["Enums"]["drop_type"]
           url: string
           url_hash?: string | null
+          youtube_category?: string | null
+          youtube_channel_id?: string | null
+          youtube_duration_seconds?: number | null
+          youtube_published_at?: string | null
+          youtube_thumbnail_url?: string | null
+          youtube_video_id?: string | null
+          youtube_view_count?: number | null
         }
         Update: {
           authority_score?: number | null
@@ -317,6 +331,13 @@ export type Database = {
           type?: Database["public"]["Enums"]["drop_type"]
           url?: string
           url_hash?: string | null
+          youtube_category?: string | null
+          youtube_channel_id?: string | null
+          youtube_duration_seconds?: number | null
+          youtube_published_at?: string | null
+          youtube_thumbnail_url?: string | null
+          youtube_video_id?: string | null
+          youtube_view_count?: number | null
         }
         Relationships: [
           {
@@ -887,6 +908,33 @@ export type Database = {
           },
         ]
       }
+      youtube_cache: {
+        Row: {
+          created_at: string
+          expires_at: string
+          fetched_at: string
+          id: number
+          payload: Json
+          video_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          fetched_at?: string
+          id?: never
+          payload: Json
+          video_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          fetched_at?: string
+          id?: never
+          payload?: Json
+          video_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -950,6 +998,13 @@ export type Database = {
           type: Database["public"]["Enums"]["drop_type"]
           url: string
           url_hash: string | null
+          youtube_category: string | null
+          youtube_channel_id: string | null
+          youtube_duration_seconds: number | null
+          youtube_published_at: string | null
+          youtube_thumbnail_url: string | null
+          youtube_video_id: string | null
+          youtube_view_count: number | null
         }[]
       }
       get_current_user_profile: {

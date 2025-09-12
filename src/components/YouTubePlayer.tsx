@@ -12,14 +12,18 @@ type Props = {
   videoId: string;
   contentId: string;
   className?: string;
+  isPremium?: boolean;
+  lazy?: boolean;
 };
 
-export default function YouTubePlayer({ videoId, contentId, className }: Props) {
+export default function YouTubePlayer({ videoId, contentId, className, isPremium = false, lazy = true }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const milestones = useRef(new Set<number>()); // 25,50,75,100
   const playerRef = useRef<any>(null);
 
   useEffect(() => {
+    if (!isPremium) return; // Only load for premium users
+
     if (!window.YT) {
       const tag = document.createElement('script');
       tag.src = 'https://www.youtube.com/iframe_api';
@@ -31,17 +35,48 @@ export default function YouTubePlayer({ videoId, contentId, className }: Props) 
       
       playerRef.current = new window.YT.Player(ref.current, {
         videoId,
+        host: 'https://www.youtube-nocookie.com', // Privacy-enhanced mode
         events: {
           onStateChange: (e: any) => {
-            if (e.data === window.YT.PlayerState.PLAYING) {
-              track('video_play', { content_id: contentId, video_id: videoId, percent: 0 });
+            // Track video events
+            switch (e.data) {
+              case window.YT.PlayerState.PLAYING:
+                track('video_play', { 
+                  content_id: contentId, 
+                  video_id: videoId, 
+                  percent: 0,
+                  platform: 'youtube_embedded'
+                });
+                break;
+              case window.YT.PlayerState.PAUSED:
+                track('video_pause', { 
+                  content_id: contentId, 
+                  video_id: videoId,
+                  platform: 'youtube_embedded'
+                });
+                break;
+              case window.YT.PlayerState.ENDED:
+                track('video_complete', { 
+                  content_id: contentId, 
+                  video_id: videoId,
+                  platform: 'youtube_embedded'
+                });
+                break;
             }
+          },
+          onReady: () => {
+            console.log('YouTube player ready for', videoId);
           }
         },
         playerVars: { 
           rel: 0,
           modestbranding: 1,
-          showinfo: 0
+          showinfo: 0,
+          iv_load_policy: 3, // Hide annotations
+          fs: 1, // Allow fullscreen
+          cc_load_policy: 0, // Hide captions by default
+          autoplay: 0, // No autoplay
+          origin: window.location.origin // Required for iframe API
         }
       });
 
@@ -61,13 +96,19 @@ export default function YouTubePlayer({ videoId, contentId, className }: Props) 
                 track('video_progress', { 
                   content_id: contentId, 
                   video_id: videoId, 
-                  percent: milestone 
+                  percent: milestone,
+                  platform: 'youtube_embedded'
                 });
-                if (milestone === 100) {
-                  track('video_complete', { 
-                    content_id: contentId, 
-                    video_id: videoId 
-                  });
+                
+                // Track quartiles separately for GA4
+                if (milestone === 25) {
+                  track('video_quartile_1', { content_id: contentId, video_id: videoId });
+                } else if (milestone === 50) {
+                  track('video_quartile_2', { content_id: contentId, video_id: videoId });
+                } else if (milestone === 75) {
+                  track('video_quartile_3', { content_id: contentId, video_id: videoId });
+                } else if (milestone === 100) {
+                  track('video_quartile_4', { content_id: contentId, video_id: videoId });
                 }
               }
             });
@@ -96,7 +137,12 @@ export default function YouTubePlayer({ videoId, contentId, className }: Props) 
         playerRef.current.destroy();
       }
     };
-  }, [videoId, contentId]);
+  }, [videoId, contentId, isPremium]);
+
+  // For non-premium users or when lazy loading, return a simple div
+  if (!isPremium) {
+    return null;
+  }
 
   return <div ref={ref} className={className} />;
 }

@@ -20,6 +20,8 @@ export type FeedCardProps = {
   l2Topic?: string;
   href: string;
   youtubeId?: string;
+  youtubeDuration?: number; // seconds
+  youtubeViewCount?: number;
   isPremium?: boolean;
 };
 
@@ -42,6 +44,8 @@ export const FeedCard = ({
   l2Topic,
   href, 
   youtubeId, 
+  youtubeDuration,
+  youtubeViewCount,
   isPremium, 
   user,
   onEngage,
@@ -94,10 +98,41 @@ export const FeedCard = ({
   const handleVideoPlay = () => {
     handleAction("video_play");
     if (user?.isPremium && youtubeId) {
-      // Premium users see inline video
+      // Premium users see inline video - tracking handled by YouTubePlayer
+      track('video_play', { 
+        content_id: id, 
+        video_id: youtubeId,
+        platform: 'youtube_inline_premium'
+      });
       return;
     }
+    // Free users open YouTube externally
+    track('video_play', { 
+      content_id: id, 
+      video_id: youtubeId,
+      platform: 'youtube_external'
+    });
     window.open(`https://www.youtube.com/watch?v=${youtubeId}`, "_blank");
+  };
+
+  const formatDuration = (seconds?: number) => {
+    if (!seconds) return '';
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const formatViewCount = (count?: number) => {
+    if (!count) return '';
+    if (count < 1000) return count.toString();
+    if (count < 1000000) return `${(count / 1000).toFixed(1)}K`;
+    if (count < 1000000000) return `${(count / 1000000).toFixed(1)}M`;
+    return `${(count / 1000000000).toFixed(1)}B`;
   };
 
   const showInlineVideo = user?.isPremium && type === "video" && youtubeId;
@@ -109,11 +144,25 @@ export const FeedCard = ({
           {/* Image/Video Section */}
           <div className="relative w-full aspect-square overflow-hidden">
             {showInlineVideo ? (
-              <YouTubePlayer
-                videoId={youtubeId!}
-                contentId={id}
-                className="w-full h-full"
-              />
+              <div className="relative w-full h-full">
+                <YouTubePlayer
+                  videoId={youtubeId!}
+                  contentId={id}
+                  isPremium={true}
+                  className="w-full h-full"
+                />
+                {/* Premium badge */}
+                <div className="absolute top-2 right-2 bg-primary text-primary-foreground px-2 py-1 rounded text-xs font-medium">
+                  Premium
+                </div>
+                {/* Video metadata overlay */}
+                {(youtubeDuration || youtubeViewCount) && (
+                  <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs space-x-2">
+                    {youtubeDuration && <span>{formatDuration(youtubeDuration)}</span>}
+                    {youtubeViewCount && <span>• {formatViewCount(youtubeViewCount)} views</span>}
+                  </div>
+                )}
+              </div>
             ) : (
               <div 
                 className="w-full h-full bg-cover bg-center cursor-pointer relative group"
@@ -130,10 +179,16 @@ export const FeedCard = ({
                   </div>
                 )}
                 {!user?.isPremium && youtubeId && (
-                  <div className="absolute bottom-2 left-2">
-                    <Badge variant="secondary" className="text-xs">
-                      Watch on YouTube
+                  <div className="absolute top-2 right-2">
+                    <Badge variant="secondary" className="text-xs bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
+                      Watch inline with Premium
                     </Badge>
+                  </div>
+                )}
+                {(youtubeDuration || youtubeViewCount) && type === "video" && (
+                  <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs space-x-2">
+                    {youtubeDuration && <span>{formatDuration(youtubeDuration)}</span>}
+                    {youtubeViewCount && <span>• {formatViewCount(youtubeViewCount)} views</span>}
                   </div>
                 )}
                 {!imageUrl && (
