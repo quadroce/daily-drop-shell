@@ -16,10 +16,12 @@ interface ManualIngestRequest {
 }
 
 interface ManualIngestResponse {
-  status: 'exists' | 'queued' | 'error';
+  status: 'exists' | 'queued' | 'error' | 'in_queue' | 'processing' | 'failed';
   content_id?: number;
   queue_id?: number;
+  queue_status?: string;
   error?: string;
+  message?: string;
 }
 
 function generateUrlHash(url: string): string {
@@ -68,10 +70,17 @@ async function checkUserPermissions(authHeader: string): Promise<boolean> {
   }
 }
 
-async function checkExistingContent(url: string): Promise<{ exists: boolean; contentId?: number }> {
+async function checkExistingContent(url: string): Promise<{ 
+  exists: boolean; 
+  contentId?: number;
+  inQueue?: boolean;
+  queueId?: number;
+  queueStatus?: string;
+}> {
   const urlHash = generateUrlHash(url);
   
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/drops?url_hash=eq.${urlHash}&select=id,url`, {
+  // Check drops table first (already processed content)
+  const dropsResponse = await fetch(`${SUPABASE_URL}/rest/v1/drops?url_hash=eq.${urlHash}&select=id,url`, {
     headers: {
       'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
       'apikey': SERVICE_ROLE_KEY,
@@ -79,16 +88,48 @@ async function checkExistingContent(url: string): Promise<{ exists: boolean; con
     },
   });
 
-  if (!response.ok) {
-    throw new Error(`Failed to check existing content: ${response.statusText}`);
+  if (!dropsResponse.ok) {
+    throw new Error(`Failed to check existing content: ${dropsResponse.statusText}`);
   }
 
-  const drops = await response.json();
+  const drops = await dropsResponse.json();
   const existingDrop = drops.find((drop: any) => drop.url === url);
   
+  if (existingDrop) {
+    return {
+      exists: true,
+      contentId: existingDrop.id
+    };
+  }
+
+  // Check ingestion_queue table for pending/processing URLs
+  const queueResponse = await fetch(`${SUPABASE_URL}/rest/v1/ingestion_queue?url=eq.${encodeURIComponent(url)}&select=id,status`, {
+    headers: {
+      'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+      'apikey': SERVICE_ROLE_KEY,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!queueResponse.ok) {
+    throw new Error(`Failed to check ingestion queue: ${queueResponse.statusText}`);
+  }
+
+  const queueItems = await queueResponse.json();
+  const existingQueueItem = queueItems[0];
+  
+  if (existingQueueItem) {
+    return {
+      exists: false,
+      inQueue: true,
+      queueId: existingQueueItem.id,
+      queueStatus: existingQueueItem.status
+    };
+  }
+  
   return {
-    exists: !!existingDrop,
-    contentId: existingDrop?.id
+    exists: false,
+    inQueue: false
   };
 }
 
@@ -224,12 +265,14 @@ serve(async (req) => {
 
     // Check for existing content
     const existingCheck = await checkExistingContent(normalizedUrl);
+    
     if (existingCheck.exists) {
       console.log(`URL already exists with content ID: ${existingCheck.contentId}`);
       
       const response: ManualIngestResponse = {
         status: 'exists',
-        content_id: existingCheck.contentId
+        content_id: existingCheck.contentId,
+        message: 'Content already processed and available'
       };
       
       return new Response(
@@ -238,9 +281,93 @@ serve(async (req) => {
       );
     }
 
+    // Check if URL is already in queue
+    if (existingCheck.inQueue) {
+      console.log(`URL already in queue with status: ${existingCheck.queueStatus}`);
+      
+      let response: ManualIngestResponse;
+      
+      switch (existingCheck.queueStatus) {
+        case 'pending':
+          response = {
+            status: 'in_queue',
+            queue_id: existingCheck.queueId,
+            queue_status: 'pending',
+            message: 'URL is already queued for processing'
+          };
+          break;
+        
+        case 'processing':
+          response = {
+            status: 'processing',
+            queue_id: existingCheck.queueId,
+            queue_status: 'processing',
+            message: 'URL is currently being processed'
+          };
+          break;
+        
+        case 'done':
+          response = {
+            status: 'in_queue',
+            queue_id: existingCheck.queueId,
+            queue_status: 'done',
+            message: 'URL was processed but may not have resulted in content. Check processing logs.'
+          };
+          break;
+        
+        case 'failed':
+          // Allow re-ingestion for failed items
+          console.log('Re-queueing failed URL');
+          break;
+        
+        default:
+          response = {
+            status: 'in_queue',
+            queue_id: existingCheck.queueId,
+            queue_status: existingCheck.queueStatus,
+            message: `URL is in queue with status: ${existingCheck.queueStatus}`
+          };
+      }
+      
+      // Return early unless it's a failed item that we want to retry
+      if (existingCheck.queueStatus !== 'failed') {
+        return new Response(
+          JSON.stringify(response),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     // Add to ingestion queue
     console.log('Adding URL to ingestion queue');
-    const queueId = await addToIngestionQueue(normalizedUrl, source_label, notes);
+    let queueId: number;
+    
+    try {
+      queueId = await addToIngestionQueue(normalizedUrl, source_label, notes);
+    } catch (error) {
+      // Handle duplicate key error specifically
+      if (error instanceof Error && error.message.includes('duplicate key value violates unique constraint')) {
+        console.log('URL already exists in queue, checking current status...');
+        
+        // Re-check the queue status since there might be a race condition
+        const recheckResult = await checkExistingContent(normalizedUrl);
+        if (recheckResult.inQueue) {
+          const response: ManualIngestResponse = {
+            status: 'in_queue',
+            queue_id: recheckResult.queueId,
+            queue_status: recheckResult.queueStatus,
+            message: 'URL was already in queue'
+          };
+          
+          return new Response(
+            JSON.stringify(response),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+      
+      throw error; // Re-throw if it's not a duplicate key error
+    }
     
     // Extract user ID for audit log
     const token = authHeader?.substring(7);
@@ -263,7 +390,10 @@ serve(async (req) => {
 
     const response: ManualIngestResponse = {
       status: 'queued',
-      queue_id: queueId
+      queue_id: queueId,
+      message: existingCheck.queueStatus === 'failed' ? 
+        'URL re-queued after previous failure' : 
+        'URL successfully added to processing queue'
     };
 
     return new Response(
