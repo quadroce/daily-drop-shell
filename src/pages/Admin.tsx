@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Users, Database, List, ArrowLeft, Rss, Cog, Tags, Monitor, Map, Globe } from "lucide-react";
+import { Loader2, Users, Database, List, ArrowLeft, Rss, Cog, Tags, Monitor, Map, Globe, Youtube } from "lucide-react";
 
 interface Profile {
   id: string;
@@ -328,6 +328,43 @@ const Admin = () => {
     }
   };
 
+  const runYouTubeReprocessing = async () => {
+    setActionLoading('youtube-reprocessing');
+    try {
+      const { data, error } = await supabase.functions.invoke('start-youtube-reprocessing', {
+        body: {}
+      });
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      if (data.success) {
+        toast({
+          title: "YouTube Reprocessing Started",
+          description: `Found ${data.totalProblematic} problematic videos. Processing in ${data.batchesNeeded} batches.`,
+        });
+        
+        // Refresh tagging stats after processing
+        await fetchTaggingStats();
+      } else {
+        toast({
+          title: "YouTube Reprocessing Info",
+          description: data.message || "No problematic videos found",
+        });
+      }
+    } catch (error) {
+      console.error('YouTube reprocessing error:', error);
+      toast({
+        title: "YouTube Reprocessing Error", 
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: "destructive",
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const toggleAutoIngest = async () => {
     setActionLoading('toggle-auto');
     try {
@@ -618,6 +655,20 @@ const Admin = () => {
                   <Tags className="h-4 w-4" />
                 )}
                 Run Tagger now
+              </Button>
+              
+              <Button 
+                onClick={runYouTubeReprocessing}
+                disabled={actionLoading !== null}
+                variant="destructive"
+                className="flex items-center gap-2"
+              >
+                {actionLoading === 'youtube-reprocessing' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Youtube className="h-4 w-4" />
+                )}
+                Reprocess YouTube Videos
               </Button>
             </div>
 
