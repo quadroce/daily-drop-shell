@@ -50,9 +50,24 @@ async function fetchTopics(): Promise<Topic[]> {
   return await res.json();
 }
 
-async function fetchDrops(limit: number): Promise<Drop[]> {
-  // Drops che necessitano tagging (usa la tua condizione – qui tag_done=false se esiste)
-  const query = `/rest/v1/drops?select=id,title,summary,language&tag_done=is.false&order=created_at.desc&limit=${limit}`;
+async function fetchDrops(limit: number, options: { drop_ids?: number[], force_retag?: boolean } = {}): Promise<Drop[]> {
+  const { drop_ids, force_retag } = options;
+  
+  let query = `/rest/v1/drops?select=id,title,summary,language`;
+  
+  if (drop_ids && drop_ids.length > 0) {
+    // Se sono specificati drop_ids, cercare solo quelli
+    const idsFilter = drop_ids.map(id => `eq.${id}`).join(',');
+    query += `&id=in.(${drop_ids.join(',')})`;
+  } else {
+    // Altrimenti usa la logica normale con limite
+    if (!force_retag) {
+      query += `&tag_done=is.false`;
+    }
+    query += `&order=created_at.desc&limit=${limit}`;
+  }
+  
+  console.log('Executing query:', query);
   const res = await supa(query);
   return await res.json();
 }
@@ -238,11 +253,24 @@ serve(async (req) => {
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const limit = Number(limitParam ?? body.limit ?? 25);
     const max_l3 = Number(body.max_l3 ?? 3);
+    
+    // Supporto per force_retag e drop_ids specifici
+    const drop_ids = body.drop_ids;
+    const force_retag = body.force_retag;
+    
+    console.log('Request parameters:', { limit, max_l3, drop_ids, force_retag });
 
     // Load config
-    const [topics, drops] = await Promise.all([fetchTopics(), fetchDrops(limit)]);
+    const [topics, drops] = await Promise.all([
+      fetchTopics(), 
+      fetchDrops(limit, { drop_ids, force_retag })
+    ]);
+    
     if (!topics.length) return jres(400, { error: "No topics found" });
-    if (!drops.length)  return jres(200, { message: "No drops need tagging", processed: 0 });
+    if (!drops.length) {
+      const message = drop_ids ? "No drops found with specified IDs" : "No drops need tagging";
+      return jres(200, { message, processed: 0 });
+    }
 
     console.log(`Starting tagging process for ${drops.length} drops with ${topics.length} topics`);
     const results: any[] = [];
