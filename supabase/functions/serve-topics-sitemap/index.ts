@@ -54,7 +54,7 @@ function buildSitemap(urls: SitemapUrl[]): string {
 async function generateTopicsSitemap(supabase: any, baseUrl: string): Promise<SitemapUrl[]> {
   const { data: topics, error } = await supabase
     .from('topics')
-    .select('slug, updated_at')
+    .select('slug')
     .eq('is_active', true)
     .order('slug');
 
@@ -64,6 +64,7 @@ async function generateTopicsSitemap(supabase: any, baseUrl: string): Promise<Si
   }
 
   const urls: SitemapUrl[] = [];
+  const now = new Date().toISOString();
 
   for (const topic of topics) {
     // Topic landing page
@@ -71,7 +72,7 @@ async function generateTopicsSitemap(supabase: any, baseUrl: string): Promise<Si
       loc: `${baseUrl}/topics/${topic.slug}`,
       changefreq: 'daily',
       priority: 0.8,
-      lastmod: topic.updated_at || new Date().toISOString()
+      lastmod: now
     });
 
     // Topic archive page
@@ -79,7 +80,7 @@ async function generateTopicsSitemap(supabase: any, baseUrl: string): Promise<Si
       loc: `${baseUrl}/topics/${topic.slug}/archive`,
       changefreq: 'weekly',
       priority: 0.6,
-      lastmod: topic.updated_at || new Date().toISOString()
+      lastmod: now
     });
   }
 
