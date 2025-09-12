@@ -13,4 +13,4 @@ Allow: /
 User-agent: *
 Allow: /
 
-Sitemap: https://dailydrop.com/sitemap.xml
+Sitemap: https://dailydrops.cloud/sitemap.xml
