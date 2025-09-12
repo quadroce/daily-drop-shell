@@ -66,12 +66,17 @@ Deno.serve(async (req) => {
 
   try {
     if (!YOUTUBE_API_KEY) {
-      throw new Error('YouTube API key not configured')
+      console.error('[YouTube Metadata] YouTube API key not configured')
+      return new Response(
+        JSON.stringify({ error: 'YouTube API key not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     const { urlOrId }: YouTubeMetadataRequest = await req.json()
     
     if (!urlOrId) {
+      console.error('[YouTube Metadata] urlOrId parameter is required')
       return new Response(
         JSON.stringify({ error: 'urlOrId parameter is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -80,6 +85,7 @@ Deno.serve(async (req) => {
 
     const videoId = extractVideoId(urlOrId)
     if (!videoId) {
+      console.error(`[YouTube Metadata] Could not extract video ID from: ${urlOrId}`)
       return new Response(
         JSON.stringify({ error: 'Could not extract video ID from URL' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -109,63 +115,123 @@ Deno.serve(async (req) => {
 
     console.log(`[YouTube Metadata] Cache miss, fetching from API for ${videoId}`)
 
-    // Fetch from YouTube API
-    const youtubeUrl = `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet,contentDetails,statistics&key=${YOUTUBE_API_KEY}`
+    // Retry logic for YouTube API calls
+    let lastError: Error | null = null
+    const maxRetries = 3
     
-    const response = await fetch(youtubeUrl)
-    if (!response.ok) {
-      throw new Error(`YouTube API error: ${response.status} ${response.statusText}`)
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`[YouTube Metadata] API attempt ${attempt}/${maxRetries} for ${videoId}`)
+        
+        // Fetch from YouTube API
+        const youtubeUrl = `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet,contentDetails,statistics&key=${YOUTUBE_API_KEY}`
+        
+        const response = await fetch(youtubeUrl)
+        
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error(`[YouTube Metadata] API error ${response.status}: ${errorText}`)
+          
+          // Check for rate limiting or quota issues
+          if (response.status === 403) {
+            const parsedError = JSON.parse(errorText)
+            if (parsedError.error?.errors?.[0]?.reason === 'quotaExceeded') {
+              throw new Error('YouTube API quota exceeded')
+            } else if (parsedError.error?.errors?.[0]?.reason === 'forbidden') {
+              throw new Error('YouTube API key invalid or insufficient permissions')
+            }
+          }
+          
+          throw new Error(`YouTube API error: ${response.status} ${response.statusText}`)
+        }
+
+        const data = await response.json()
+        console.log(`[YouTube Metadata] API response for ${videoId}:`, JSON.stringify(data, null, 2))
+        
+        if (!data.items || data.items.length === 0) {
+          console.error(`[YouTube Metadata] Video ${videoId} not found in API response`)
+          return new Response(
+            JSON.stringify({ error: 'Video not found or is private' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Success - break out of retry loop
+        const video = data.items[0]
+        return await processVideoMetadata(video, videoId, supabase)
+        
+      } catch (error) {
+        lastError = error as Error
+        console.error(`[YouTube Metadata] Attempt ${attempt}/${maxRetries} failed:`, error.message)
+        
+        // Don't retry on certain errors
+        if (error.message.includes('not found') || error.message.includes('invalid') || error.message.includes('forbidden')) {
+          break
+        }
+        
+        // Wait before retrying (exponential backoff)
+        if (attempt < maxRetries) {
+          const delay = Math.pow(2, attempt) * 1000 // 2s, 4s, 8s
+          console.log(`[YouTube Metadata] Waiting ${delay}ms before retry...`)
+          await new Promise(resolve => setTimeout(resolve, delay))
+        }
+      }
     }
 
-    const data = await response.json()
-    
-    if (!data.items || data.items.length === 0) {
-      return new Response(
-        JSON.stringify({ error: 'Video not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+    // All retries failed
+    throw lastError || new Error('All retry attempts failed')
 
-    const video = data.items[0]
-    const snippet = video.snippet
-    const contentDetails = video.contentDetails
-    const statistics = video.statistics
+// Helper function to process video metadata
+async function processVideoMetadata(video: any, videoId: string, supabase: any): Promise<Response> {
+  const snippet = video.snippet
+  const contentDetails = video.contentDetails
+  const statistics = video.statistics
 
-    // Build response
-    const metadata: YouTubeMetadataResponse = {
-      youtube_video_id: videoId,
-      title: snippet.title,
-      youtube_channel_id: snippet.channelId,
-      youtube_published_at: snippet.publishedAt,
-      youtube_category: snippet.categoryId || 'unknown',
-      youtube_duration_seconds: parseDuration(contentDetails.duration),
-      youtube_view_count: parseInt(statistics.viewCount || '0'),
-      youtube_thumbnail_url: snippet.thumbnails?.maxres?.url || 
-                            snippet.thumbnails?.high?.url || 
-                            snippet.thumbnails?.medium?.url ||
-                            snippet.thumbnails?.default?.url || ''
-    }
+  console.log(`[YouTube Metadata] Processing metadata for ${videoId}:`, {
+    title: snippet.title,
+    channelId: snippet.channelId,
+    duration: contentDetails.duration,
+    viewCount: statistics.viewCount
+  })
 
-    // Cache the result
-    const { error: cacheError } = await supabase
-      .from('youtube_cache')
-      .upsert({
-        video_id: videoId,
-        payload: metadata,
-        fetched_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
-      })
+  // Build response
+  const metadata: YouTubeMetadataResponse = {
+    youtube_video_id: videoId,
+    title: snippet.title,
+    youtube_channel_id: snippet.channelId,
+    youtube_published_at: snippet.publishedAt,
+    youtube_category: snippet.categoryId || 'unknown',
+    youtube_duration_seconds: parseDuration(contentDetails.duration),
+    youtube_view_count: parseInt(statistics.viewCount || '0'),
+    youtube_thumbnail_url: snippet.thumbnails?.maxres?.url || 
+                          snippet.thumbnails?.high?.url || 
+                          snippet.thumbnails?.medium?.url ||
+                          snippet.thumbnails?.default?.url || ''
+  }
 
-    if (cacheError) {
-      console.error('[YouTube Metadata] Cache error:', cacheError)
-    } else {
-      console.log(`[YouTube Metadata] Cached result for ${videoId}`)
-    }
+  console.log(`[YouTube Metadata] Final metadata:`, metadata)
 
-    return new Response(
-      JSON.stringify(metadata),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+  // Cache the result
+  const { error: cacheError } = await supabase
+    .from('youtube_cache')
+    .upsert({
+      video_id: videoId,
+      payload: metadata,
+      fetched_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
+    })
+
+  if (cacheError) {
+    console.error('[YouTube Metadata] Cache error:', cacheError)
+  } else {
+    console.log(`[YouTube Metadata] Cached result for ${videoId}`)
+  }
+
+  return new Response(
+    JSON.stringify(metadata),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  )
+}
 
   } catch (error) {
     console.error('[YouTube Metadata] Error:', error)

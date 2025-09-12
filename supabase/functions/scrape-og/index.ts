@@ -338,34 +338,61 @@ serve(async (req) => {
       console.log(`YouTube video detected: ${youtubeVideoId}`);
       type = 'video';
       
-      // Call YouTube metadata function
-      try {
-        console.log('Fetching YouTube metadata...');
-        const metadataResponse = await fetch(`${SUPABASE_URL}/functions/v1/youtube-metadata`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-            'apikey': SERVICE_ROLE_KEY,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ urlOrId: youtubeVideoId }),
-        });
-
-        if (metadataResponse.ok) {
-          youtubeMetadata = await metadataResponse.json();
-          console.log('YouTube metadata fetched:', youtubeMetadata);
+      // Call YouTube metadata function with retry logic
+      const maxRetries = 2
+      let lastError: Error | null = null
+      
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`[Scrape-OG] Fetching YouTube metadata for ${youtubeVideoId} (attempt ${attempt}/${maxRetries})...`);
           
-          // Use YouTube metadata for title, description, and thumbnail
-          title = youtubeMetadata.title;
-          summary = ''; // YouTube API doesn't provide description in snippet
-          image_url = youtubeMetadata.youtube_thumbnail_url;
-        } else {
-          console.warn('Failed to fetch YouTube metadata, falling back to HTML parsing');
-          throw new Error('YouTube API failed');
+          const metadataResponse = await fetch(`${SUPABASE_URL}/functions/v1/youtube-metadata`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+              'apikey': SERVICE_ROLE_KEY,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ urlOrId: youtubeVideoId }),
+          });
+
+          if (metadataResponse.ok) {
+            youtubeMetadata = await metadataResponse.json();
+            console.log('[Scrape-OG] YouTube metadata fetched successfully:', {
+              title: youtubeMetadata.title,
+              duration: youtubeMetadata.youtube_duration_seconds,
+              views: youtubeMetadata.youtube_view_count
+            });
+            
+            // Use YouTube metadata for title, description, and thumbnail
+            title = youtubeMetadata.title;
+            summary = youtubeMetadata.title; // Use title as summary for now
+            image_url = youtubeMetadata.youtube_thumbnail_url;
+            break; // Success - exit retry loop
+            
+          } else {
+            const errorText = await metadataResponse.text();
+            const error = `YouTube metadata API failed: ${metadataResponse.status} ${errorText}`;
+            console.error(`[Scrape-OG] ${error}`);
+            throw new Error(error);
+          }
+          
+        } catch (error) {
+          lastError = error as Error;
+          console.error(`[Scrape-OG] YouTube metadata attempt ${attempt}/${maxRetries} failed:`, error.message);
+          
+          // Wait before retrying
+          if (attempt < maxRetries) {
+            const delay = 2000 * attempt; // 2s, 4s
+            console.log(`[Scrape-OG] Waiting ${delay}ms before retry...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
         }
-      } catch (error) {
-        console.warn('YouTube metadata fetch failed, using HTML fallback:', error);
-        youtubeMetadata = null;
+      }
+      
+      // If all retries failed, log the error and continue with HTML fallback
+      if (!youtubeMetadata && lastError) {
+        console.error(`[Scrape-OG] All YouTube metadata attempts failed for ${youtubeVideoId}:`, lastError.message);
       }
       
       // Fallback to HTML parsing if YouTube API failed
