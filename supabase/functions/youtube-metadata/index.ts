@@ -53,9 +53,17 @@ function extractVideoId(urlOrId: string): string | null {
 /**
  * Parses ISO 8601 duration string (PT#M#S) to seconds
  */
-function parseDuration(duration: string): number {
+function parseDuration(duration: string | undefined): number {
+  if (!duration || typeof duration !== 'string') {
+    console.log(`Invalid duration provided: ${duration}`);
+    return 0;
+  }
+  
   const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
-  if (!match) return 0;
+  if (!match) {
+    console.log(`Could not parse duration: ${duration}`);
+    return 0;
+  }
   
   const hours = parseInt(match[1] || '0');
   const minutes = parseInt(match[2] || '0');
@@ -169,15 +177,27 @@ Deno.serve(async (req) => {
       const statistics = video.statistics;
       const contentDetails = video.contentDetails;
 
+      // Add safety checks for required fields
+      if (!snippet) {
+        throw new Error('Video snippet data not available');
+      }
+
+      if (!snippet.title) {
+        throw new Error('Video title not available');
+      }
+
+      console.log(`Processing video: ${snippet.title}`);
+      console.log(`Content details duration:`, contentDetails?.duration);
+
       const metadata: YouTubeMetadataResponse = {
         videoId,
         title: snippet.title,
         description: snippet.description || '',
-        channelTitle: snippet.channelTitle,
-        channelId: snippet.channelId,
-        publishedAt: snippet.publishedAt,
-        duration: parseDuration(contentDetails.duration),
-        viewCount: parseInt(statistics.viewCount || '0'),
+        channelTitle: snippet.channelTitle || 'Unknown Channel',
+        channelId: snippet.channelId || '',
+        publishedAt: snippet.publishedAt || new Date().toISOString(),
+        duration: parseDuration(contentDetails?.duration),
+        viewCount: parseInt(statistics?.viewCount || '0'),
         thumbnailUrl: snippet.thumbnails?.maxresdefault?.url || 
                      snippet.thumbnails?.high?.url || 
                      snippet.thumbnails?.medium?.url || 
