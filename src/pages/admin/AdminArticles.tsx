@@ -2,6 +2,7 @@ import { FunctionsHttpError } from "@supabase/supabase-js";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import RequireRole from "@/components/RequireRole";
 import {
   Table,
@@ -261,6 +262,57 @@ const AdminArticles = () => {
     }
   };
 
+  const handleRetagMissing = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast({
+          title: "Errore",
+          description: "Devi essere autenticato per eseguire questa operazione",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setLoading(true);
+      console.log('Starting retroactive retagging...');
+
+      const { data, error } = await supabase.functions.invoke('retag-missing-topics', {
+        headers: { 
+          Authorization: `Bearer ${session.access_token}` 
+        }
+      });
+
+      if (error) {
+        console.error('Retroactive retag error:', error);
+        throw error;
+      }
+
+      console.log('Retroactive retag success:', data);
+
+      toast({
+        title: "Successo",
+        description: `Retagging retroattivo completato: ${data.total_processed}/${data.total_found} articoli processati`,
+      });
+      
+      fetchDrops();
+    } catch (error) {
+      console.error('Error in retroactive retagging:', error);
+      const errorMsg = error instanceof FunctionsHttpError 
+        ? `Errore HTTP: ${error.message}`
+        : "Errore nel retagging retroattivo";
+      
+      toast({
+        title: "Errore",
+        description: errorMsg,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleEditTags = async () => {
     if (!editTagsModal.drop) return;
 
@@ -394,10 +446,20 @@ const AdminArticles = () => {
       <div className="container mx-auto py-8 space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">Gestione Articoli</h1>
-          <Button onClick={fetchDrops} disabled={loading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Aggiorna
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={handleRetagMissing} 
+              disabled={loading}
+              variant="outline"
+            >
+              <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
+              Retag Mancanti
+            </Button>
+            <Button onClick={fetchDrops} disabled={loading}>
+              <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} />
+              Aggiorna
+            </Button>
+          </div>
         </div>
 
         <Card>
