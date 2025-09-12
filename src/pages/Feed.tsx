@@ -691,12 +691,16 @@ const Feed = () => {
       <div className="space-y-4">
         {drops.length > 0 ? (
           <>
-            {drops.map((drop) => {
+            {drops.map((drop, index) => {
               // Check if this is a YouTube video
               const isYouTube = !!drop.youtube_video_id || /youtu(\.be|be\.com)/.test(drop.url);
               
-              // If premium user and YouTube video, render full-width video card
-              if (isPremium && isYouTube) {
+              // Check if this is the first YouTube video in the list
+              const isFirstYouTubeVideo = isYouTube && 
+                drops.findIndex(d => !!d.youtube_video_id || /youtu(\.be|be\.com)/.test(d.url)) === index;
+              
+              // If premium user and first YouTube video, render full-width video card
+              if (isPremium && isYouTube && isFirstYouTubeVideo) {
                 return (
                   <FullWidthVideoCard 
                     key={drop.id} 
@@ -710,7 +714,7 @@ const Feed = () => {
                 );
               }
               
-              // Otherwise render regular card
+              // Otherwise render regular card (including subsequent YouTube videos for premium users)
               return <DropCard key={drop.id} drop={drop} />;
             })}
             
