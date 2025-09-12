@@ -214,11 +214,32 @@ const AdminArticles = () => {
 
   const handleRetag = async (dropId: number) => {
     try {
-      const { error } = await supabase.functions.invoke('admin-retag-drop', {
-        body: { dropId }
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast({
+          title: "Errore",
+          description: "Devi essere autenticato per eseguire questa operazione",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log(`Attempting to retag drop ${dropId}`);
+
+      const { data, error } = await supabase.functions.invoke('admin-retag-drop', {
+        body: { dropId },
+        headers: { 
+          Authorization: `Bearer ${session.access_token}` 
+        }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Retag error details:', error);
+        throw error;
+      }
+
+      console.log('Retag success:', data);
 
       toast({
         title: "Successo",
@@ -228,9 +249,13 @@ const AdminArticles = () => {
       fetchDrops();
     } catch (error) {
       console.error('Error retagging drop:', error);
+      const errorMsg = error instanceof FunctionsHttpError 
+        ? `Errore HTTP: ${error.message}`
+        : "Errore nel ri-tagging dell'articolo";
+      
       toast({
         title: "Errore",
-        description: "Errore nel ri-tagging dell'articolo",
+        description: errorMsg,
         variant: "destructive",
       });
     }
