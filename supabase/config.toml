@@ -1,5 +1,8 @@
 project_id = "qimelntuxquptqqynxzv"
 
+[functions.reprocess-youtube-video]
+verify_jwt = false
+
 [functions.youtube-metadata]
 verify_jwt = false
 
