@@ -51,20 +51,33 @@ function buildSitemap(urls: SitemapUrl[]): string {
   return [xmlHeader, urlsetOpen, urlEntries, urlsetClose].join('\n');
 }
 
-function buildSitemapIndex(sitemaps: { loc: string; lastmod?: string }[]): string {
-  const xmlHeader = '<?xml version="1.0" encoding="UTF-8"?>';
-  const sitemapIndexOpen = '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
-  const sitemapIndexClose = '</sitemapindex>';
+async function generateCoreSitemap(baseUrl: string): Promise<SitemapUrl[]> {
+  const urls: SitemapUrl[] = [];
+  const now = new Date().toISOString();
 
-  const sitemapEntries = sitemaps.map(sitemap => {
-    const entries = [`    <loc>${escapeXml(sitemap.loc)}</loc>`];
-    if (sitemap.lastmod) {
-      entries.push(`    <lastmod>${sitemap.lastmod}</lastmod>`);
-    }
-    return `  <sitemap>\n${entries.join('\n')}\n  </sitemap>`;
-  }).join('\n');
+  // Core static pages
+  urls.push({
+    loc: `${baseUrl}/`,
+    changefreq: 'daily',
+    priority: 1.0,
+    lastmod: now
+  });
 
-  return [xmlHeader, sitemapIndexOpen, sitemapEntries, sitemapIndexClose].join('\n');
+  urls.push({
+    loc: `${baseUrl}/pricing`,
+    changefreq: 'weekly',
+    priority: 0.8,
+    lastmod: now
+  });
+
+  urls.push({
+    loc: `${baseUrl}/topics`,
+    changefreq: 'daily',
+    priority: 0.9,
+    lastmod: now
+  });
+
+  return urls;
 }
 
 Deno.serve(async (req) => {
@@ -73,24 +86,18 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  console.log('Serving sitemap request...');
+  console.log('Serving core sitemap request...');
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const baseUrl = 'https://dailydrops.cloud';
+    
+    // Generate core sitemap URLs
+    const coreUrls = await generateCoreSitemap(baseUrl);
+    
+    // Build sitemap XML
+    const sitemapXml = buildSitemap(coreUrls);
 
-    // Generate sitemap index
-    const now = new Date().toISOString();
-    const sitemapIndex = buildSitemapIndex([
-      { loc: `${baseUrl}/sitemaps/core.xml`, lastmod: now },
-      { loc: `${baseUrl}/sitemaps/topics.xml`, lastmod: now },
-      { loc: `${baseUrl}/sitemaps/topics-archive.xml`, lastmod: now }
-    ]);
-
-    return new Response(sitemapIndex, {
+    return new Response(sitemapXml, {
       headers: {
         ...corsHeaders,
         'Content-Type': 'application/xml; charset=utf-8',
@@ -99,10 +106,10 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Error generating sitemap:', error);
+    console.error('Error generating core sitemap:', error);
     
     return new Response(
-      JSON.stringify({ error: 'Failed to generate sitemap' }), 
+      JSON.stringify({ error: 'Failed to generate core sitemap' }), 
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

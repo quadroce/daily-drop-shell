@@ -51,20 +51,39 @@ function buildSitemap(urls: SitemapUrl[]): string {
   return [xmlHeader, urlsetOpen, urlEntries, urlsetClose].join('\n');
 }
 
-function buildSitemapIndex(sitemaps: { loc: string; lastmod?: string }[]): string {
-  const xmlHeader = '<?xml version="1.0" encoding="UTF-8"?>';
-  const sitemapIndexOpen = '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
-  const sitemapIndexClose = '</sitemapindex>';
+async function generateTopicsSitemap(supabase: any, baseUrl: string): Promise<SitemapUrl[]> {
+  const { data: topics, error } = await supabase
+    .from('topics')
+    .select('slug, updated_at')
+    .eq('is_active', true)
+    .order('slug');
 
-  const sitemapEntries = sitemaps.map(sitemap => {
-    const entries = [`    <loc>${escapeXml(sitemap.loc)}</loc>`];
-    if (sitemap.lastmod) {
-      entries.push(`    <lastmod>${sitemap.lastmod}</lastmod>`);
-    }
-    return `  <sitemap>\n${entries.join('\n')}\n  </sitemap>`;
-  }).join('\n');
+  if (error) {
+    console.error('Error fetching topics:', error);
+    return [];
+  }
 
-  return [xmlHeader, sitemapIndexOpen, sitemapEntries, sitemapIndexClose].join('\n');
+  const urls: SitemapUrl[] = [];
+
+  for (const topic of topics) {
+    // Topic landing page
+    urls.push({
+      loc: `${baseUrl}/topics/${topic.slug}`,
+      changefreq: 'daily',
+      priority: 0.8,
+      lastmod: topic.updated_at || new Date().toISOString()
+    });
+
+    // Topic archive page
+    urls.push({
+      loc: `${baseUrl}/topics/${topic.slug}/archive`,
+      changefreq: 'weekly',
+      priority: 0.6,
+      lastmod: topic.updated_at || new Date().toISOString()
+    });
+  }
+
+  return urls;
 }
 
 Deno.serve(async (req) => {
@@ -73,7 +92,7 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  console.log('Serving sitemap request...');
+  console.log('Serving topics sitemap request...');
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -82,15 +101,13 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const baseUrl = 'https://dailydrops.cloud';
 
-    // Generate sitemap index
-    const now = new Date().toISOString();
-    const sitemapIndex = buildSitemapIndex([
-      { loc: `${baseUrl}/sitemaps/core.xml`, lastmod: now },
-      { loc: `${baseUrl}/sitemaps/topics.xml`, lastmod: now },
-      { loc: `${baseUrl}/sitemaps/topics-archive.xml`, lastmod: now }
-    ]);
+    // Generate topics sitemap URLs
+    const topicUrls = await generateTopicsSitemap(supabase, baseUrl);
+    
+    // Build sitemap XML
+    const sitemapXml = buildSitemap(topicUrls);
 
-    return new Response(sitemapIndex, {
+    return new Response(sitemapXml, {
       headers: {
         ...corsHeaders,
         'Content-Type': 'application/xml; charset=utf-8',
@@ -99,10 +116,10 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Error generating sitemap:', error);
+    console.error('Error generating topics sitemap:', error);
     
     return new Response(
-      JSON.stringify({ error: 'Failed to generate sitemap' }), 
+      JSON.stringify({ error: 'Failed to generate topics sitemap' }), 
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

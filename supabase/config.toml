@@ -45,5 +45,14 @@ verify_jwt = true
 [functions.serve-sitemap]
 verify_jwt = false
 
+[functions.serve-core-sitemap]
+verify_jwt = false
+
+[functions.serve-topics-sitemap]
+verify_jwt = false
+
+[functions.serve-topics-archive-sitemap]
+verify_jwt = false
+
 [functions.generate-sitemap]
 verify_jwt = false
