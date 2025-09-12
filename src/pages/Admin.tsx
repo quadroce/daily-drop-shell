@@ -111,28 +111,71 @@ const Admin = () => {
   const fetchDashboardStats = async () => {
     try {
       // Fetch sources count
-      const { count: sourcesCount } = await supabase
+      const { count: sourcesCount, error: sourcesError } = await supabase
         .from('sources')
         .select('*', { count: 'exact', head: true });
 
+      if (sourcesError) {
+        console.error('Error fetching sources count:', sourcesError);
+      }
+
       // Fetch queue count (pending + processing items)
-      const { count: queueCount } = await supabase
+      const { count: queueCount, error: queueError } = await supabase
         .from('ingestion_queue')
         .select('*', { count: 'exact', head: true })
         .in('status', ['pending', 'processing']);
 
-      // Fetch users count
-      const { count: usersCount } = await supabase
+      if (queueError) {
+        console.error('Error fetching queue count:', queueError);
+      }
+
+      // Fetch users count with better debugging
+      console.log('Fetching users count from profiles table...');
+      const { count: usersCount, error: usersError, data: usersData } = await supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true });
+
+      if (usersError) {
+        console.error('Error fetching users count:', usersError);
+        toast({
+          title: "Error fetching users count",
+          description: usersError.message,
+          variant: "destructive",
+        });
+      } else {
+        console.log('Users count query result:', { count: usersCount, error: usersError });
+        
+        // Additional verification query to double-check
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, email, role, created_at')
+          .limit(10);
+
+        console.log('Profiles verification query:', { 
+          profiles: profilesData, 
+          profilesCount: profilesData?.length || 0, 
+          error: profilesError 
+        });
+      }
 
       setStats({
         sourcesCount: sourcesCount || 0,
         queueCount: queueCount || 0,
         usersCount: usersCount || 0,
       });
+
+      console.log('Dashboard stats updated:', {
+        sourcesCount: sourcesCount || 0,
+        queueCount: queueCount || 0,
+        usersCount: usersCount || 0,
+      });
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
+      toast({
+        title: "Error fetching dashboard statistics",
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
+        variant: "destructive",
+      });
     }
   };
 
