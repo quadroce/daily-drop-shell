@@ -575,11 +575,15 @@ serve(async (req) => {
       // Max 1 sponsor item (if we had sponsored content)
       if (drop.type === 'sponsored' && sponsorCount >= 1) continue;
       
+      // Max 1 YouTube video
+      if (drop.type === 'video' && youtubeCount >= 1) continue;
+      
       finalDrops.push(drop);
       sourceCount.set(drop.source, currentSourceCount + 1);
       usedSources.add(drop.source);
       
       if (drop.type === 'sponsored') sponsorCount++;
+      if (drop.type === 'video') youtubeCount++;
     }
 
     // 5. Ensure diversity - add exploration slot if needed
