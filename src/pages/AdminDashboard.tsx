@@ -211,6 +211,64 @@ const AdminDashboard = () => {
     }
   };
 
+  const testYouTubeIntegration = async () => {
+    setRunning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('test-youtube-integration', {});
+
+      if (error) throw error;
+
+      const success = data?.tests?.youtubeMetadataFunction?.success && data?.tests?.directYouTubeApi?.success;
+
+      toast({
+        title: success ? "YouTube API Test Successful" : "YouTube API Test Failed",
+        description: success 
+          ? "YouTube API is working correctly. Ready to reprocess videos." 
+          : `API Key: ${data?.tests?.apiKeyConfigured ? 'OK' : 'Missing'}, Direct API: ${data?.tests?.directYouTubeApi?.success ? 'OK' : 'Failed'}`,
+        variant: success ? "default" : "destructive",
+      });
+
+      console.log('YouTube test results:', data);
+    } catch (error) {
+      console.error('Error testing YouTube integration:', error);
+      toast({
+        title: "Error",
+        description: "Failed to test YouTube integration.",
+        variant: "destructive",
+      });
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const startYouTubeReprocessing = async () => {
+    setRunning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('start-youtube-reprocessing', {});
+
+      if (error) throw error;
+
+      toast({
+        title: "YouTube Reprocessing Started",
+        description: `Found ${data.totalProblematic || 0} videos to fix. Processing in ${data.batchesNeeded || 0} batches.`,
+      });
+
+      console.log('YouTube reprocessing started:', data);
+
+      // Refresh data after a delay
+      setTimeout(fetchData, 10000);
+    } catch (error) {
+      console.error('Error starting YouTube reprocessing:', error);
+      toast({
+        title: "Error", 
+        description: "Failed to start YouTube reprocessing.",
+        variant: "destructive",
+      });
+    } finally {
+      setRunning(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     if (!dateString) return 'Never';
     const date = new Date(dateString);
@@ -367,6 +425,45 @@ const AdminDashboard = () => {
               <p className="text-xs text-muted-foreground text-center">
                 Apply tags to all articles missing classification
               </p>
+              
+              <Separator />
+              
+              <div className="space-y-2">
+                <h4 className="font-medium text-sm">YouTube Re-processing</h4>
+                
+                <Button 
+                  onClick={testYouTubeIntegration} 
+                  disabled={running}
+                  className="w-full"
+                  variant="outline"
+                  size="sm"
+                >
+                  {running ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Play className="h-4 w-4 mr-2" />
+                  )}
+                  {running ? 'Testing...' : 'Test YouTube API'}
+                </Button>
+                
+                <Button 
+                  onClick={startYouTubeReprocessing} 
+                  disabled={running}
+                  className="w-full"
+                  variant="destructive"
+                  size="sm"
+                >
+                  {running ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Play className="h-4 w-4 mr-2" />
+                  )}
+                  {running ? 'Processing...' : 'Start YouTube Reprocessing'}
+                </Button>
+                <p className="text-xs text-muted-foreground text-center">
+                  Test and fix YouTube videos with missing metadata
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
