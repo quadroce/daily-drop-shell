@@ -434,21 +434,26 @@ const Feed = () => {
               {/* Tags and Actions */}
               <div className="flex items-center justify-between">
                 <div className="flex flex-wrap gap-1">
-                  {drop.tags?.slice(0, 2).map((tag: string, index: number) => {
-                    const getTagVariant = (tagIndex: number) => {
-                      switch (tagIndex) {
-                        case 0: return "tag-l1"; // Blue for L1
-                        case 1: return "tag-l2"; // Green for L2  
-                        default: return "tag-l3"; // Purple for L3+
-                      }
-                    };
-                    
-                    return (
-                      <Badge key={tag} variant={getTagVariant(index)} className="text-xs py-0 px-1">
-                        {tag}
-                      </Badge>
-                    );
-                  })}
+                  {/* L1 Topic (Blue) */}
+                  {drop.l1_topic && (
+                    <Badge variant="tag-l1" className="text-xs py-0 px-1">
+                      {drop.l1_topic}
+                    </Badge>
+                  )}
+                  
+                  {/* L2 Topic (Green) */}
+                  {drop.l2_topic && (
+                    <Badge variant="tag-l2" className="text-xs py-0 px-1">
+                      {drop.l2_topic}
+                    </Badge>
+                  )}
+                  
+                  {/* L3 Tags (Purple) - Show all available tags */}
+                  {drop.tags?.filter(tag => tag && tag.trim()).map((tag: string) => (
+                    <Badge key={`l3-${tag}`} variant="tag-l3" className="text-xs py-0 px-1">
+                      {tag}
+                    </Badge>
+                  ))}
                 </div>
                 
                 <div className="flex items-center gap-1">
