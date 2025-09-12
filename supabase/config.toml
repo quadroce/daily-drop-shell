@@ -1,5 +1,11 @@
 project_id = "qimelntuxquptqqynxzv"
 
+[functions.youtube-metadata]
+verify_jwt = false
+
+[functions.test-youtube-integration]
+verify_jwt = false
+
 [functions.scrape-og]
 verify_jwt = false
 
