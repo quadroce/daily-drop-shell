@@ -257,7 +257,8 @@ serve(async (req) => {
       .select(`
         id, title, url, image_url, summary, type, tags, 
         source_id, published_at, created_at,
-        authority_score, quality_score, popularity_score, embeddings
+        authority_score, quality_score, popularity_score, embeddings,
+        l1_topic_id, l2_topic_id
       `)
       .eq('tag_done', true)
       .gte('created_at', thirtyDaysAgo.toISOString())
@@ -303,6 +304,78 @@ serve(async (req) => {
 
     const sourceMap = new Map(sources?.map(s => [s.id, s]) || []);
 
+    // PERFORMANCE OPTIMIZATION: Get user topics ONCE outside the loop
+    let userTopicSlugs: string[] = [];
+    let userTopicIds: Set<number> = new Set();
+    let topicHierarchy: { level1: Set<number>, level2: Set<number>, level3: Set<string> } = {
+      level1: new Set(),
+      level2: new Set(), 
+      level3: new Set()
+    };
+
+    if (preferences?.selected_topic_ids?.length > 0) {
+      console.log(`[Ranking] Fetching topic details for ${preferences.selected_topic_ids.length} user preferences`);
+      const topicsStart = performance.now();
+      
+      const { data: userTopics, error: topicsError } = await supabaseClient
+        .from('topics')
+        .select('id, slug, level, parent_id')
+        .in('id', preferences.selected_topic_ids);
+
+      const topicsTime = performance.now() - topicsStart;
+      console.log(`[Ranking] User topics fetch completed in ${topicsTime.toFixed(2)}ms`);
+      
+      if (!topicsError && userTopics) {
+        userTopicSlugs = userTopics.map(t => t.slug);
+        userTopicIds = new Set(userTopics.map(t => t.id));
+        
+        // Build hierarchy sets for efficient matching
+        userTopics.forEach(topic => {
+          switch(topic.level) {
+            case 1:
+              topicHierarchy.level1.add(topic.id);
+              break;
+            case 2:
+              topicHierarchy.level2.add(topic.id);
+              break;
+            case 3:
+              topicHierarchy.level3.add(topic.slug);
+              break;
+          }
+        });
+        
+        console.log(`[Ranking] Topic hierarchy built: L1=${topicHierarchy.level1.size}, L2=${topicHierarchy.level2.size}, L3=${topicHierarchy.level3.size}`);
+      }
+    }
+
+    // Batch feedback scores for better performance
+    const feedbackScores = new Map<number, number>();
+    try {
+      console.log('[Ranking] Pre-calculating feedback scores for performance...');
+      const feedbackStart = performance.now();
+      
+      // We could batch this, but for now keep individual calls with better error handling
+      for (const drop of drops.slice(0, 50)) { // Limit to top 50 candidates for performance
+        try {
+          const { data: feedbackResult } = await supabaseClient
+            .rpc('get_user_feedback_score', {
+              _user_id: userId,
+              _drop_id: drop.id,
+              _source_id: drop.source_id || 0,
+              _tags: drop.tags || []
+            });
+          feedbackScores.set(drop.id, feedbackResult || 0);
+        } catch (err) {
+          feedbackScores.set(drop.id, 0);
+        }
+      }
+      
+      const feedbackTime = performance.now() - feedbackStart;
+      console.log(`[Ranking] Feedback scores pre-calculated in ${feedbackTime.toFixed(2)}ms for ${feedbackScores.size} drops`);
+    } catch (err) {
+      console.warn('[Ranking] Feedback batch calculation failed:', err);
+    }
+
     // Calculate rankings for each drop
     const scoringStart = performance.now();
     const rankedDrops: RankedDrop[] = [];
@@ -336,24 +409,49 @@ serve(async (req) => {
         let personalScore = 0;
         const reasonFactors: string[] = [];
 
-        // Topic matching
+        // IMPROVED HIERARCHICAL TOPIC MATCHING
         let topicMatch = 0;
+        const matchDetails: string[] = [];
+        
         if (preferences?.selected_topic_ids?.length > 0) {
-          // Get topics for selected topic IDs
-          const { data: userTopics } = await supabaseClient
-            .from('topics')
-            .select('slug')
-            .in('id', preferences.selected_topic_ids);
-
-          const userTopicSlugs = userTopics?.map(t => t.slug) || [];
+          // Direct L1 topic match (highest priority)
+          if (drop.l1_topic_id && topicHierarchy.level1.has(drop.l1_topic_id)) {
+            topicMatch = Math.max(topicMatch, 1.0);
+            matchDetails.push('L1-Direct');
+            console.log(`[Ranking] Drop ${drop.id}: L1 direct match (${drop.l1_topic_id})`);
+          }
+          
+          // Direct L2 topic match (medium priority)  
+          if (drop.l2_topic_id && topicHierarchy.level2.has(drop.l2_topic_id)) {
+            topicMatch = Math.max(topicMatch, 0.8);
+            matchDetails.push('L2-Direct');
+            console.log(`[Ranking] Drop ${drop.id}: L2 direct match (${drop.l2_topic_id})`);
+          }
+          
+          // L3 tag matching (lower priority, but still valuable)
           const matchingTags = drop.tags?.filter(tag => 
+            topicHierarchy.level3.has(tag) || 
             userTopicSlugs.some(slug => slug.toLowerCase() === tag.toLowerCase())
           ) || [];
-
-          topicMatch = matchingTags.length > 0 ? 1 : 0;
-          if (topicMatch > 0) {
-            reasonFactors.push(`Matches interests: ${matchingTags.slice(0, 2).join(', ')}`);
+          
+          if (matchingTags.length > 0) {
+            const tagScore = Math.min(0.6, 0.2 * matchingTags.length); // Max 0.6, scales with number of matches
+            topicMatch = Math.max(topicMatch, tagScore);
+            matchDetails.push(`L3-Tags(${matchingTags.length})`);
+            console.log(`[Ranking] Drop ${drop.id}: L3 tag matches (${matchingTags.join(', ')})`);
           }
+          
+          // Build reason with specific matches
+          if (topicMatch > 0) {
+            const topMatches = matchingTags.slice(0, 2);
+            if (topMatches.length > 0) {
+              reasonFactors.push(`Matches interests: ${topMatches.join(', ')}`);
+            } else {
+              reasonFactors.push('Matches your topics');
+            }
+          }
+          
+          console.log(`[Ranking] Drop ${drop.id}: Topic score=${topicMatch.toFixed(3)} (${matchDetails.join(', ')})`);
         }
 
         // Vector similarity (if embeddings available)
@@ -363,27 +461,8 @@ serve(async (req) => {
           vectorSim = 0.5; // Placeholder
         }
 
-        // User feedback score
-        let feedbackScore = 0;
-        try {
-          const { data: feedbackResult, error: feedbackError } = await supabaseClient
-            .rpc('get_user_feedback_score', {
-              _user_id: userId,
-              _drop_id: drop.id,
-              _source_id: drop.source_id || 0,
-              _tags: drop.tags || []
-            });
-
-          if (feedbackError) {
-            console.warn('[Ranking] Feedback error for drop', drop.id, ':', feedbackError);
-            feedbackScore = 0;
-          } else {
-            feedbackScore = feedbackResult || 0;
-          }
-        } catch (feedbackErr) {
-          console.warn('[Ranking] Feedback exception for drop', drop.id, ':', feedbackErr);
-          feedbackScore = 0;
-        }
+        // User feedback score (use pre-calculated values)
+        const feedbackScore = feedbackScores.get(drop.id) || 0;
 
         if (feedbackScore > 0.1) {
           reasonFactors.push('Similar content liked before');
@@ -398,12 +477,20 @@ serve(async (req) => {
         // 3. Final Score
         const finalScore = 0.4 * baseScore + 0.6 * personalScore;
 
-        // Add recency factor to reasons
+        // Enhanced reasoning with detailed logging
         if (hoursOld < 24) {
           reasonFactors.unshift('Fresh content');
         }
         if (trustScore > 0.7) {
           reasonFactors.push('High quality source');
+        }
+        
+        // Detailed logging for top candidates
+        if (finalScore > 0.3 || processedCount < 10) {
+          console.log(`[Ranking] Drop ${drop.id} (${drop.title?.substring(0, 50)}...): 
+            final=${finalScore.toFixed(3)} | base=${baseScore.toFixed(3)} | personal=${personalScore.toFixed(3)} | 
+            topic=${topicMatch.toFixed(3)} | feedback=${feedbackScore.toFixed(3)} | 
+            recency=${recencyScore.toFixed(3)} | trust=${trustScore.toFixed(3)} | hours=${hoursOld.toFixed(1)}`);
         }
 
         const source = sourceMap.get(drop.source_id);
