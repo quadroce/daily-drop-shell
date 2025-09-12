@@ -40,43 +40,34 @@ serve(async (req) => {
 
     console.log('Created sitemap run record:', runData.id)
 
-    // Get repository info from current project (this will need to be updated with correct repo name)
-    // For now, we'll create a simple fallback that updates the database directly
-    console.log('Simulating sitemap generation completion...')
-    
-    // Simulate successful completion after a short delay
-    setTimeout(async () => {
-      try {
-        const { error: updateError } = await supabase
-          .from('sitemap_runs')
-          .update({
-            completed_at: new Date().toISOString(),
-            success: true,
-            total_urls: 419, // Use the count from the old system
-            topics_count: 0,
-            archive_urls_count: 416,
-            google_ping_success: true,
-            bing_ping_success: true
-          })
-          .eq('id', runData.id)
-        
-        if (updateError) {
-          console.error('Error updating sitemap run:', updateError)
-        } else {
-          console.log('Updated sitemap run successfully')
+    // Trigger GitHub Actions workflow
+    const githubResponse = await fetch('https://api.github.com/repos/quadroce/daily-drop-shell/actions/workflows/generate-sitemaps.yml/dispatches', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${githubToken}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        ref: 'main',
+        inputs: {
+          run_id: runData.id.toString()
         }
-      } catch (error) {
-        console.error('Error in delayed update:', error)
-      }
-    }, 3000)
+      })
+    })
 
-    // Return immediate success
-    console.log('Sitemap generation request processed (using fallback method)')
+    if (!githubResponse.ok) {
+      const errorText = await githubResponse.text()
+      console.error('GitHub API error:', errorText)
+      throw new Error(`GitHub API error: ${githubResponse.status} ${errorText}`)
+    }
+
+    console.log('Successfully triggered GitHub workflow')
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Sitemap generation started (fallback method)',
+        message: 'Sitemap generation started',
         run_id: runData.id
       }),
       { 
