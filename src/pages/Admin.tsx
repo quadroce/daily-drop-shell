@@ -331,7 +331,7 @@ const Admin = () => {
   const runYouTubeReprocessing = async () => {
     setActionLoading('youtube-reprocessing');
     try {
-      const { data, error } = await supabase.functions.invoke('start-youtube-reprocessing', {
+      const { data, error } = await supabase.functions.invoke('admin-api/youtube-reprocess', {
         body: {}
       });
       
@@ -342,15 +342,16 @@ const Admin = () => {
       if (data.success) {
         toast({
           title: "YouTube Reprocessing Started",
-          description: `Found ${data.totalProblematic} problematic videos. Processing in ${data.batchesNeeded} batches.`,
+          description: `Processed ${data.processed} videos. ${data.remaining} remaining. ${data.errors > 0 ? `${data.errors} errors.` : ''}`,
         });
         
         // Refresh tagging stats after processing
         await fetchTaggingStats();
       } else {
         toast({
-          title: "YouTube Reprocessing Info",
-          description: data.message || "No problematic videos found",
+          title: "YouTube Reprocessing Error",
+          description: data.error || "Unknown error occurred",
+          variant: "destructive",
         });
       }
     } catch (error) {

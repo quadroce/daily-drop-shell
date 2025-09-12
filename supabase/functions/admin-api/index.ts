@@ -240,6 +240,198 @@ async function retryQueueItem(req: Request, authHeader: string) {
   });
 }
 
+async function youtubeReprocess(req: Request, authHeader: string) {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const youtubeiApiKey = Deno.env.get('YOUTUBE_API_KEY');
+  
+  if (!youtubeiApiKey) {
+    console.error('YOUTUBE_API_KEY not configured');
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'YouTube API key not configured'
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey);
+  
+  console.log('Starting YouTube reprocessing workflow...');
+  
+  try {
+    // Get total count of problematic videos
+    const { count: totalProblematic } = await supabase
+      .from('drops')
+      .select('id', { count: 'exact', head: true })
+      .eq('type', 'video')
+      .like('url', '%youtube.com%')
+      .or(`title.like.- YouTube%,youtube_video_id.is.null`);
+    
+    console.log(`Found ${totalProblematic} problematic YouTube videos`);
+    
+    if (!totalProblematic || totalProblematic === 0) {
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'No problematic YouTube videos found',
+        totalProblematic: 0,
+        processed: 0
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    
+    // Get first batch of 10 problematic videos
+    const { data: problematicVideos, error: fetchError } = await supabase
+      .from('drops')
+      .select('id, url, title')
+      .eq('type', 'video')
+      .like('url', '%youtube.com%')
+      .or(`title.like.- YouTube%,youtube_video_id.is.null`)
+      .order('id', { ascending: true })
+      .limit(10);
+    
+    if (fetchError) {
+      throw new Error(`Failed to fetch problematic videos: ${fetchError.message}`);
+    }
+    
+    console.log(`Processing ${problematicVideos?.length || 0} videos in this batch`);
+    
+    let processed = 0;
+    let errors = 0;
+    const results = [];
+    
+    for (const video of problematicVideos || []) {
+      try {
+        // Extract video ID from URL
+        const videoIdMatch = video.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
+        if (!videoIdMatch) {
+          console.error(`Could not extract video ID from URL: ${video.url}`);
+          errors++;
+          continue;
+        }
+        
+        const videoId = videoIdMatch[1];
+        console.log(`Processing video ID: ${videoId}`);
+        
+        // Call YouTube API
+        const youtubeResponse = await fetch(
+          `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet,statistics&key=${youtubeiApiKey}`
+        );
+        
+        if (!youtubeResponse.ok) {
+          throw new Error(`YouTube API error: ${youtubeResponse.status} ${youtubeResponse.statusText}`);
+        }
+        
+        const youtubeData = await youtubeResponse.json();
+        
+        if (!youtubeData.items || youtubeData.items.length === 0) {
+          console.log(`No YouTube data found for video ID: ${videoId}`);
+          errors++;
+          continue;
+        }
+        
+        const videoData = youtubeData.items[0];
+        const snippet = videoData.snippet;
+        const statistics = videoData.statistics;
+        
+        // Cache the metadata
+        const { error: cacheError } = await supabase
+          .from('youtube_cache')
+          .upsert({
+            video_id: videoId,
+            title: snippet.title,
+            description: snippet.description,
+            channel_title: snippet.channelTitle,
+            published_at: snippet.publishedAt,
+            thumbnail_url: snippet.thumbnails?.maxresdefault?.url || snippet.thumbnails?.high?.url,
+            view_count: statistics?.viewCount ? parseInt(statistics.viewCount) : null,
+            like_count: statistics?.likeCount ? parseInt(statistics.likeCount) : null,
+            comment_count: statistics?.commentCount ? parseInt(statistics.commentCount) : null
+          });
+        
+        if (cacheError) {
+          console.error(`Error caching YouTube data for ${videoId}:`, cacheError);
+        }
+        
+        // Update the drop with proper metadata
+        const { error: updateError } = await supabase
+          .from('drops')
+          .update({
+            title: snippet.title,
+            summary: snippet.description?.substring(0, 500) || '',
+            image_url: snippet.thumbnails?.maxresdefault?.url || snippet.thumbnails?.high?.url,
+            published_at: snippet.publishedAt,
+            youtube_video_id: videoId,
+            youtube_channel: snippet.channelTitle,
+            popularity_score: statistics?.viewCount ? Math.log10(parseInt(statistics.viewCount)) : null,
+            tag_done: false // Reset for re-tagging
+          })
+          .eq('id', video.id);
+        
+        if (updateError) {
+          console.error(`Error updating drop ${video.id}:`, updateError);
+          errors++;
+        } else {
+          processed++;
+          results.push({
+            id: video.id,
+            videoId: videoId,
+            title: snippet.title,
+            success: true
+          });
+        }
+        
+        // Rate limiting: wait 100ms between API calls
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+      } catch (error) {
+        console.error(`Error processing video ${video.id}:`, error);
+        errors++;
+        results.push({
+          id: video.id,
+          error: error.message,
+          success: false
+        });
+      }
+    }
+    
+    const response = {
+      success: true,
+      message: `YouTube reprocessing batch completed`,
+      totalProblematic,
+      processed,
+      errors,
+      remaining: Math.max(0, totalProblematic - processed),
+      results: results.slice(0, 5), // Show first 5 results
+      instructions: {
+        message: processed > 0 
+          ? `Successfully processed ${processed} videos. ${Math.max(0, totalProblematic - processed)} videos remaining.`
+          : 'No videos were processed successfully.',
+        nextStep: Math.max(0, totalProblematic - processed) > 0 
+          ? 'Run the process again to continue with the next batch'
+          : 'All problematic videos have been processed'
+      }
+    };
+    
+    return new Response(JSON.stringify(response), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+    
+  } catch (error) {
+    console.error('Failed YouTube reprocessing:', error);
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message,
+      stack: error.stack
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500
+    });
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -287,11 +479,14 @@ serve(async (req) => {
       case '/retry':
         return await retryQueueItem(req, authHeader!);
       
+      case '/youtube-reprocess':
+        return await youtubeReprocess(req, authHeader!);
+      
       default:
         return new Response(JSON.stringify({ 
           error: 'Not found',
           pathname: pathname,
-          available_endpoints: ['/sources', '/enqueue', '/retry']
+          available_endpoints: ['/sources', '/enqueue', '/retry', '/youtube-reprocess']
         }), {
           status: 404,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
