@@ -46,6 +46,8 @@ export const searchContent = async (params: SearchParams): Promise<SearchResult>
         published_at,
         type,
         tags,
+        l1_topic_id,
+        l2_topic_id,
         source_id,
         sources!inner(
           name,
@@ -114,6 +116,21 @@ export const searchContent = async (params: SearchParams): Promise<SearchResult>
       throw error;
     }
 
+    // Get topics for L1 and L2 labels
+    const allTopicIds = [...new Set([
+      ...drops.map(d => d.l1_topic_id).filter(Boolean),
+      ...drops.map(d => d.l2_topic_id).filter(Boolean)
+    ])];
+    
+    let topicMap = new Map();
+    if (allTopicIds.length > 0) {
+      const { data: topics } = await supabase
+        .from('topics')  
+        .select('id, label')
+        .in('id', allTopicIds);
+      topicMap = new Map(topics?.map(t => [t.id, t.label]) || []);
+    }
+
     // Transform to FeedCardProps format
     const results: FeedCardProps[] = (drops || []).map(drop => ({
       id: String(drop.id),
@@ -123,6 +140,8 @@ export const searchContent = async (params: SearchParams): Promise<SearchResult>
       publishedAt: drop.published_at || new Date().toISOString(),
       type: drop.type,
       tags: drop.tags || [],
+      l1Topic: drop.l1_topic_id ? topicMap.get(drop.l1_topic_id) : undefined,
+      l2Topic: drop.l2_topic_id ? topicMap.get(drop.l2_topic_id) : undefined,
       source: {
         name: drop.sources?.name || 'Unknown',
         url: drop.sources?.homepage_url || ''

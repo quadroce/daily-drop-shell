@@ -233,7 +233,13 @@ const Feed = () => {
             })
           );
 
-          console.log('[Feed] Ranked drops with sources:', dropsWithSources);
+          console.log('[Feed] Ranked drops with sources:', dropsWithSources.map(d => ({
+            id: d.id,
+            title: d.title,
+            l1_topic: d.l1_topic,
+            l2_topic: d.l2_topic,
+            tags: d.tags
+          })));
           setDrops(dropsWithSources);
         }
       } catch (error) {

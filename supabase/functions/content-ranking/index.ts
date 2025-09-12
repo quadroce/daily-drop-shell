@@ -138,27 +138,42 @@ serve(async (req) => {
         
         const { data: drops, error: dropsError } = await supabaseClient
           .from('drops')
-          .select('id, title, url, image_url, summary, type, tags, source_id, published_at, created_at')
+          .select(`
+            id, title, url, image_url, summary, type, tags, source_id, published_at, created_at,
+            l1_topic_id, l2_topic_id
+          `)
           .in('id', dropIds);
         
         const dropsTime = performance.now() - dropsStart;
         console.log(`[Ranking] Drop details fetch completed in ${dropsTime.toFixed(2)}ms, found ${drops?.length || 0} drops`);
         
         if (!dropsError && drops && drops.length > 0) {
-          // Step 3: Get source information
-          const sourceIds = [...new Set(drops.map(d => d.source_id).filter(Boolean))];
-          const sourcesStart = performance.now();
+            // Step 3: Get source information and topics
+            const sourceIds = [...new Set(drops.map(d => d.source_id).filter(Boolean))];
+            const topicIds = [...new Set([
+              ...drops.map(d => d.l1_topic_id).filter(Boolean),
+              ...drops.map(d => d.l2_topic_id).filter(Boolean)
+            ])];
+            
+            const sourcesStart = performance.now();
+            
+            const [sourcesResult, topicsResult] = await Promise.all([
+              supabaseClient
+                .from('sources')
+                .select('id, name, type')
+                .in('id', sourceIds),
+              supabaseClient
+                .from('topics')
+                .select('id, label')
+                .in('id', topicIds)
+            ]);
+            
+            const sourcesTime = performance.now() - sourcesStart;
+            console.log(`[Ranking] Sources and topics fetch completed in ${sourcesTime.toFixed(2)}ms, found ${sourcesResult.data?.length || 0} sources, ${topicsResult.data?.length || 0} topics`);
           
-          const { data: sources, error: sourcesError } = await supabaseClient
-            .from('sources')
-            .select('id, name, type')
-            .in('id', sourceIds);
-          
-          const sourcesTime = performance.now() - sourcesStart;
-          console.log(`[Ranking] Sources fetch completed in ${sourcesTime.toFixed(2)}ms, found ${sources?.length || 0} sources`);
-          
-          if (!sourcesError) {
-            const sourceMap = new Map(sources?.map(s => [s.id, s]) || []);
+          if (!sourcesResult.error && !topicsResult.error) {
+            const sourceMap = new Map(sourcesResult.data?.map(s => [s.id, s]) || []);
+            const topicMap = new Map(topicsResult.data?.map(t => [t.id, t]) || []);
             const dropMap = new Map(drops.map(d => [d.id, d]));
             
             // Step 4: Build ranked results maintaining cache order
@@ -170,6 +185,9 @@ serve(async (req) => {
                   return null;
                 }
                 
+                const l1Topic = drop.l1_topic_id ? topicMap.get(drop.l1_topic_id)?.label : undefined;
+                const l2Topic = drop.l2_topic_id ? topicMap.get(drop.l2_topic_id)?.label : undefined;
+                
                 return {
                   id: drop.id,
                   title: drop.title,
@@ -178,9 +196,12 @@ serve(async (req) => {
                   image_url: drop.image_url,
                   type: drop.type,
                   tags: drop.tags || [],
+                  l1_topic: l1Topic,
+                  l2_topic: l2Topic,
                   final_score: cached.final_score,
                   reason_for_ranking: cached.reason_for_ranking,
-                  summary: drop.summary
+                  summary: drop.summary,
+                  favicon: drop.type === 'video' ? '📺' : '📄'
                 };
               })
               .filter(Boolean);

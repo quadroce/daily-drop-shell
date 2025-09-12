@@ -16,6 +16,8 @@ export type FeedCardProps = {
   publishedAt: string;
   source: { name: string; url: string };
   tags: string[];
+  l1Topic?: string;
+  l2Topic?: string;
   href: string;
   youtubeId?: string;
   isPremium?: boolean;
@@ -36,6 +38,8 @@ export const FeedCard = ({
   publishedAt, 
   source, 
   tags, 
+  l1Topic,
+  l2Topic,
   href, 
   youtubeId, 
   isPremium, 
@@ -172,24 +176,31 @@ export const FeedCard = ({
 
             <div className="flex items-center justify-between gap-2 mt-auto">
               <div className="flex gap-1 flex-wrap min-w-0 flex-1">
-                {tags.slice(0, 2).map((tag, index) => {
-                  const getTagVariant = (tagIndex: number) => {
-                    switch (tagIndex) {
-                      case 0: return "tag-l1"; // Blue for L1
-                      case 1: return "tag-l2"; // Green for L2  
-                      default: return "tag-l3"; // Purple for L3+
-                    }
-                  };
-                  
-                  return (
-                    <Badge key={index} variant={getTagVariant(index)} className="text-xs py-0 px-2 truncate">
-                      {tag}
-                    </Badge>
-                  );
-                })}
-                {tags.length > 2 && (
+                {/* L1 Topic Badge */}
+                {l1Topic && (
+                  <Badge variant="tag-l1" className="text-xs py-0 px-2 truncate">
+                    {l1Topic}
+                  </Badge>
+                )}
+                
+                {/* L2 Topic Badge */}
+                {l2Topic && (
+                  <Badge variant="tag-l2" className="text-xs py-0 px-2 truncate">
+                    {l2Topic}
+                  </Badge>
+                )}
+                
+                {/* L3 Tags */}
+                {tags.slice(0, l1Topic || l2Topic ? 1 : 2).map((tag, index) => (
+                  <Badge key={`l3-${index}`} variant="tag-l3" className="text-xs py-0 px-2 truncate">
+                    {tag}
+                  </Badge>
+                ))}
+                
+                {/* Show +N for remaining tags */}
+                {tags.length > (l1Topic || l2Topic ? 1 : 2) && (
                   <Badge variant="tag-l3" className="text-xs py-0 px-2">
-                    +{tags.length - 2}
+                    +{tags.length - (l1Topic || l2Topic ? 1 : 2)}
                   </Badge>
                 )}
               </div>
