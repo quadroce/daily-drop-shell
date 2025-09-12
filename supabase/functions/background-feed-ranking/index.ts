@@ -77,12 +77,31 @@ serve(async (req) => {
           .select(`
             id, title, url, image_url, summary, type, tags, 
             source_id, published_at, created_at,
-            authority_score, quality_score, popularity_score, embeddings
+            authority_score, quality_score, popularity_score, embeddings,
+            l1_topic_id, l2_topic_id
           `)
           .eq('tag_done', true)
           .gte('created_at', thirtyDaysAgo.toISOString())
           .order('created_at', { ascending: false })
           .limit(100); // Limit candidates for background processing
+
+        // Get user topic slugs once (for efficiency)
+        let userTopicSlugs: string[] = [];
+        let userL1TopicIds: number[] = [];
+        let userL2TopicIds: number[] = [];
+        
+        if (preferences?.selected_topic_ids?.length > 0) {
+          const { data: userTopics } = await supabaseClient
+            .from('topics')
+            .select('id, slug, level')
+            .in('id', preferences.selected_topic_ids);
+
+          if (userTopics) {
+            userTopicSlugs = userTopics.map(t => t.slug.toLowerCase());
+            userL1TopicIds = userTopics.filter(t => t.level === 1).map(t => t.id);
+            userL2TopicIds = userTopics.filter(t => t.level === 2).map(t => t.id);
+          }
+        }
 
         if (!drops || drops.length === 0) continue;
 
@@ -118,22 +137,34 @@ serve(async (req) => {
             let personalScore = 0;
             const reasonFactors: string[] = [];
 
-            // Topic matching
+            // Hierarchical Topic matching (same as content-ranking)
             let topicMatch = 0;
-            if (preferences?.selected_topic_ids?.length > 0) {
-              const { data: userTopics } = await supabaseClient
-                .from('topics')
-                .select('slug')
-                .in('id', preferences.selected_topic_ids);
-
-              const userTopicSlugs = userTopics?.map(t => t.slug) || [];
-              const matchingTags = drop.tags?.filter(tag => 
-                userTopicSlugs.some(slug => slug.toLowerCase() === tag.toLowerCase())
-              ) || [];
-
-              topicMatch = matchingTags.length > 0 ? 1 : 0;
+            const matchedTopics: string[] = [];
+            
+            if (userTopicSlugs.length > 0) {
+              // L1 topic match (highest priority)
+              if (drop.l1_topic_id && userL1TopicIds.includes(drop.l1_topic_id)) {
+                topicMatch = 1.0;
+                matchedTopics.push('L1 topic');
+              }
+              // L2 topic match (high priority)
+              else if (drop.l2_topic_id && userL2TopicIds.includes(drop.l2_topic_id)) {
+                topicMatch = 0.8;
+                matchedTopics.push('L2 topic');
+              }
+              // L3 tag match (medium priority)
+              else if (drop.tags && drop.tags.length > 0) {
+                const matchingTags = drop.tags.filter(tag => 
+                  userTopicSlugs.includes(tag.toLowerCase())
+                );
+                if (matchingTags.length > 0) {
+                  topicMatch = 0.6;
+                  matchedTopics.push(`tags: ${matchingTags.slice(0, 2).join(', ')}`);
+                }
+              }
+              
               if (topicMatch > 0) {
-                reasonFactors.push(`Matches interests: ${matchingTags.slice(0, 2).join(', ')}`);
+                reasonFactors.push(`Matches interests: ${matchedTopics.join(', ')}`);
               }
             }
 
