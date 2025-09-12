@@ -41,3 +41,9 @@ verify_jwt = true
 
 [functions.retag-all-drops]
 verify_jwt = true
+
+[functions.serve-sitemap]
+verify_jwt = false
+
+[functions.generate-sitemap]
+verify_jwt = false
