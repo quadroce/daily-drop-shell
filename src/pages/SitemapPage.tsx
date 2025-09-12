@@ -54,27 +54,34 @@ export const SitemapPage = () => {
   const generateSitemap = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-sitemap', {
-        body: { force: true }
-      });
+      const { data, error } = await supabase.functions.invoke('trigger-sitemap-generation');
 
       if (error) throw error;
 
       toast({
-        title: "Success",
-        description: "Sitemap generation started successfully"
+        title: "Success", 
+        description: "Sitemap generation started via GitHub Actions"
       });
 
-      // Reload runs after a short delay
-      setTimeout(() => {
-        loadRuns();
-      }, 2000);
+      // Start polling for updates
+      const pollForUpdates = () => {
+        setTimeout(async () => {
+          await loadRuns();
+          // Continue polling if there are in-progress runs
+          const hasInProgress = runs.some(run => !run.completed_at);
+          if (hasInProgress) {
+            pollForUpdates();
+          }
+        }, 5000);
+      };
+      
+      pollForUpdates();
 
     } catch (error) {
       console.error('Error generating sitemap:', error);
       toast({
         title: "Error",
-        description: "Failed to generate sitemap",
+        description: "Failed to start sitemap generation",
         variant: "destructive"
       });
     } finally {
@@ -105,7 +112,7 @@ export const SitemapPage = () => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Sitemap Index</CardTitle>
@@ -126,17 +133,17 @@ export const SitemapPage = () => {
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Core Pages</CardTitle>
-            <CardDescription>Static site pages</CardDescription>
+            <CardTitle className="text-lg">Static Pages</CardTitle>
+            <CardDescription>Core site pages</CardDescription>
           </CardHeader>
           <CardContent>
             <a 
-              href="/sitemaps/core.xml" 
+              href="/sitemap-static.xml" 
               target="_blank" 
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-primary hover:underline"
             >
-              /sitemaps/core.xml
+              /sitemap-static.xml
               <ExternalLink className="h-3 w-3" />
             </a>
           </CardContent>
@@ -149,37 +156,35 @@ export const SitemapPage = () => {
           </CardHeader>
           <CardContent>
             <a 
-              href="/sitemaps/topics.xml" 
+              href="/sitemap-topics.xml" 
               target="_blank" 
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-primary hover:underline"
             >
-              /sitemaps/topics.xml
+              /sitemap-topics.xml
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Archives</CardTitle>
+            <CardDescription>Daily archive pages</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <a 
+              href="/sitemap-archives.xml" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-primary hover:underline"
+            >
+              /sitemap-archives.xml
               <ExternalLink className="h-3 w-3" />
             </a>
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Topic Archives (90 days)</CardTitle>
-          <CardDescription>
-            Rolling window of topic-specific daily archives
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <a 
-            href="/sitemaps/topics-archive.xml" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 text-primary hover:underline"
-          >
-            /sitemaps/topics-archive.xml
-            <ExternalLink className="h-3 w-3" />
-          </a>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>
@@ -270,14 +275,14 @@ export const SitemapPage = () => {
         <CardHeader>
           <CardTitle>Automation Status</CardTitle>
           <CardDescription>
-            Sitemap generation is automated and runs daily at 4:00 UTC
+            Sitemap generation is automated via GitHub Actions and runs daily at 2:00 UTC
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-2 text-sm">
             <div className="flex items-center justify-between">
               <span>Schedule:</span>
-              <Badge variant="outline">Daily at 4:00 UTC</Badge>
+              <Badge variant="outline">Daily at 2:00 UTC</Badge>
             </div>
             <div className="flex items-center justify-between">
               <span>Google ping:</span>
