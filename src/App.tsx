@@ -26,6 +26,7 @@ import Admin from "./pages/Admin";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminSources from "./pages/AdminSources";
 import AdminArticles from "./pages/admin/AdminArticles";
+import AdminManualIngest from "./pages/admin/AdminManualIngest";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { TopicsIndexPage } from "./pages/topics/TopicsIndexPage";
 import { TopicLandingPage } from "./pages/topics/TopicLandingPage";
@@ -84,6 +85,11 @@ const App = () => (
                     <ProtectedRoute>
                       <AdminArticles />
                     </ProtectedRoute>  
+                  } />
+                  <Route path="/admin/manual-ingest" element={
+                    <ProtectedRoute>
+                      <AdminManualIngest />
+                    </ProtectedRoute>
                   } />
                   <Route path="/topics" element={<TopicsIndexPage />} />
                   <Route path="/topics/:slug" element={<TopicLandingPage />} />

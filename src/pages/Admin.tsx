@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Users, Database, List, ArrowLeft, Rss, Cog, Tags, Monitor, Map } from "lucide-react";
+import { Loader2, Users, Database, List, ArrowLeft, Rss, Cog, Tags, Monitor, Map, Globe } from "lucide-react";
 
 interface Profile {
   id: string;
@@ -422,6 +422,11 @@ const Admin = () => {
           <Button variant="outline" onClick={() => navigate("/admin/sitemap")}>
             <Map className="h-4 w-4 mr-2" />
             Gestisci Sitemap
+          </Button>
+          
+          <Button variant="outline" onClick={() => navigate("/admin/manual-ingest")}>
+            <Globe className="h-4 w-4 mr-2" />
+            Manual Ingestion
           </Button>
           
           {/* Profile badge */}
