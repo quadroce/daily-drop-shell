@@ -699,8 +699,11 @@ const Feed = () => {
               const isFirstYouTubeVideo = isYouTube && 
                 drops.findIndex(d => !!d.youtube_video_id || /youtu(\.be|be\.com)/.test(d.url)) === index;
               
+              console.log(`[Feed] Drop ${index}: ${drop.title.substring(0, 30)}... - isYouTube: ${isYouTube}, isFirstYT: ${isFirstYouTubeVideo}, isPremium: ${isPremium}`);
+              
               // If premium user and first YouTube video, render full-width video card
               if (isPremium && isYouTube && isFirstYouTubeVideo) {
+                console.log(`[Feed] Rendering FullWidthVideoCard for drop ${index}`);
                 return (
                   <FullWidthVideoCard 
                     key={drop.id} 
@@ -715,6 +718,7 @@ const Feed = () => {
               }
               
               // Otherwise render regular card (including subsequent YouTube videos for premium users)
+              console.log(`[Feed] Rendering DropCard for drop ${index}`);
               return <DropCard key={drop.id} drop={drop} />;
             })}
             
