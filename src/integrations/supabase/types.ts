@@ -22,7 +22,7 @@ export type Database = {
           id: number
           resource_id: string | null
           resource_type: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           action: string
@@ -31,7 +31,7 @@ export type Database = {
           id?: number
           resource_id?: string | null
           resource_type: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           action?: string
@@ -40,7 +40,7 @@ export type Database = {
           id?: number
           resource_id?: string | null
           resource_type?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -457,7 +457,9 @@ export type Database = {
           error: string | null
           id: number
           lang: string | null
+          notes: string | null
           source_id: number | null
+          source_label: string | null
           status: string
           tries: number
           updated_at: string
@@ -468,7 +470,9 @@ export type Database = {
           error?: string | null
           id?: number
           lang?: string | null
+          notes?: string | null
           source_id?: number | null
+          source_label?: string | null
           status?: string
           tries?: number
           updated_at?: string
@@ -479,7 +483,9 @@ export type Database = {
           error?: string | null
           id?: number
           lang?: string | null
+          notes?: string | null
           source_id?: number | null
+          source_label?: string | null
           status?: string
           tries?: number
           updated_at?: string
