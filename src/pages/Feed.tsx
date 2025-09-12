@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ChipLink } from "@/components/ChipLink";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Heart, Bookmark, X, ThumbsDown, ExternalLink, Star, Play, Image, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,11 +12,13 @@ import { usePreferences } from "@/contexts/PreferencesContext";
 import { getYouTubeThumbnailFromUrl, getYouTubeFallbackThumbnail } from "@/lib/youtube";
 import { requireSession } from "@/lib/auth";
 import { useEngagement } from "@/hooks/useEngagement";
+import { useTopicsMap } from "@/hooks/useTopicsMap";
 import { track } from "@/lib/analytics";
 
 const Feed = () => {
   const navigate = useNavigate();
   const { fallbackPrefs, isFallbackActive } = usePreferences();
+  const { getTopicSlug, isLoading: topicsLoading } = useTopicsMap();
   const [drops, setDrops] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasPreferences, setHasPreferences] = useState<boolean | null>(null);
@@ -436,23 +439,54 @@ const Feed = () => {
                 <div className="flex flex-wrap gap-1">
                   {/* L1 Topic (Blue) */}
                   {drop.l1_topic && (
-                    <Badge variant="tag-l1" className="text-xs py-0 px-1">
-                      {drop.l1_topic}
-                    </Badge>
+                    topicsLoading || !getTopicSlug(drop.l1_topic) ? (
+                      <Badge variant="tag-l1" className="text-xs py-0 px-1">
+                        {drop.l1_topic}
+                      </Badge>
+                    ) : (
+                      <ChipLink 
+                        to={`/topics/${getTopicSlug(drop.l1_topic)}`}
+                        variant="tag-l1"
+                        className="text-xs py-0 px-1"
+                      >
+                        {drop.l1_topic}
+                      </ChipLink>
+                    )
                   )}
                   
                   {/* L2 Topic (Green) */}
                   {drop.l2_topic && (
-                    <Badge variant="tag-l2" className="text-xs py-0 px-1">
-                      {drop.l2_topic}
-                    </Badge>
+                    topicsLoading || !getTopicSlug(drop.l2_topic) ? (
+                      <Badge variant="tag-l2" className="text-xs py-0 px-1">
+                        {drop.l2_topic}
+                      </Badge>
+                    ) : (
+                      <ChipLink 
+                        to={`/topics/${getTopicSlug(drop.l2_topic)}`}
+                        variant="tag-l2"
+                        className="text-xs py-0 px-1"
+                      >
+                        {drop.l2_topic}
+                      </ChipLink>
+                    )
                   )}
                   
                   {/* L3 Tags (Purple) - Show all available tags */}
                   {drop.tags?.filter(tag => tag && tag.trim()).map((tag: string) => (
-                    <Badge key={`l3-${tag}`} variant="tag-l3" className="text-xs py-0 px-1">
-                      {tag}
-                    </Badge>
+                    topicsLoading || !getTopicSlug(tag) ? (
+                      <Badge key={`l3-${tag}`} variant="tag-l3" className="text-xs py-0 px-1">
+                        {tag}
+                      </Badge>
+                    ) : (
+                      <ChipLink 
+                        key={`l3-${tag}`}
+                        to={`/topics/${getTopicSlug(tag)}`}
+                        variant="tag-l3"
+                        className="text-xs py-0 px-1"
+                      >
+                        {tag}
+                      </ChipLink>
+                    )
                   ))}
                 </div>
                 
