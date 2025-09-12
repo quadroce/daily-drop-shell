@@ -146,7 +146,10 @@ const Feed = () => {
         // Use content ranking edge function with source diversity
         console.log('[Feed] Calling content-ranking edge function...');
         const { data: rankingResponse, error } = await supabase.functions.invoke('content-ranking', {
-          body: { limit: 5 }
+          body: { 
+            limit: 5,
+            refresh_cache: true  // Force cache refresh to apply new YouTube limit constraint
+          }
         });
         
         console.log('[Feed] Raw response from edge function:', { rankingResponse, error });
