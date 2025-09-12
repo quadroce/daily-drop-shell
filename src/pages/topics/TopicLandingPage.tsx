@@ -209,10 +209,14 @@ export const TopicLandingPage = () => {
                       
                       {/* Show L3 children for L1 topics */}
                       {topic.level === 1 && grandchildrenByParent?.[child.id.toString()]?.length > 0 && (
-                        <div className="pl-4">
-                          <div className="flex flex-wrap gap-2">
+                        <div className="pl-2 pt-2 border-l-2 border-muted/30">
+                          <div className="flex flex-wrap gap-2 pl-2">
                             {grandchildrenByParent[child.id.toString()].map((grandchild: Topic) => (
-                              <ChipLink key={grandchild.id.toString()} to={`/topics/${grandchild.slug}`}>
+                              <ChipLink 
+                                key={grandchild.id.toString()} 
+                                to={`/topics/${grandchild.slug}`}
+                                variant="tag-l3"
+                              >
                                 {grandchild.label}
                               </ChipLink>
                             ))}
