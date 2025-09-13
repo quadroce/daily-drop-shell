@@ -299,9 +299,9 @@ Deno.serve(async (req) => {
       // Build sitemap index
       const now = new Date().toISOString();
       const sitemapIndex = buildSitemapIndex([
-        { loc: `${baseUrl}/sitemaps/core.xml`, lastmod: now },
-        { loc: `${baseUrl}/sitemaps/topics.xml`, lastmod: now },
-        { loc: `${baseUrl}/sitemaps/topics-archive.xml`, lastmod: now }
+        { loc: `${baseUrl}/sitemap-proxy/sitemaps/core.xml`, lastmod: now },
+        { loc: `${baseUrl}/sitemap-proxy/sitemaps/topics.xml`, lastmod: now },
+        { loc: `${baseUrl}/sitemap-proxy/sitemaps/topics-archive.xml`, lastmod: now }
       ]);
 
       // Upload all files to storage

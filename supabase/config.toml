@@ -1,5 +1,8 @@
 project_id = "qimelntuxquptqqynxzv"
 
+[functions.sitemap-proxy]
+verify_jwt = false
+
 [functions.start-youtube-reprocessing]
 verify_jwt = false
 
