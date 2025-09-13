@@ -49,10 +49,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        ref: 'main',
-        inputs: {
-          run_id: runData.id.toString()
-        }
+        ref: 'main'
       })
     })
 
