@@ -1,2 +1,6 @@
+# Sitemap redirects to Supabase functions
+/sitemap.xml    https://qimelntuxquptqqynxzv.supabase.co/functions/v1/sitemap-proxy    200
+/sitemap-proxy/*    https://qimelntuxquptqqynxzv.supabase.co/functions/v1/sitemap-proxy/:splat    200
+
 # Handle all other routes with React Router
 /*    /index.html   200
