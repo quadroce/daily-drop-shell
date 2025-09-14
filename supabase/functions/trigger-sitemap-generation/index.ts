@@ -14,7 +14,6 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const githubToken = Deno.env.get('GITHUB_TOKEN')!
     
     const supabase = createClient(supabaseUrl, supabaseKey)
 
@@ -40,26 +39,17 @@ serve(async (req) => {
 
     console.log('Created sitemap run record:', runData.id)
 
-    // Trigger GitHub Actions workflow
-    const githubResponse = await fetch('https://api.github.com/repos/quadroce/daily-drop-shell/actions/workflows/generate-sitemaps.yml/dispatches', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${githubToken}`,
-        'Accept': 'application/vnd.github.v3+json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        ref: 'main'
-      })
+    // Call generate-sitemap function directly
+    const generateResponse = await supabase.functions.invoke('generate-sitemap', {
+      body: { run_id: runData.id }
     })
 
-    if (!githubResponse.ok) {
-      const errorText = await githubResponse.text()
-      console.error('GitHub API error:', errorText)
-      throw new Error(`GitHub API error: ${githubResponse.status} ${errorText}`)
+    if (generateResponse.error) {
+      console.error('Sitemap generation error:', generateResponse.error)
+      throw new Error(`Sitemap generation failed: ${generateResponse.error.message}`)
     }
 
-    console.log('Successfully triggered GitHub workflow')
+    console.log('Successfully triggered sitemap generation:', generateResponse.data)
 
     return new Response(
       JSON.stringify({ 
