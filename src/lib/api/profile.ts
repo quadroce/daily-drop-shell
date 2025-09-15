@@ -177,6 +177,46 @@ export async function getCurrentProfile(): Promise<Profile | null> {
 }
 
 /**
+ * Update user preferences (languages and YouTube embed)
+ */
+export async function updateUserPreferences(preferences: {
+  language_prefs: string[];
+  youtube_embed_pref: boolean;
+}): Promise<Profile> {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error("User not authenticated");
+  }
+
+  // Validate language preferences (max 3)
+  if (preferences.language_prefs.length > 3) {
+    throw new Error("Maximum 3 languages allowed");
+  }
+
+  if (preferences.language_prefs.length < 1) {
+    throw new Error("At least 1 language is required");
+  }
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({
+      language_prefs: preferences.language_prefs,
+      youtube_embed_pref: preferences.youtube_embed_pref,
+    })
+    .eq('id', user.id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating preferences:', error);
+    throw new Error(`Failed to update preferences: ${error.message}`);
+  }
+
+  return data;
+}
+
+/**
  * Available languages for selection
  */
 export const AVAILABLE_LANGUAGES = [
