@@ -295,16 +295,14 @@ export const TopicsOnboardingWizard: React.FC<TopicsOnboardingWizardProps> = ({
                             {macroSubs.map(sub => (
                               <div
                                 key={sub.id}
-                                className={`cursor-pointer transition-all ${
-                                  selectedTopics.has(sub.id) ? 'ring-2 ring-primary' : ''
-                                }`}
+                                className="cursor-pointer transition-all"
                                 onClick={() => toggleTopic(sub.id)}
                               >
                                 <TopicCard
                                   to="#"
                                   label={sub.label}
                                   level={sub.level}
-                                  className={selectedTopics.has(sub.id) ? 'bg-primary/5' : ''}
+                                  selected={selectedTopics.has(sub.id)}
                                 />
                               </div>
                             ))}
@@ -372,16 +370,14 @@ export const TopicsOnboardingWizard: React.FC<TopicsOnboardingWizardProps> = ({
                               {subMicros.map(micro => (
                                 <div
                                   key={micro.id}
-                                  className={`cursor-pointer transition-all ${
-                                    selectedTopics.has(micro.id) ? 'ring-2 ring-primary' : ''
-                                  }`}
+                                  className="cursor-pointer transition-all"
                                   onClick={() => toggleTopic(micro.id)}
                                 >
                                   <TopicCard
                                     to="#"
                                     label={micro.label}
                                     level={micro.level}
-                                    className={selectedTopics.has(micro.id) ? 'bg-primary/5' : ''}
+                                    selected={selectedTopics.has(micro.id)}
                                   />
                                 </div>
                               ))}

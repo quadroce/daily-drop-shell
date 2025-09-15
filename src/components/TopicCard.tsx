@@ -8,9 +8,10 @@ export type TopicCardProps = {
   intro?: string | null;
   level: number;
   className?: string;
+  selected?: boolean;
 };
 
-export const TopicCard = ({ to, label, intro, level, className }: TopicCardProps) => {
+export const TopicCard = ({ to, label, intro, level, className, selected = false }: TopicCardProps) => {
   const levelColors = {
     1: "bg-primary text-primary-foreground",
     2: "bg-secondary text-secondary-foreground", 
@@ -19,7 +20,11 @@ export const TopicCard = ({ to, label, intro, level, className }: TopicCardProps
 
   return (
     <Link to={to} className={className}>
-      <Card className="h-full hover:shadow-md transition-shadow duration-200">
+      <Card className={`h-full transition-all duration-200 ${
+        selected 
+          ? "ring-2 ring-primary bg-primary/5 hover:shadow-lg" 
+          : "hover:shadow-md"
+      }`}>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-2">
             <CardTitle className="text-lg font-semibold leading-tight">
