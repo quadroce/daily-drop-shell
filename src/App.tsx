@@ -35,8 +35,6 @@ import { TopicLandingPage } from "./pages/topics/TopicLandingPage";
 import { TopicArchiveIndexPage } from "./pages/topics/TopicArchiveIndexPage";
 import { TopicDailyArchivePage } from "./pages/topics/TopicDailyArchivePage";
 import { SitemapPage } from "./pages/SitemapPage";
-import { SitemapXml } from "./pages/SitemapXml";
-import { SitemapChild } from "./pages/SitemapChild";
 
 const queryClient = new QueryClient();
 
@@ -103,8 +101,6 @@ const App = () => (
                   <Route path="/topics/:slug" element={<TopicLandingPage />} />
                   <Route path="/topics/:slug/archive" element={<TopicArchiveIndexPage />} />
                   <Route path="/topics/:slug/:date" element={<TopicDailyArchivePage />} />
-                  <Route path="/sitemap.xml" element={<SitemapXml />} />
-                  <Route path="/sitemaps/:filename" element={<SitemapChild />} />
                   <Route path="/admin/sitemap" element={<SitemapPage />} />
                   <Route path="/u/:username" element={<PublicProfile />} />
                   <Route path="*" element={<NotFound />} />

@@ -138,12 +138,12 @@ export const SitemapPage = () => {
           </CardHeader>
           <CardContent>
             <a 
-              href="/sitemap-static.xml" 
+              href="/sitemap-proxy/core.xml" 
               target="_blank" 
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-primary hover:underline"
             >
-              /sitemap-static.xml
+              /sitemap-proxy/core.xml
               <ExternalLink className="h-3 w-3" />
             </a>
           </CardContent>
@@ -156,12 +156,12 @@ export const SitemapPage = () => {
           </CardHeader>
           <CardContent>
             <a 
-              href="/sitemap-topics.xml" 
+              href="/sitemap-proxy/topics.xml" 
               target="_blank" 
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-primary hover:underline"
             >
-              /sitemap-topics.xml
+              /sitemap-proxy/topics.xml
               <ExternalLink className="h-3 w-3" />
             </a>
           </CardContent>
@@ -174,12 +174,12 @@ export const SitemapPage = () => {
           </CardHeader>
           <CardContent>
             <a 
-              href="/sitemap-archives.xml" 
+              href="/sitemap-proxy/topics-archive.xml" 
               target="_blank" 
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-primary hover:underline"
             >
-              /sitemap-archives.xml
+              /sitemap-proxy/topics-archive.xml
               <ExternalLink className="h-3 w-3" />
             </a>
           </CardContent>
