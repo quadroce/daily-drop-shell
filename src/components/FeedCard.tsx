@@ -49,18 +49,21 @@ export const FeedCard = ({
   isPremium, 
   user,
   onEngage,
-  position 
+  position
 }: FeedCardComponentProps) => {
   const { track } = useAnalytics();
+  
+  // Check if user is premium (for YouTube embeds)  
+  const isUserPremium = user?.isPremium || false;
+  const showInlineVideo = type === "video" && youtubeId && isUserPremium;
 
   const baseParams = {
     content_id: id,
     source: source.name,
-    topic_l1: tags[0] || '',
-    topic_l2: tags[1] || '',
-    topic_l3: tags[2] || '',
+    topic_l1: l1Topic,
+    topic_l2: l2Topic,
     position: position || 0,
-    is_premium: isPremium || false
+    is_premium: isUserPremium
   };
 
   const handleAction = (action: "save"|"dismiss"|"like"|"dislike"|"open"|"video_play") => {

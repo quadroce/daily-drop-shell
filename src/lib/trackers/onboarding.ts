@@ -1,5 +1,12 @@
 import { track } from '@/lib/analytics';
 
+// Track subscription tier as user property
+export const setUserTier = (subscriptionTier: string) => {
+  track('set_user_property', { 
+    subscription_tier: subscriptionTier 
+  });
+};
+
 export const trackOnboardingStart = () => {
   track('onboarding_start', { step: 'start' });
 };

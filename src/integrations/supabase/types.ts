@@ -577,36 +577,54 @@ export type Database = {
       profiles: {
         Row: {
           auth_provider: Database["public"]["Enums"]["auth_provider"]
+          company_role: string | null
           created_at: string
           display_name: string | null
           email: string
+          first_name: string | null
           id: string
+          language_prefs: string[]
+          last_name: string | null
+          onboarding_completed: boolean
           preference_embeddings: string | null
           role: Database["public"]["Enums"]["app_role"]
           subscription_tier: Database["public"]["Enums"]["subscription_tier"]
           username: string | null
+          youtube_embed_pref: boolean
         }
         Insert: {
           auth_provider?: Database["public"]["Enums"]["auth_provider"]
+          company_role?: string | null
           created_at?: string
           display_name?: string | null
           email: string
+          first_name?: string | null
           id: string
+          language_prefs?: string[]
+          last_name?: string | null
+          onboarding_completed?: boolean
           preference_embeddings?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           subscription_tier?: Database["public"]["Enums"]["subscription_tier"]
           username?: string | null
+          youtube_embed_pref?: boolean
         }
         Update: {
           auth_provider?: Database["public"]["Enums"]["auth_provider"]
+          company_role?: string | null
           created_at?: string
           display_name?: string | null
           email?: string
+          first_name?: string | null
           id?: string
+          language_prefs?: string[]
+          last_name?: string | null
+          onboarding_completed?: boolean
           preference_embeddings?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           subscription_tier?: Database["public"]["Enums"]["subscription_tier"]
           username?: string | null
+          youtube_embed_pref?: boolean
         }
         Relationships: []
       }
@@ -882,6 +900,38 @@ export type Database = {
         }
         Relationships: []
       }
+      user_topic_preferences: {
+        Row: {
+          created_at: string | null
+          level: number
+          priority: number | null
+          topic_id: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          level: number
+          priority?: number | null
+          topic_id: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          level?: number
+          priority?: number | null
+          topic_id?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_topic_preferences_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_subscriptions: {
         Row: {
           active: boolean
@@ -1017,14 +1067,20 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: {
           auth_provider: Database["public"]["Enums"]["auth_provider"]
+          company_role: string | null
           created_at: string
           display_name: string | null
           email: string
+          first_name: string | null
           id: string
+          language_prefs: string[]
+          last_name: string | null
+          onboarding_completed: boolean
           preference_embeddings: string | null
           role: Database["public"]["Enums"]["app_role"]
           subscription_tier: Database["public"]["Enums"]["subscription_tier"]
           username: string | null
+          youtube_embed_pref: boolean
         }
       }
       get_public_profile_by_username: {
@@ -1178,14 +1234,20 @@ export type Database = {
         Args: { _display_name?: string; _username?: string }
         Returns: {
           auth_provider: Database["public"]["Enums"]["auth_provider"]
+          company_role: string | null
           created_at: string
           display_name: string | null
           email: string
+          first_name: string | null
           id: string
+          language_prefs: string[]
+          last_name: string | null
+          onboarding_completed: boolean
           preference_embeddings: string | null
           role: Database["public"]["Enums"]["app_role"]
           subscription_tier: Database["public"]["Enums"]["subscription_tier"]
           username: string | null
+          youtube_embed_pref: boolean
         }
       }
       upsert_preferences: {

@@ -19,6 +19,7 @@ import Pricing from "./pages/Pricing";
 import Premium from "./pages/Premium";
 import Corporate from "./pages/Corporate";
 import Sponsor from "./pages/Sponsor";
+import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
 import PublicProfile from "./pages/PublicProfile";
 import ResetPassword from "./pages/ResetPassword";
@@ -70,6 +71,11 @@ const App = () => (
                   <Route path="/premium" element={<Premium />} />
                   <Route path="/corporate" element={<Corporate />} />
                   <Route path="/sponsor" element={<Sponsor />} />
+                  <Route path="/onboarding" element={
+                    <ProtectedRoute>
+                      <Onboarding />
+                    </ProtectedRoute>
+                  } />
                   <Route path="/admin" element={<Admin />} />
                   <Route path="/admin/dashboard" element={
                     <ProtectedRoute>
