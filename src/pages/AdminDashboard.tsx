@@ -109,6 +109,10 @@ const AdminDashboard = () => {
         .select('*')
         .order('name');
 
+      // Update state with fetched data
+      setLogs(logsData || []);
+      setCronJobs(cronData || []);
+
       // Fetch stats with correct queries
       const [totalDropsRes, taggedDropsRes, queueRes] = await Promise.all([
         supabase.from('drops').select('*', { count: 'exact', head: true }),
