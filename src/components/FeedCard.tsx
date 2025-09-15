@@ -53,7 +53,7 @@ export const FeedCard = ({
 }: FeedCardComponentProps) => {
   const { track } = useAnalytics();
   
-  // Check if user is premium (for YouTube embeds)  
+  // Check if user is premium (for YouTube embeds)
   const isUserPremium = user?.isPremium || false;
   const showInlineVideo = type === "video" && youtubeId && isUserPremium;
 
