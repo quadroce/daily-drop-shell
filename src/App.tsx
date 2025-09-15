@@ -19,6 +19,7 @@ import Pricing from "./pages/Pricing";
 import Premium from "./pages/Premium";
 import Corporate from "./pages/Corporate";
 import Sponsor from "./pages/Sponsor";
+import Privacy from "./pages/Privacy";
 import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
 import PublicProfile from "./pages/PublicProfile";
@@ -71,6 +72,7 @@ const App = () => (
                   <Route path="/premium" element={<Premium />} />
                   <Route path="/corporate" element={<Corporate />} />
                   <Route path="/sponsor" element={<Sponsor />} />
+                  <Route path="/privacy" element={<Privacy />} />
                   <Route path="/onboarding" element={
                     <ProtectedRoute>
                       <Onboarding />

@@ -13,7 +13,7 @@ const Footer = () => {
             <Link to="#" className="hover:text-primary transition-colors">
               Terms
             </Link>
-            <Link to="#" className="hover:text-primary transition-colors">
+            <Link to="/privacy" className="hover:text-primary transition-colors">
               Privacy
             </Link>
             <Link to="#" className="hover:text-primary transition-colors">
