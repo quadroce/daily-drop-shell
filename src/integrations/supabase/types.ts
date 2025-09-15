@@ -156,6 +156,36 @@ export type Database = {
           },
         ]
       }
+      cron_execution_log: {
+        Row: {
+          error_message: string | null
+          executed_at: string
+          id: number
+          job_name: string
+          response_body: string | null
+          response_status: number | null
+          success: boolean | null
+        }
+        Insert: {
+          error_message?: string | null
+          executed_at?: string
+          id?: number
+          job_name: string
+          response_body?: string | null
+          response_status?: number | null
+          success?: boolean | null
+        }
+        Update: {
+          error_message?: string | null
+          executed_at?: string
+          id?: number
+          job_name?: string
+          response_body?: string | null
+          response_status?: number | null
+          success?: boolean | null
+        }
+        Relationships: []
+      }
       cron_jobs: {
         Row: {
           created_at: string
@@ -1082,6 +1112,16 @@ export type Database = {
           username: string | null
           youtube_embed_pref: boolean
         }
+      }
+      get_ingestion_health: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          is_healthy: boolean
+          last_successful_run: string
+          minutes_since_last_run: number
+          queue_size: number
+          untagged_articles: number
+        }[]
       }
       get_public_profile_by_username: {
         Args: { _username: string }

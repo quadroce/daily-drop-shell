@@ -70,28 +70,37 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🚀 Starting ingestion restart process...');
     const overallStart = performance.now();
-    
-    const results: ProcessResult[] = [];
     
     // Parse request parameters
     let isAutoTrigger = false;
     let skipRssFetch = false;
+    let isCronTrigger = false;
     
     try {
       const body = await req.json();
       isAutoTrigger = body.auto_recovery || body.cron_trigger || false;
+      isCronTrigger = body.cron_trigger || false;
+      
+      console.log(`🚀 Starting ingestion restart process... ${isCronTrigger ? '[CRON]' : '[MANUAL]'}`);
       
       // Skip RSS fetch if it recently failed to prevent worker limit issues
       if (isAutoTrigger) {
         // For auto triggers, skip RSS more often to prevent overload
-        const skipRssChance = Math.random() < 0.7; // Skip RSS 70% of the time for auto triggers
+        const skipRssChance = Math.random() < 0.6; // Skip RSS 60% of the time for auto triggers
         skipRssFetch = skipRssChance;
         console.log(`🤖 Auto-trigger detected, ${skipRssFetch ? 'skipping' : 'including'} RSS fetch for reliability...`);
       }
     } catch (e) {
+      console.log('🚀 Starting ingestion restart process... [NO BODY]');
       // No body, continue with defaults
+    }
+
+    const results: ProcessResult[] = [];
+    
+    // Add execution tracking for cron jobs
+    if (isCronTrigger) {
+      console.log('📊 Cron trigger detected - logging execution for monitoring');
     }
     
     // Step 1: Fetch new RSS feeds (skip if problematic)
@@ -149,6 +158,7 @@ serve(async (req) => {
       success: overallSuccess,
       total_duration_ms: Math.round(overallDuration),
       auto_trigger: isAutoTrigger,
+      cron_trigger: isCronTrigger,
       steps: results,
       summary: {
         rss_feeds_processed: results.find(r => r.step === 'fetch-rss')?.result?.sources || 0,
@@ -159,7 +169,35 @@ serve(async (req) => {
       }
     };
     
-    console.log('🏁 Ingestion restart process completed:', summary);
+    console.log(`🏁 Ingestion restart process completed ${isCronTrigger ? '[CRON]' : '[MANUAL]'}:`, summary);
+    
+    // Log to database for monitoring if this was a cron trigger
+    if (isCronTrigger) {
+      try {
+        const logResponse = await fetch(`${SUPABASE_URL}/rest/v1/cron_execution_log`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json',
+            'apikey': SERVICE_ROLE_KEY,
+          },
+          body: JSON.stringify({
+            job_name: 'restart-ingestion-cron',
+            success: overallSuccess,
+            response_status: 200,
+            response_body: JSON.stringify(summary)
+          }),
+        });
+        
+        if (!logResponse.ok) {
+          console.warn('⚠️ Failed to log cron execution:', await logResponse.text());
+        } else {
+          console.log('📝 Cron execution logged successfully');
+        }
+      } catch (logError) {
+        console.warn('⚠️ Failed to log cron execution:', logError);
+      }
+    }
     
     return new Response(JSON.stringify(summary), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

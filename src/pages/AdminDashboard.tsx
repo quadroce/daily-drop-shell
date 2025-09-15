@@ -48,10 +48,30 @@ interface Stats {
   processing_queue: number;
 }
 
+interface IngestionHealth {
+  last_successful_run: string;
+  minutes_since_last_run: number;
+  is_healthy: boolean;
+  queue_size: number;
+  untagged_articles: number;
+}
+
+interface CronExecution {
+  id: number;
+  job_name: string;
+  executed_at: string;
+  success: boolean;
+  response_status: number;
+  response_body: string;
+  error_message: string;
+}
+
 const AdminDashboard = () => {
   const [logs, setLogs] = useState<IngestionLog[]>([]);
   const [cronJobs, setCronJobs] = useState<CronJob[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [ingestionHealth, setIngestionHealth] = useState<IngestionHealth | null>(null);
+  const [cronExecutions, setCronExecutions] = useState<CronExecution[]>([]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
 
@@ -109,9 +129,22 @@ const AdminDashboard = () => {
         .select('*')
         .order('name');
 
+      // Fetch ingestion health
+      const { data: healthData } = await supabase
+        .rpc('get_ingestion_health');
+
+      // Fetch recent cron executions
+      const { data: cronExecutionsData } = await supabase
+        .from('cron_execution_log')
+        .select('*')
+        .order('executed_at', { ascending: false })
+        .limit(10);
+
       // Update state with fetched data
       setLogs(logsData || []);
       setCronJobs(cronData || []);
+      setIngestionHealth(healthData?.[0] || null);
+      setCronExecutions(cronExecutionsData || []);
 
       // Fetch stats with correct queries
       const [totalDropsRes, taggedDropsRes, queueRes] = await Promise.all([
@@ -377,19 +410,55 @@ const AdminDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="flex items-center space-x-2">
-              {logs[0]?.success ? (
+              {ingestionHealth?.is_healthy ? (
                 <CheckCircle className="h-5 w-5 text-green-500" />
               ) : (
                 <AlertCircle className="h-5 w-5 text-red-500" />
               )}
-              <span className={`font-medium ${logs[0]?.success ? 'text-green-700' : 'text-red-700'}`}>
-                {logs[0]?.success ? 'Healthy' : 'Issues Detected'}
+              <span className={`font-medium ${ingestionHealth?.is_healthy ? 'text-green-700' : 'text-red-700'}`}>
+                {ingestionHealth?.is_healthy ? 'Healthy' : 'Issues Detected'}
               </span>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Last check: {formatDate(logs[0]?.created_at || '')}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Last run: {ingestionHealth ? `${ingestionHealth.minutes_since_last_run}m ago` : 'No data'}
+            </p>
           </CardContent>
         </Card>
       </div>
+
+      {/* Ingestion Health Monitoring */}
+      {ingestionHealth && (
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Ingestion Health Monitor
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-foreground">{ingestionHealth.minutes_since_last_run}m</div>
+                <div className="text-sm text-muted-foreground">Since Last Success</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-foreground">{ingestionHealth.queue_size}</div>
+                <div className="text-sm text-muted-foreground">Queue Size</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-foreground">{ingestionHealth.untagged_articles}</div>
+                <div className="text-sm text-muted-foreground">Untagged Articles</div>
+              </div>
+              <div className="text-center">
+                <Badge variant={ingestionHealth.is_healthy ? "default" : "destructive"} className="text-sm">
+                  {ingestionHealth.is_healthy ? "HEALTHY" : "UNHEALTHY"}
+                </Badge>
+                <div className="text-xs text-muted-foreground mt-1">Overall Status</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Cron Jobs Control */}
@@ -595,6 +664,50 @@ const AdminDashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Cron Execution Logs */}
+      {cronExecutions.length > 0 && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Cron Execution History
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {cronExecutions.map((execution) => (
+                <div key={execution.id} className={`p-3 border rounded-lg ${execution.success ? 'bg-green-50 dark:bg-green-950/20' : 'bg-red-50 dark:bg-red-950/20'}`}>
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      {execution.success ? (
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4 text-red-500" />
+                      )}
+                      <span className="text-sm font-medium">
+                        {formatDate(execution.executed_at)}
+                      </span>
+                      <Badge variant="outline" className="text-xs">
+                        {execution.job_name}
+                      </Badge>
+                    </div>
+                    <Badge variant={execution.success ? "default" : "destructive"} className="text-xs">
+                      {execution.response_status || (execution.success ? 'Success' : 'Failed')}
+                    </Badge>
+                  </div>
+                  
+                  {execution.error_message && (
+                    <div className="mt-2 p-2 bg-red-100 dark:bg-red-900/20 rounded text-xs">
+                      <strong>Error:</strong> {execution.error_message}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
