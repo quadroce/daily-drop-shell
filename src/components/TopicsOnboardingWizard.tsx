@@ -20,6 +20,7 @@ interface Topic {
 
 interface TopicsOnboardingWizardProps {
   onSave: (topicIds: number[]) => Promise<void>;
+  onSaveAll?: () => Promise<void>;
   initialSelectedTopics?: number[];
 }
 
@@ -59,6 +60,7 @@ const SEED_TOPICS: Topic[] = [
 
 export const TopicsOnboardingWizard: React.FC<TopicsOnboardingWizardProps> = ({
   onSave,
+  onSaveAll,
   initialSelectedTopics = []
 }) => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -461,7 +463,7 @@ export const TopicsOnboardingWizard: React.FC<TopicsOnboardingWizardProps> = ({
               </Button>
             ) : (
               <Button 
-                onClick={handleSave}
+                onClick={onSaveAll || handleSave}
                 disabled={saving || selectedTopics.size === 0}
               >
                 {saving ? 'Saving...' : 'Save Preferences'}

@@ -149,6 +149,7 @@ const Preferences = () => {
         <CardContent className="p-6">
           <TopicsOnboardingWizard
             onSave={handleTopicsChange}
+            onSaveAll={handleSaveAll}
             initialSelectedTopics={initialTopics}
           />
         </CardContent>
