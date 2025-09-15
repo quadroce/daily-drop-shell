@@ -490,22 +490,22 @@ const Admin = () => {
         
           {/* Quick Actions */}
         <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={() => navigate("/admin/sources")}>
+          <Button variant="success" onClick={() => navigate("/admin/sources")}>
             <Database className="h-4 w-4 mr-2" />
             Gestisci Sorgenti
           </Button>
           
-          <Button variant="outline" onClick={() => navigate("/admin/articles")}>
+          <Button variant="warning" onClick={() => navigate("/admin/articles")}>
             <Monitor className="h-4 w-4 mr-2" />
             Gestisci Articoli
           </Button>
           
-          <Button variant="outline" onClick={() => navigate("/admin/sitemap")}>
+          <Button variant="default" onClick={() => navigate("/admin/sitemap")}>
             <Map className="h-4 w-4 mr-2" />
             Gestisci Sitemap
           </Button>
           
-          <Button variant="outline" onClick={() => navigate("/admin/manual-ingest")}>
+          <Button variant="destructive" onClick={() => navigate("/admin/manual-ingest")}>
             <Globe className="h-4 w-4 mr-2" />
             Manual Ingestion
           </Button>
