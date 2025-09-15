@@ -5,10 +5,21 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertCircle, Mail, Clock, Info } from "lucide-react";
+import { track } from "@/lib/analytics";
 
 const Newsletter = () => {
   const [isSubscribed, setIsSubscribed] = useState(true);
   const [deliveryTime, setDeliveryTime] = useState("09:00");
+
+  const handleSubscriptionChange = (subscribed: boolean) => {
+    setIsSubscribed(subscribed);
+    
+    if (subscribed) {
+      track('newsletter_subscribed', { slot: deliveryTime });
+    } else {
+      track('newsletter_unsubscribed', { slot: deliveryTime });
+    }
+  };
 
   // TODO: Connect to newsletter subscription settings in Supabase
   // TODO: Implement subscription toggle functionality
@@ -52,7 +63,7 @@ const Newsletter = () => {
               <Switch
                 id="subscription-toggle"
                 checked={isSubscribed}
-                onCheckedChange={setIsSubscribed}
+                onCheckedChange={handleSubscriptionChange}
               />
             </div>
             

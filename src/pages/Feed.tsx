@@ -16,6 +16,7 @@ import { useTopicsMap } from "@/hooks/useTopicsMap";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { FullWidthVideoCard } from "@/components/FullWidthVideoCard";
 import { track } from "@/lib/analytics";
+import { trackDropViewed } from "@/lib/trackers/content";
 
 // Add YouTube preconnect for performance
 if (typeof document !== 'undefined') {
@@ -263,6 +264,14 @@ const Feed = () => {
             tags: d.tags
           })));
           setDrops(dropsWithSources);
+          
+          // Track that drops were viewed in the feed
+          if (dropsWithSources.length > 0) {
+            trackDropViewed({ 
+              drop_id: dropsWithSources[0]?.id,
+              topic: dropsWithSources[0]?.l1_topic || dropsWithSources[0]?.tags?.[0] 
+            });
+          }
         }
       } catch (error) {
         console.error('Error fetching drops:', error);
@@ -434,10 +443,18 @@ const Feed = () => {
                       variant="ghost" 
                       size="icon" 
                       className="shrink-0 h-6 w-6"
-                      onClick={() => {
-                        window.open(drop.url, '_blank');
-                        handleEngagement(drop.id, 'open');
-                      }}
+                       onClick={() => {
+                         window.open(drop.url, '_blank');
+                         handleEngagement(drop.id, 'open');
+                         
+                         // Track content click
+                         track('content_click', {
+                           drop_id: drop.id,
+                           content_id: drop.id,
+                           source: drop.source || drop.source_name,
+                           topic: drop.l1_topic || drop.tags?.[0]
+                         });
+                       }}
                     >
                       <ExternalLink className="h-3 w-3" />
                     </Button>
@@ -516,7 +533,17 @@ const Feed = () => {
                         variant="ghost" 
                         size="icon" 
                         className="h-6 w-6 hover:bg-success/10 hover:text-success" 
-                        onClick={() => handleSave(drop.id)}
+                        onClick={() => {
+                          handleSave(drop.id);
+                          
+                          // Track save action
+                          track('save_item', {
+                            drop_id: drop.id,
+                            content_id: drop.id,
+                            source: drop.source || drop.source_name,
+                            topic: drop.l1_topic || drop.tags?.[0]
+                          });
+                        }}
                       >
                         <Bookmark className="h-3 w-3" />
                       </Button>
@@ -530,7 +557,17 @@ const Feed = () => {
                         variant="ghost" 
                         size="icon" 
                         className="h-6 w-6 hover:bg-destructive/10 hover:text-destructive" 
-                        onClick={() => handleEngagement(drop.id, 'dismiss')}
+                        onClick={() => {
+                          handleEngagement(drop.id, 'dismiss');
+                          
+                          // Track dismiss action
+                          track('dismiss_item', {
+                            drop_id: drop.id,
+                            content_id: drop.id,
+                            source: drop.source || drop.source_name,
+                            topic: drop.l1_topic || drop.tags?.[0]
+                          });
+                        }}
                       >
                         <X className="h-3 w-3" />
                       </Button>
@@ -544,7 +581,17 @@ const Feed = () => {
                         variant="ghost" 
                         size="icon" 
                         className="h-6 w-6 hover:bg-primary/10 hover:text-primary" 
-                        onClick={() => handleEngagement(drop.id, 'like')}
+                        onClick={() => {
+                          handleEngagement(drop.id, 'like');
+                          
+                          // Track like action
+                          track('like_item', {
+                            drop_id: drop.id,
+                            content_id: drop.id,
+                            source: drop.source || drop.source_name,
+                            topic: drop.l1_topic || drop.tags?.[0]
+                          });
+                        }}
                       >
                         <Heart className="h-3 w-3" />
                       </Button>

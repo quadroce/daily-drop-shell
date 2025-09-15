@@ -42,24 +42,20 @@ export default function YouTubePlayer({ videoId, contentId, className, isPremium
             switch (e.data) {
               case window.YT.PlayerState.PLAYING:
                 track('video_play', { 
-                  content_id: contentId, 
-                  video_id: videoId, 
-                  percent: 0,
-                  platform: 'youtube_embedded'
+                  drop_id: contentId, 
+                  content_id: contentId
                 });
                 break;
               case window.YT.PlayerState.PAUSED:
                 track('video_pause', { 
-                  content_id: contentId, 
-                  video_id: videoId,
-                  platform: 'youtube_embedded'
+                  drop_id: contentId, 
+                  content_id: contentId
                 });
                 break;
               case window.YT.PlayerState.ENDED:
                 track('video_complete', { 
-                  content_id: contentId, 
-                  video_id: videoId,
-                  platform: 'youtube_embedded'
+                  drop_id: contentId, 
+                  content_id: contentId
                 });
                 break;
             }

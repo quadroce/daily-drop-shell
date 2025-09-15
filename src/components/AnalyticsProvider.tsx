@@ -1,6 +1,6 @@
 import { useEffect, ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
-import { initGA, pageview, identify, initializeAnalytics, track } from '@/lib/analytics';
+import { initGA, pageview, identify, initializeAnalytics, setUserProperties, setUserId } from '@/lib/analytics';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserProfile } from '@/hooks/useUserProfile';
 
@@ -21,16 +21,33 @@ export function AnalyticsProvider({ children }: AnalyticsProviderProps) {
 
   useEffect(() => {
     if (user?.id) {
+      // Set user ID for GA4
+      setUserId(user.id);
       identify(user.id);
       
-      // Set subscription tier as user property if profile is available
-      if (profile?.subscription_tier) {
-        track('set_user_property', { 
-          subscription_tier: profile.subscription_tier 
-        });
+      // Set user properties if profile is available
+      if (profile) {
+        const userProps: Record<string, any> = {};
+        
+        if (profile.subscription_tier) {
+          userProps.subscription_tier = profile.subscription_tier;
+        }
+        
+        if (profile.language_prefs && profile.language_prefs.length > 0) {
+          userProps.language_prefs = profile.language_prefs;
+        }
+        
+        if (profile.youtube_embed_pref !== undefined) {
+          userProps.youtube_embed_pref = profile.youtube_embed_pref;
+        }
+        
+        // Set all user properties at once
+        if (Object.keys(userProps).length > 0) {
+          setUserProperties(userProps);
+        }
       }
     }
-  }, [user?.id, profile?.subscription_tier]);
+  }, [user?.id, profile?.subscription_tier, profile?.language_prefs, profile?.youtube_embed_pref]);
 
   // Track page views on route changes
   useEffect(() => {

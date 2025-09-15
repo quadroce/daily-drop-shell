@@ -98,7 +98,7 @@ const OnboardingPage: React.FC = () => {
             languages: formData.language_prefs 
           });
           track('onboarding_embed_pref_set', { 
-            embed: formData.youtube_embed_pref 
+            youtube_embed_pref: formData.youtube_embed_pref 
           });
           break;
         case 3:
@@ -116,9 +116,9 @@ const OnboardingPage: React.FC = () => {
           }).length;
           
           track('onboarding_topics_confirmed', {
-            l1_count: l1Count,
-            l2_count: l2Count,
-            l3_count: l3Count,
+            l1: l1Count,
+            l2: l2Count,
+            l3: l3Count,
             total: selectedTopics.length
           });
           break;
@@ -157,11 +157,7 @@ const OnboardingPage: React.FC = () => {
       
       // Track completion
       track('onboarding_completed', {
-        topics_count: selectedTopics.length,
-        languages_count: formData.language_prefs.length,
-        has_name: !!(formData.first_name || formData.last_name),
-        has_role: !!formData.company_role,
-        youtube_embeds: formData.youtube_embed_pref
+        total_topics: selectedTopics.length
       });
       
       toast({

@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import EmailVerification from "@/components/EmailVerification";
+import { track } from "@/lib/analytics";
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -54,6 +55,12 @@ const Auth = () => {
       if (error) {
         setError(error.message);
       } else {
+        // Track successful login
+        const provider = user?.app_metadata?.provider;
+        if (provider === 'google' || provider === 'linkedin') {
+          track('signup_complete', { method: provider });
+        }
+        
         toast({
           title: "Welcome back 👋",
           description: "You've been signed in successfully.",
@@ -90,6 +97,9 @@ const Auth = () => {
       if (error) {
         setError(error.message);
       } else {
+        // Track successful email signup
+        track('signup_complete', { method: 'email' });
+        
         toast({
           title: "Account created successfully",
           description: "Please check your email to verify your account.",
@@ -148,6 +158,9 @@ const Auth = () => {
         } else {
           setError(error.message);
         }
+      } else {
+        // Track successful OAuth signup
+        track('signup_complete', { method: 'google' });
       }
     } catch (err) {
       setError("An unexpected error occurred");
@@ -176,6 +189,9 @@ const Auth = () => {
         } else {
           setError(error.message);
         }
+      } else {
+        // Track successful OAuth signup
+        track('signup_complete', { method: 'linkedin' });
       }
     } catch (err) {
       setError("An unexpected error occurred");

@@ -12,7 +12,7 @@ const Pricing = () => {
   }, []);
 
   const handleUpgradeClick = (plan: string) => {
-    track('begin_checkout', { plan });
+    track('begin_checkout', { plan_name: plan });
     // TODO: Connect to Stripe for payment processing
   };
 
