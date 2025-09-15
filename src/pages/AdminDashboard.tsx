@@ -273,6 +273,34 @@ const AdminDashboard = () => {
     }
   };
 
+  const cleanupFailedQueue = async () => {
+    setRunning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('cleanup-failed-queue', {});
+
+      if (error) throw error;
+
+      toast({
+        title: "Queue Cleanup Complete",
+        description: `Cleaned ${data.cleaned || 0} problematic queue items. Ingestion should resume normally.`,
+      });
+
+      console.log('Queue cleanup results:', data);
+
+      // Refresh data after cleanup
+      setTimeout(fetchData, 2000);
+    } catch (error) {
+      console.error('Error cleaning up queue:', error);
+      toast({
+        title: "Error",
+        description: "Failed to cleanup queue.",
+        variant: "destructive",
+      });
+    } finally {
+      setRunning(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     if (!dateString) return 'Never';
     const date = new Date(dateString);
@@ -450,23 +478,47 @@ const AdminDashboard = () => {
                   {running ? 'Testing...' : 'Test YouTube API'}
                 </Button>
                 
+              <Button 
+                onClick={startYouTubeReprocessing} 
+                disabled={running}
+                className="w-full"
+                variant="destructive"
+                size="sm"
+              >
+                {running ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="h-4 w-4 mr-2" />
+                )}
+                {running ? 'Processing...' : 'Start YouTube Reprocessing'}
+              </Button>
+              <p className="text-xs text-muted-foreground text-center">
+                Test and fix YouTube videos with missing metadata
+              </p>
+              
+              <Separator />
+              
+              <div className="space-y-2">
+                <h4 className="font-medium text-sm">Queue Maintenance</h4>
+                
                 <Button 
-                  onClick={startYouTubeReprocessing} 
+                  onClick={cleanupFailedQueue} 
                   disabled={running}
                   className="w-full"
-                  variant="destructive"
+                  variant="outline"
                   size="sm"
                 >
                   {running ? (
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
-                    <Play className="h-4 w-4 mr-2" />
+                    <AlertCircle className="h-4 w-4 mr-2" />
                   )}
-                  {running ? 'Processing...' : 'Start YouTube Reprocessing'}
+                  {running ? 'Cleaning...' : 'Cleanup Failed Queue Items'}
                 </Button>
                 <p className="text-xs text-muted-foreground text-center">
-                  Test and fix YouTube videos with missing metadata
+                  Remove problematic items that block ingestion
                 </p>
+              </div>
               </div>
             </div>
           </CardContent>
