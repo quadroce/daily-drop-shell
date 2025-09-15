@@ -93,7 +93,18 @@ Deno.serve(async (req) => {
     // Convert blob to text
     const xmlContent = await data.text();
     
-    console.log(`Successfully served sitemap: ${storagePath}`);
+    // Log detailed content information for debugging
+    console.log(`Storage path: ${storagePath}`);
+    console.log(`Blob size: ${data.size} bytes`);
+    console.log(`Content type: ${data.type}`);
+    console.log(`Content length: ${xmlContent.length} characters`);
+    console.log(`Content preview (first 200 chars): ${xmlContent.substring(0, 200)}`);
+    console.log(`Is valid XML start: ${xmlContent.trim().startsWith('<?xml')}`);
+    
+    // Validate basic XML structure
+    const isValidXml = xmlContent.includes('<?xml') && 
+                       (xmlContent.includes('<urlset') || xmlContent.includes('<sitemapindex'));
+    console.log(`XML validation passed: ${isValidXml}`);
 
     return new Response(xmlContent, {
       status: 200,

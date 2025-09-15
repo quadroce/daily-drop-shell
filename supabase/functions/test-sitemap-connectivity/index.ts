@@ -45,6 +45,12 @@ async function testSitemapEndpoint(url: string): Promise<SitemapTestResult> {
 
     const content = await response.text();
     
+    // Log detailed content information for debugging
+    console.log(`URL: ${url}`);
+    console.log(`Response size: ${content.length} characters`);
+    console.log(`Content type: ${contentType}`);
+    console.log(`Content preview (first 200 chars): ${content.substring(0, 200)}`);
+    
     // Check if content is valid XML
     let isValidXml = false;
     let urlCount = 0;
@@ -58,7 +64,10 @@ async function testSitemapEndpoint(url: string): Promise<SitemapTestResult> {
       if (content.includes('<loc>')) {
         urlCount = (content.match(/<loc>/g) || []).length;
       }
+      
+      console.log(`XML validation: ${isValidXml}, URL count: ${urlCount}`);
     } catch (xmlError) {
+      console.error(`XML validation error for ${url}:`, xmlError);
       isValidXml = false;
     }
 

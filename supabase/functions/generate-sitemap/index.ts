@@ -212,6 +212,17 @@ async function generateTopicsArchiveSitemap(supabase: any, baseUrl: string): Pro
 }
 
 async function uploadToStorage(supabase: any, path: string, content: string): Promise<boolean> {
+  // Validate XML content before upload
+  const isValidXml = content.includes('<?xml') && 
+                     (content.includes('<urlset') || content.includes('<sitemapindex'));
+  
+  if (!isValidXml) {
+    console.error(`Invalid XML content for ${path}. Content preview: ${content.substring(0, 200)}`);
+    return false;
+  }
+  
+  console.log(`XML validation passed for ${path}. Content size: ${content.length} characters`);
+
   try {
     const { error } = await supabase.storage
       .from('public-sitemaps')
