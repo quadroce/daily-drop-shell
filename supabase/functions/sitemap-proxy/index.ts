@@ -24,28 +24,36 @@ Deno.serve(async (req) => {
       const body = await req.json();
       storagePath = body.path;
     } else {
-      // Handle GET requests with path in URL
+      // Handle GET requests with path in query parameter or URL
       const url = new URL(req.url);
-      const pathname = url.pathname;
       
-      // Extract sitemap filename from path
-      // Expected paths: /sitemap-proxy/sitemap.xml, /sitemap-proxy/sitemaps/core.xml, etc.
-      const pathParts = pathname.split('/').filter(p => p);
-      
-      if (pathParts.length < 2 || pathParts[0] !== 'sitemap-proxy') {
-        return new Response('Invalid sitemap path', { 
-          status: 400,
-          headers: corsHeaders 
-        });
-      }
-
-      // Build the storage path
-      if (pathParts.length === 2) {
-        // Root level sitemaps like /sitemap-proxy/sitemap.xml
-        storagePath = pathParts[1];
+      // First check for ?path= query parameter (from Render rules)
+      const pathParam = url.searchParams.get('path');
+      if (pathParam) {
+        storagePath = pathParam;
       } else {
-        // Nested sitemaps like /sitemap-proxy/sitemaps/core.xml
-        storagePath = pathParts.slice(1).join('/');
+        // Fallback: extract path from URL pathname
+        const pathname = url.pathname;
+        
+        // Extract sitemap filename from path
+        // Expected paths: /sitemap-proxy/sitemap.xml, /sitemap-proxy/sitemaps/core.xml, etc.
+        const pathParts = pathname.split('/').filter(p => p);
+        
+        if (pathParts.length < 2 || pathParts[0] !== 'sitemap-proxy') {
+          return new Response('Invalid sitemap path', { 
+            status: 400,
+            headers: corsHeaders 
+          });
+        }
+
+        // Build the storage path
+        if (pathParts.length === 2) {
+          // Root level sitemaps like /sitemap-proxy/sitemap.xml
+          storagePath = pathParts[1];
+        } else {
+          // Nested sitemaps like /sitemap-proxy/sitemaps/core.xml
+          storagePath = pathParts.slice(1).join('/');
+        }
       }
     }
 
