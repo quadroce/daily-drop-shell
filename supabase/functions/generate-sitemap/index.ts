@@ -7,7 +7,6 @@ const corsHeaders = {
 
 interface Topic {
   slug: string;
-  updated_at: string;
 }
 
 interface SitemapUrl {
@@ -129,7 +128,7 @@ async function generateCoreSitemap(baseUrl: string): Promise<SitemapUrl[]> {
 async function generateTopicsSitemap(supabase: any, baseUrl: string): Promise<{ urls: SitemapUrl[]; count: number }> {
   const { data: topics, error } = await supabase
     .from('topics')
-    .select('slug, updated_at')
+    .select('slug')
     .eq('is_active', true)
     .order('slug');
 
@@ -146,7 +145,7 @@ async function generateTopicsSitemap(supabase: any, baseUrl: string): Promise<{ 
       loc: `${baseUrl}/topics/${topic.slug}`,
       changefreq: 'daily',
       priority: 0.8,
-      lastmod: topic.updated_at || new Date().toISOString()
+      lastmod: new Date().toISOString()
     });
 
     // Topic archive page
@@ -154,7 +153,7 @@ async function generateTopicsSitemap(supabase: any, baseUrl: string): Promise<{ 
       loc: `${baseUrl}/topics/${topic.slug}/archive`,
       changefreq: 'weekly',
       priority: 0.6,
-      lastmod: topic.updated_at || new Date().toISOString()
+      lastmod: new Date().toISOString()
     });
   }
 
@@ -285,6 +284,29 @@ Deno.serve(async (req) => {
 
     try {
       console.log('Starting sitemap generation...');
+
+      // Check for recent generations to prevent duplicates
+      const { data: recentRuns } = await supabase
+        .from('sitemap_runs')
+        .select('id, started_at, success')
+        .gte('started_at', new Date(Date.now() - 5 * 60 * 1000).toISOString()) // Last 5 minutes
+        .order('started_at', { ascending: false })
+        .limit(1);
+
+      if (recentRuns && recentRuns.length > 0 && recentRuns[0].success !== false) {
+        console.log('Skipping generation: recent run found within 5 minutes');
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: 'Sitemap generation skipped: recent run detected',
+            recentRun: recentRuns[0]
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200
+          }
+        );
+      }
 
       // Generate all sitemaps
       const coreUrls = await generateCoreSitemap(baseUrl);

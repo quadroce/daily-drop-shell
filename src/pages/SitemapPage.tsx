@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, RefreshCw, ExternalLink } from 'lucide-react';
+import { Loader2, RefreshCw, ExternalLink, CheckCircle, XCircle, Globe } from 'lucide-react';
 
 interface SitemapRun {
   id: number;
@@ -19,10 +19,23 @@ interface SitemapRun {
   bing_ping_success: boolean;
 }
 
+interface SitemapTestResult {
+  url: string;
+  status: 'success' | 'error';
+  httpStatus?: number;
+  contentType?: string;
+  isValidXml?: boolean;
+  urlCount?: number;
+  error?: string;
+  responseTime?: number;
+}
+
 export const SitemapPage = () => {
   const [loading, setLoading] = useState(false);
   const [runs, setRuns] = useState<SitemapRun[]>([]);
   const [loadingRuns, setLoadingRuns] = useState(true);
+  const [testingConnectivity, setTestingConnectivity] = useState(false);
+  const [testResults, setTestResults] = useState<SitemapTestResult[]>([]);
   const { toast } = useToast();
 
   const loadRuns = async () => {
@@ -89,6 +102,36 @@ export const SitemapPage = () => {
     }
   };
 
+  const testSitemapConnectivity = async () => {
+    setTestingConnectivity(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('test-sitemap-connectivity');
+
+      if (error) throw error;
+
+      setTestResults(data.results || []);
+      
+      const successCount = data.summary.successCount;
+      const totalCount = data.summary.totalEndpoints;
+      
+      toast({
+        title: successCount === totalCount ? "All Tests Passed" : "Some Tests Failed",
+        description: `${successCount}/${totalCount} endpoints accessible with ${data.summary.totalUrls} total URLs`,
+        variant: successCount === totalCount ? "default" : "destructive"
+      });
+
+    } catch (error) {
+      console.error('Error testing sitemap connectivity:', error);
+      toast({
+        title: "Test Failed",
+        description: "Unable to test sitemap connectivity",
+        variant: "destructive"
+      });
+    } finally {
+      setTestingConnectivity(false);
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -98,18 +141,33 @@ export const SitemapPage = () => {
             Manage and monitor sitemap generation for SEO optimization
           </p>
         </div>
-        <Button 
-          onClick={generateSitemap} 
-          disabled={loading}
-          className="flex items-center gap-2"
-        >
-          {loading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCw className="h-4 w-4" />
-          )}
-          Generate Sitemap
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={testSitemapConnectivity} 
+            disabled={testingConnectivity}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            {testingConnectivity ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Globe className="h-4 w-4" />
+            )}
+            Test Connectivity
+          </Button>
+          <Button 
+            onClick={generateSitemap} 
+            disabled={loading}
+            className="flex items-center gap-2"
+          >
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            Generate Sitemap
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -185,6 +243,59 @@ export const SitemapPage = () => {
           </CardContent>
         </Card>
       </div>
+
+      {testResults.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Globe className="h-5 w-5" />
+              Connectivity Test Results
+            </CardTitle>
+            <CardDescription>
+              Real-time test of all sitemap endpoints
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {testResults.map((result, index) => (
+                <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    {result.status === 'success' ? (
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-red-600" />
+                    )}
+                    <div>
+                      <div className="font-medium text-sm">{result.url.replace('https://dailydrops.cloud', '')}</div>
+                      {result.error && (
+                        <div className="text-xs text-red-600">{result.error}</div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                    {result.httpStatus && (
+                      <Badge variant={result.httpStatus === 200 ? "default" : "destructive"}>
+                        {result.httpStatus}
+                      </Badge>
+                    )}
+                    {result.urlCount !== undefined && (
+                      <span>{result.urlCount} URLs</span>
+                    )}
+                    {result.responseTime && (
+                      <span>{result.responseTime}ms</span>
+                    )}
+                    {result.isValidXml !== undefined && (
+                      <Badge variant={result.isValidXml ? "default" : "secondary"}>
+                        {result.isValidXml ? "Valid XML" : "Invalid XML"}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
