@@ -4,11 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Separator } from "@/components/ui/separator";
-import { Search, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, X, ArrowRight } from "lucide-react";
 import { fetchTopicsTree } from "@/lib/api/topics";
 import { trackOnboardingStart, trackPreferencesCompleted } from "@/lib/trackers/onboarding";
+import { TopicCard } from "@/components/TopicCard";
 
 interface Topic {
   id: number;
@@ -266,74 +266,180 @@ export const TopicsOnboardingWizard: React.FC<TopicsOnboardingWizardProps> = ({
 
           {/* Step 2: Sub Topics */}
           {currentStep === 2 && (
-            <div className="space-y-6">
+            <div className="space-y-8">
               <h2 className="text-2xl font-semibold">Subtopics</h2>
               {Array.from(selectedTopics).filter(id => macroTopics.some(m => m.id === id)).length === 0 ? (
                 <p className="text-muted-foreground">Please select some main categories first.</p>
               ) : filteredSubTopics.length === 0 ? (
                 <p className="text-muted-foreground">No subtopics available for your selected categories.</p>
               ) : (
-                <Accordion type="multiple" className="space-y-4">
+                <div className="space-y-8">
                   {macroTopics
                     .filter(macro => selectedTopics.has(macro.id))
                     .map(macro => {
                       const macroSubs = filteredSubTopics.filter(sub => sub.parent_id === macro.id);
+                      if (macroSubs.length === 0) return null;
                       return (
-                        <AccordionItem key={macro.id} value={macro.id.toString()}>
-                          <AccordionTrigger className="text-lg font-medium">
-                            {macro.label} ({macroSubs.length})
-                          </AccordionTrigger>
-                          <AccordionContent>
-                            <div className="flex flex-wrap gap-2 pt-2">
-                              {macroSubs.map(sub => (
-                                <Badge
-                                  key={sub.id}
-                                  variant={selectedTopics.has(sub.id) ? "default" : "outline"}
-                                  className="cursor-pointer hover:bg-primary/20"
-                                  onClick={() => toggleTopic(sub.id)}
-                                >
-                                  {sub.label}
-                                </Badge>
-                              ))}
-                            </div>
-                          </AccordionContent>
-                        </AccordionItem>
+                        <div key={macro.id} className="space-y-4">
+                          {/* Category Header */}
+                          <div className="flex items-center gap-2 pb-2 border-b">
+                            <h3 className="text-xl font-semibold text-primary">{macro.label}</h3>
+                            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                            <Badge variant="outline" className="text-muted-foreground">
+                              {macroSubs.length} subtopics
+                            </Badge>
+                          </div>
+                          
+                          {/* Subtopics Grid */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {macroSubs.map(sub => (
+                              <div
+                                key={sub.id}
+                                className={`cursor-pointer transition-all ${
+                                  selectedTopics.has(sub.id) ? 'ring-2 ring-primary' : ''
+                                }`}
+                                onClick={() => toggleTopic(sub.id)}
+                              >
+                                <TopicCard
+                                  to="#"
+                                  label={sub.label}
+                                  level={sub.level}
+                                  className={selectedTopics.has(sub.id) ? 'bg-primary/5' : ''}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       );
                     })}
-                </Accordion>
+                </div>
               )}
             </div>
           )}
 
           {/* Step 3: Micro Topics */}
           {currentStep === 3 && (
-            <div className="space-y-6">
-              <h2 className="text-2xl font-semibold">Specific Interests</h2>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                <Input
-                  placeholder="Search specific topics..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
+            <div className="space-y-8">
+              <div className="space-y-4">
+                <h2 className="text-2xl font-semibold">Specific Interests</h2>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                  <Input
+                    placeholder="Search specific topics..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {filteredMicroTopics.map(micro => (
-                  <Badge
-                    key={micro.id}
-                    variant={selectedTopics.has(micro.id) ? "default" : "outline"}
-                    className="cursor-pointer hover:bg-primary/20 text-sm py-1 px-3"
-                    onClick={() => toggleTopic(micro.id)}
-                  >
-                    {micro.label}
-                  </Badge>
-                ))}
-              </div>
-              {filteredMicroTopics.length === 0 && (
+              
+              {filteredMicroTopics.length === 0 ? (
                 <p className="text-muted-foreground">
                   {searchQuery ? 'No topics match your search.' : 'No specific topics available for your selection.'}
                 </p>
+              ) : (
+                <div className="space-y-8">
+                  {/* Group micro topics by their parent subtopic or category */}
+                  {(() => {
+                    const selectedSubs = Array.from(selectedTopics).filter(id => 
+                      subTopics.some(s => s.id === id)
+                    );
+                    
+                    if (selectedSubs.length > 0) {
+                      // Group by selected subtopics
+                      return selectedSubs.map(subId => {
+                        const subtopic = subTopics.find(s => s.id === subId);
+                        const parentMacro = macroTopics.find(m => m.id === subtopic?.parent_id);
+                        const subMicros = filteredMicroTopics.filter(micro => micro.parent_id === subId);
+                        
+                        if (!subtopic || !parentMacro || subMicros.length === 0) return null;
+                        
+                        return (
+                          <div key={subId} className="space-y-4">
+                            {/* Breadcrumb Header */}
+                            <div className="flex items-center gap-2 pb-2 border-b">
+                              <span className="text-lg font-medium text-muted-foreground">{parentMacro.label}</span>
+                              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-lg font-semibold text-primary">{subtopic.label}</span>
+                              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                              <Badge variant="outline" className="text-muted-foreground">
+                                {subMicros.length} interests
+                              </Badge>
+                            </div>
+                            
+                            {/* Micro Topics Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {subMicros.map(micro => (
+                                <div
+                                  key={micro.id}
+                                  className={`cursor-pointer transition-all ${
+                                    selectedTopics.has(micro.id) ? 'ring-2 ring-primary' : ''
+                                  }`}
+                                  onClick={() => toggleTopic(micro.id)}
+                                >
+                                  <TopicCard
+                                    to="#"
+                                    label={micro.label}
+                                    level={micro.level}
+                                    className={selectedTopics.has(micro.id) ? 'bg-primary/5' : ''}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      }).filter(Boolean);
+                    } else {
+                      // Group by selected categories (show all subtopics' micros)
+                      const selectedMacros = Array.from(selectedTopics).filter(id => 
+                        macroTopics.some(m => m.id === id)
+                      );
+                      
+                      return selectedMacros.map(macroId => {
+                        const macro = macroTopics.find(m => m.id === macroId);
+                        const macroMicros = filteredMicroTopics.filter(micro => {
+                          const microSub = subTopics.find(s => s.id === micro.parent_id);
+                          return microSub?.parent_id === macroId;
+                        });
+                        
+                        if (!macro || macroMicros.length === 0) return null;
+                        
+                        return (
+                          <div key={macroId} className="space-y-4">
+                            {/* Category Header */}
+                            <div className="flex items-center gap-2 pb-2 border-b">
+                              <span className="text-lg font-semibold text-primary">{macro.label}</span>
+                              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                              <Badge variant="outline" className="text-muted-foreground">
+                                {macroMicros.length} interests
+                              </Badge>
+                            </div>
+                            
+                            {/* Micro Topics Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {macroMicros.map(micro => (
+                                <div
+                                  key={micro.id}
+                                  className={`cursor-pointer transition-all ${
+                                    selectedTopics.has(micro.id) ? 'ring-2 ring-primary' : ''
+                                  }`}
+                                  onClick={() => toggleTopic(micro.id)}
+                                >
+                                  <TopicCard
+                                    to="#"
+                                    label={micro.label}
+                                    level={micro.level}
+                                    className={selectedTopics.has(micro.id) ? 'bg-primary/5' : ''}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      }).filter(Boolean);
+                    }
+                  })()}
+                </div>
               )}
             </div>
           )}
