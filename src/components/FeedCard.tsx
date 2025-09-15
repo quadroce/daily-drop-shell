@@ -138,8 +138,6 @@ export const FeedCard = ({
     return `${(count / 1000000000).toFixed(1)}B`;
   };
 
-  const showInlineVideo = user?.isPremium && type === "video" && youtubeId;
-
   return (
     <Card className="overflow-hidden hover:shadow-md transition-shadow bg-background border">
       <CardContent className="p-0">
