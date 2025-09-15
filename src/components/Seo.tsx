@@ -8,9 +8,39 @@ export type SeoProps = {
   jsonLd?: Record<string, any>;
   ogImage?: string;
   ogType?: string;
+  article?: {
+    author?: string;
+    publishedTime?: string;
+    modifiedTime?: string;
+    section?: string;
+    tags?: string[];
+  };
+  faq?: Array<{
+    question: string;
+    answer: string;
+  }>;
+  howTo?: {
+    name: string;
+    description: string;
+    steps: Array<{
+      name: string;
+      text: string;
+    }>;
+  };
 };
 
-export const Seo = ({ title, description, canonical, noindex, jsonLd, ogImage, ogType = "website" }: SeoProps) => {
+export const Seo = ({ 
+  title, 
+  description, 
+  canonical, 
+  noindex, 
+  jsonLd, 
+  ogImage, 
+  ogType = "website",
+  article,
+  faq,
+  howTo
+}: SeoProps) => {
   useEffect(() => {
     // Set document title
     document.title = title;
@@ -79,18 +109,78 @@ export const Seo = ({ title, description, canonical, noindex, jsonLd, ogImage, o
     if (description) setOrUpdateTwitterMeta('twitter:description', description);
     if (ogImage) setOrUpdateTwitterMeta('twitter:image', ogImage);
 
-    // Add JSON-LD structured data
+    // Remove existing structured data
+    const existingStructuredData = document.querySelectorAll('script[type="application/ld+json"]');
+    existingStructuredData.forEach(script => script.remove());
+
+    // Build structured data array
+    const structuredDataArray: any[] = [];
+
+    // Add custom JSON-LD
     if (jsonLd) {
-      let structuredData = document.querySelector('script[type="application/ld+json"]');
-      if (structuredData) {
-        document.head.removeChild(structuredData);
-      }
-      structuredData = document.createElement('script');
-      structuredData.setAttribute('type', 'application/ld+json');
-      structuredData.textContent = JSON.stringify(jsonLd);
-      document.head.appendChild(structuredData);
+      structuredDataArray.push(jsonLd);
     }
-  }, [title, description, canonical, noindex, jsonLd, ogImage, ogType]);
+
+    // Add Article schema
+    if (article) {
+      structuredDataArray.push({
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": title,
+        "description": description,
+        "author": article.author ? {
+          "@type": "Person",
+          "name": article.author
+        } : undefined,
+        "datePublished": article.publishedTime,
+        "dateModified": article.modifiedTime,
+        "articleSection": article.section,
+        "keywords": article.tags?.join(", "),
+        "url": canonical,
+        "image": ogImage
+      });
+    }
+
+    // Add FAQ schema
+    if (faq && faq.length > 0) {
+      structuredDataArray.push({
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": faq.map(item => ({
+          "@type": "Question",
+          "name": item.question,
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": item.answer
+          }
+        }))
+      });
+    }
+
+    // Add HowTo schema
+    if (howTo) {
+      structuredDataArray.push({
+        "@context": "https://schema.org",
+        "@type": "HowTo",
+        "name": howTo.name,
+        "description": howTo.description,
+        "step": howTo.steps.map((step, index) => ({
+          "@type": "HowToStep",
+          "position": index + 1,
+          "name": step.name,
+          "text": step.text
+        }))
+      });
+    }
+
+    // Add all structured data
+    structuredDataArray.forEach(data => {
+      const script = document.createElement('script');
+      script.setAttribute('type', 'application/ld+json');
+      script.textContent = JSON.stringify(data);
+      document.head.appendChild(script);
+    });
+  }, [title, description, canonical, noindex, jsonLd, ogImage, ogType, article, faq, howTo]);
 
   return null;
 };

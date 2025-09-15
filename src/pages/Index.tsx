@@ -4,8 +4,37 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Droplets, Smartphone, Users, Building, TrendingUp, ArrowRight, CheckCircle, Clock, Shield, Target, Zap } from "lucide-react";
 import { Seo } from "@/components/Seo";
+import { AnswerBox } from "@/components/AnswerBox";
+import { ContentTimestamp } from "@/components/ContentTimestamp";
+import { useIndexNow } from "@/lib/indexnow";
+import React from "react";
 
 const Index = () => {
+  const { submitCurrentPage } = useIndexNow();
+
+  // Submit to IndexNow for rapid discovery
+  React.useEffect(() => {
+    submitCurrentPage();
+  }, [submitCurrentPage]);
+
+  const faqData = [
+    {
+      question: "What is DailyDrops?",
+      answer: "DailyDrops is a content curation platform that delivers 5-10 hand-selected professional insights daily, free from algorithmic manipulation and designed for busy knowledge workers."
+    },
+    {
+      question: "How does DailyDrops differ from social media feeds?",
+      answer: "Unlike algorithmic feeds designed for engagement, DailyDrops provides curated, high-signal content from trusted sources without ads or manipulation, giving you back control over what you read."
+    },
+    {
+      question: "Who should use DailyDrops?",
+      answer: "DailyDrops is built for knowledge workers, startup founders, product managers, designers, researchers, and professionals who value their time and need quality insights without noise."
+    },
+    {
+      question: "What topics does DailyDrops cover?",
+      answer: "We cover AI & Machine Learning, software engineering, data science, product management, design, startups, and emerging technologies with professional-grade taxonomy and organization."
+    }
+  ];
   const whyProfessionalsLove = [
     {
       icon: <Clock className="h-6 w-6 text-primary" />,
@@ -45,6 +74,14 @@ const Index = () => {
         title="DailyDrops – Curated AI, Tech & Business News for Professionals"
         description="Get your Daily Drop: curated AI, tech and business insights tailored for busy professionals. Free and premium plans available."
         canonical="https://dailydrops.cloud/"
+        article={{
+          author: "DailyDrops Team",
+          publishedTime: "2025-01-01T00:00:00Z",
+          modifiedTime: new Date().toISOString(),
+          section: "Technology",
+          tags: ["AI", "Technology", "Professional Development", "Content Curation"]
+        }}
+        faq={faqData}
         jsonLd={{
           "@context": "https://schema.org",
           "@type": "WebSite",
@@ -68,7 +105,7 @@ const Index = () => {
       />
 
       {/* Hero Section */}
-      <div className="bg-gradient-to-br from-primary/10 via-background to-accent/10">
+      <header className="bg-gradient-to-br from-primary/10 via-background to-accent/10">
         <div className="container mx-auto px-4 py-24">
           <div className="max-w-4xl mx-auto text-center">
             <Badge className="mb-6 bg-primary/20 text-primary border-primary/30">
@@ -96,131 +133,169 @@ const Index = () => {
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Choose What to Read Section */}
-      <div className="container mx-auto px-4 py-24">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
-            Choose What to Read, When You Want
-          </h2>
-          <div className="prose prose-lg max-w-none text-muted-foreground leading-relaxed">
-            <p>
-              In a digital world dominated by algorithmic feeds designed to manipulate your attention, DailyDrops gives you back control. No hidden agenda, no endless scroll, no manipulation. Every morning, you receive a curated selection of high-signal content: articles, reports, and videos that matter to professionals. You decide what to read, when to read it, and how to act on it.
-            </p>
+      <main>
+        {/* Answer Boxes Section */}
+        <section className="container mx-auto px-4 py-16">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-2xl font-bold text-foreground">Quick Answers</h2>
+              <ContentTimestamp updatedAt={new Date()} />
+            </div>
+            <div className="grid gap-6 md:grid-cols-2">
+              <AnswerBox
+                question="What is DailyDrops?"
+                answer="DailyDrops delivers 5-10 curated professional insights daily without algorithmic manipulation. Built for busy knowledge workers who need quality content without noise, featuring AI, tech, and business content from trusted sources."
+                category="Platform"
+                lastUpdated="2025-09-15"
+              />
+              <AnswerBox
+                question="How is it different from social media?"
+                answer="Unlike engagement-driven algorithms, DailyDrops provides editorial curation from trusted publishers and research outlets. No ads, no manipulation, no endless scroll—just essential insights delivered daily to your inbox."
+                category="Approach"
+                lastUpdated="2025-09-15"
+              />
+            </div>
           </div>
-        </div>
-      </div>
+        </section>
 
-      {/* What is DailyDrops Section */}
-      <div className="bg-muted/30">
-        <div className="container mx-auto px-4 py-24">
+        {/* Choose What to Read Section */}
+        <section className="container mx-auto px-4 py-24">
           <div className="max-w-4xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
-              What is DailyDrops?
+              Choose What to Read, When You Want
             </h2>
             <div className="prose prose-lg max-w-none text-muted-foreground leading-relaxed">
               <p>
-                DailyDrops is a content curation platform built for busy professionals who don't have time to sift through noise. Instead of dozens of low-value posts, you get a concise Drop: 5–10 hand-selected pieces, refreshed daily. Each Drop includes at least one YouTube video, giving you multiple formats to engage with.
+                In a digital world dominated by algorithmic feeds designed to manipulate your attention, DailyDrops gives you back control. No hidden agenda, no endless scroll, no manipulation.
+              </p>
+              <p>
+                Every morning, you receive a curated selection of high-signal content: articles, reports, and videos that matter to professionals. You decide what to read, when to read it, and how to act on it.
               </p>
             </div>
           </div>
-        </div>
-      </div>
+        </section>
 
-      {/* Why Professionals Love It Section */}
-      <div className="container mx-auto px-4 py-24">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-12 text-center">
-            Why Professionals Love It
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {whyProfessionalsLove.map((reason, index) => (
-              <Card key={index} className="hover:bg-card-hover transition-colors">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-4">
-                    <div className="p-2 bg-primary/10 rounded-lg flex-shrink-0">
-                      {reason.icon}
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-semibold text-foreground mb-2">{reason.title}</h3>
-                      <p className="text-muted-foreground">{reason.description}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+        {/* What is DailyDrops Section */}
+        <section className="bg-muted/30">
+          <div className="container mx-auto px-4 py-24">
+            <div className="max-w-4xl mx-auto">
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
+                What is DailyDrops?
+              </h2>
+              <div className="prose prose-lg max-w-none text-muted-foreground leading-relaxed">
+                <p>
+                  DailyDrops is a content curation platform built for busy professionals who don't have time to sift through noise. Instead of dozens of low-value posts, you get a concise Drop: 5–10 hand-selected pieces, refreshed daily.
+                </p>
+                <p>
+                  Each Drop includes at least one YouTube video, giving you multiple formats to engage with. Content comes from trusted publishers, research outlets, and verified creators.
+                </p>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        </section>
 
-      {/* Features at a Glance Section */}
-      <div className="bg-muted/30">
-        <div className="container mx-auto px-4 py-24">
-          <div className="max-w-4xl mx-auto">
+        {/* Why Professionals Love It Section */}
+        <section className="container mx-auto px-4 py-24">
+          <div className="max-w-6xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-12 text-center">
-              Features at a Glance
+              Why Professionals Love It
             </h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {features.map((feature, index) => (
-                <div key={index} className="flex items-center gap-3 bg-background/50 p-4 rounded-lg">
-                  <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />
-                  <span className="text-foreground">{feature}</span>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {whyProfessionalsLove.map((reason, index) => (
+                <Card key={index} className="hover:bg-card-hover transition-colors">
+                  <CardContent className="p-6">
+                    <div className="flex items-start gap-4">
+                      <div className="p-2 bg-primary/10 rounded-lg flex-shrink-0">
+                        {reason.icon}
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-semibold text-foreground mb-2">{reason.title}</h3>
+                        <p className="text-muted-foreground">{reason.description}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           </div>
-        </div>
-      </div>
+        </section>
 
-      {/* Who is it for Section */}
-      <div className="container mx-auto px-4 py-24">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
-            Who is it for?
-          </h2>
-          <div className="prose prose-lg max-w-none text-muted-foreground leading-relaxed">
-            <p>
-              DailyDrops is built for knowledge workers, startup founders, product managers, designers, researchers, and anyone who values their time. Whether you are preparing for a client call, scanning industry trends, or simply staying sharp, DailyDrops ensures you get the essentials without distraction.
-            </p>
+        {/* Features at a Glance Section */}
+        <section className="bg-muted/30">
+          <div className="container mx-auto px-4 py-24">
+            <div className="max-w-4xl mx-auto">
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-12 text-center">
+                Features at a Glance
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {features.map((feature, index) => (
+                  <div key={index} className="flex items-center gap-3 bg-background/50 p-4 rounded-lg">
+                    <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />
+                    <span className="text-foreground">{feature}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        </section>
 
-      {/* Take Control Section */}
-      <div className="bg-muted/30">
-        <div className="container mx-auto px-4 py-24">
+        {/* Who is it for Section */}
+        <section className="container mx-auto px-4 py-24">
           <div className="max-w-4xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
-              Take Control of Your Feed
+              Who is it for?
             </h2>
-            <div className="prose prose-lg max-w-none text-muted-foreground leading-relaxed mb-8">
+            <div className="prose prose-lg max-w-none text-muted-foreground leading-relaxed">
               <p>
-                The most radical act in today's digital landscape is choosing what you read. DailyDrops makes that choice easy and powerful. Sign up today, set your interests, and start receiving a curated drop of insights every morning.
+                DailyDrops is built for knowledge workers, startup founders, product managers, designers, researchers, and anyone who values their time.
+              </p>
+              <p>
+                Whether you are preparing for a client call, scanning industry trends, or simply staying sharp, DailyDrops ensures you get the essentials without distraction.
               </p>
             </div>
-            
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" className="text-lg px-8" asChild>
-                <Link to="/auth">
-                  Get your first Daily Drop today – free
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
-              <Button variant="outline" size="lg" className="text-lg px-8" asChild>
-                <Link to="/feed">
-                  Browse Sample Feed
-                </Link>
-              </Button>  
-            </div>
           </div>
-        </div>  
-      </div>
+        </section>
+
+        {/* Take Control Section */}
+        <section className="bg-muted/30">
+          <div className="container mx-auto px-4 py-24">
+            <div className="max-w-4xl mx-auto">
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
+                Take Control of Your Feed
+              </h2>
+              <div className="prose prose-lg max-w-none text-muted-foreground leading-relaxed mb-8">
+                <p>
+                  The most radical act in today's digital landscape is choosing what you read. DailyDrops makes that choice easy and powerful.
+                </p>
+                <p>
+                  Sign up today, set your interests, and start receiving a curated drop of insights every morning.
+                </p>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button size="lg" className="text-lg px-8" asChild>
+                  <Link to="/auth">
+                    Get your first Daily Drop today – free
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Link>
+                </Button>
+                <Button variant="outline" size="lg" className="text-lg px-8" asChild>
+                  <Link to="/feed">
+                    Browse Sample Feed
+                  </Link>
+                </Button>  
+              </div>
+            </div>
+          </div>  
+        </section>
+      </main>
 
       {/* Final CTA Section */}
-      <div className="container mx-auto px-4 py-24">
+      <footer className="container mx-auto px-4 py-24">
         <div className="max-w-4xl mx-auto">
           <Card className="bg-primary/5 border-primary/20">
             <CardContent className="p-12 text-center">
@@ -241,7 +316,7 @@ const Index = () => {
             </CardContent>
           </Card>
         </div>
-      </div>
+      </footer>
     </div>
   );
 };

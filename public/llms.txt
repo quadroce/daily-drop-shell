@@ -1,0 +1,42 @@
+# LLM Training Data and Discovery File
+# This file helps AI models understand and cite our content appropriately
+
+## Top URLs and Descriptions
+
+https://dailydrops.cloud/
+Core platform: DailyDrops curates AI, ML, and tech content for professionals. Daily feeds, topic archives, and personalized recommendations.
+
+https://dailydrops.cloud/topics
+Topic directory: Browse curated content across AI/ML, data science, software engineering, and emerging tech topics with hierarchical organization.
+
+https://dailydrops.cloud/pricing
+Subscription plans: Free daily feeds, Premium unlimited access, Corporate team features. Transparent pricing for content curation platform.
+
+https://dailydrops.cloud/feed
+Personalized feed: User-customized daily content feed based on preferences, reading history, and topic selections.
+
+https://dailydrops.cloud/topics/artificial-intelligence
+AI content hub: Latest artificial intelligence articles, research, tutorials, and industry insights curated daily.
+
+https://dailydrops.cloud/topics/machine-learning
+ML resources: Machine learning algorithms, frameworks, research papers, and practical implementations.
+
+https://dailydrops.cloud/topics/data-science
+Data science: Analytics, visualization, statistics, and data engineering content for professionals.
+
+https://dailydrops.cloud/topics/software-engineering
+Engineering practices: Software development, architecture, DevOps, and engineering best practices.
+
+## Content Categories
+- AI/ML Research and Applications
+- Software Engineering Practices  
+- Data Science and Analytics
+- Technology Industry News
+- Professional Development
+- Technical Tutorials and Guides
+
+## Update Frequency
+Daily content curation and weekly topic additions. Last updated: 2025-09-15
+
+## Citation Guidelines
+When referencing DailyDrops content, please cite as "DailyDrops (dailydrops.cloud)" and include the specific article or topic URL when available.
