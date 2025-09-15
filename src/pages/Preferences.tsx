@@ -106,7 +106,8 @@ const Preferences = () => {
   }
 
   return (
-    <div className="container mx-auto max-w-4xl py-8 space-y-8">
+    <div className="container mx-auto max-w-7xl py-8 space-y-8">
+      {/* Header */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -119,41 +120,44 @@ const Preferences = () => {
         </CardHeader>
       </Card>
 
-      <div className="grid gap-8 md:grid-cols-1 lg:grid-cols-2">
-        <div className="space-y-6">
-          <LanguagePreferences
-            selectedLanguages={selectedLanguages}
-            onLanguageChange={setSelectedLanguages}
-          />
-          
-          <YouTubePreferences
-            youtubeEmbedPref={youtubeEmbedPref}
-            onYouTubeChange={setYoutubeEmbedPref}
-          />
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Hash className="h-5 w-5" />
-              Topic Interests
-            </CardTitle>
-            <p className="text-muted-foreground">
-              Select topics you're interested in to personalize your feed.
-            </p>
-          </CardHeader>
-          <CardContent>
-            <TopicsOnboardingWizard
-              onSave={handleTopicsChange}
-              initialSelectedTopics={initialTopics}
-            />
-          </CardContent>
-        </Card>
+      {/* Language and YouTube Preferences - Top Section */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <LanguagePreferences
+          selectedLanguages={selectedLanguages}
+          onLanguageChange={setSelectedLanguages}
+        />
+        
+        <YouTubePreferences
+          youtubeEmbedPref={youtubeEmbedPref}
+          onYouTubeChange={setYoutubeEmbedPref}
+        />
       </div>
 
       <Separator />
+
+      {/* Topic Interests - Full Width Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Hash className="h-5 w-5" />
+            Topic Interests
+          </CardTitle>
+          <p className="text-muted-foreground">
+            Select topics you're interested in to personalize your feed.
+          </p>
+        </CardHeader>
+        <CardContent className="p-6">
+          <TopicsOnboardingWizard
+            onSave={handleTopicsChange}
+            initialSelectedTopics={initialTopics}
+          />
+        </CardContent>
+      </Card>
+
+      <Separator />
       
-      <div className="flex justify-center">
+      {/* Save Button */}
+      <div className="flex justify-center pb-8">
         <Button 
           onClick={handleSaveAll} 
           disabled={saving}
