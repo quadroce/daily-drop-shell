@@ -84,12 +84,62 @@ serve(async (req) => {
       
       console.log(`🚀 Starting ingestion restart process... ${isCronTrigger ? '[CRON]' : '[MANUAL]'}`);
       
-      // Skip RSS fetch if it recently failed to prevent worker limit issues
+      // Enhanced logic for RSS fetch decision
       if (isAutoTrigger) {
-        // For auto triggers, skip RSS more often to prevent overload
-        const skipRssChance = Math.random() < 0.6; // Skip RSS 60% of the time for auto triggers
-        skipRssFetch = skipRssChance;
-        console.log(`🤖 Auto-trigger detected, ${skipRssFetch ? 'skipping' : 'including'} RSS fetch for reliability...`);
+        // Check if too much time has passed since last RSS fetch
+        let hoursSinceLastRss = 0;
+        let recentFailedRssCount = 0;
+        
+        try {
+          // Get last successful RSS fetch time
+          const rssCheckResponse = await fetch(`${SUPABASE_URL}/rest/v1/ingestion_logs?feeds_processed=gt.0&order=cycle_timestamp.desc&limit=1`, {
+            headers: {
+              'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+              'apikey': SERVICE_ROLE_KEY,
+            },
+          });
+          
+          if (rssCheckResponse.ok) {
+            const rssLogs = await rssCheckResponse.json();
+            if (rssLogs.length > 0) {
+              const lastRssTime = new Date(rssLogs[0].cycle_timestamp);
+              hoursSinceLastRss = (Date.now() - lastRssTime.getTime()) / (1000 * 60 * 60);
+            } else {
+              hoursSinceLastRss = 24; // No recent RSS fetch found, force it
+            }
+          }
+          
+          // Check recent cycles with 0 RSS feeds processed
+          const recentFailsResponse = await fetch(`${SUPABASE_URL}/rest/v1/ingestion_logs?feeds_processed=eq.0&cycle_timestamp=gt.${new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()}&order=cycle_timestamp.desc&limit=10`, {
+            headers: {
+              'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+              'apikey': SERVICE_ROLE_KEY,
+            },
+          });
+          
+          if (recentFailsResponse.ok) {
+            const failLogs = await recentFailsResponse.json();
+            recentFailedRssCount = failLogs.length;
+          }
+        } catch (checkError) {
+          console.warn('⚠️ Could not check RSS history, proceeding with fallback logic:', checkError);
+          hoursSinceLastRss = 2; // Conservative fallback
+        }
+        
+        // Force RSS fetch if:
+        // 1. More than 4 hours since last successful RSS fetch
+        // 2. More than 3 recent cycles with 0 RSS feeds processed
+        const forceRssFetch = hoursSinceLastRss > 4 || recentFailedRssCount >= 3;
+        
+        if (forceRssFetch) {
+          skipRssFetch = false;
+          console.log(`🔄 Forcing RSS fetch: ${hoursSinceLastRss.toFixed(1)}h since last RSS, ${recentFailedRssCount} recent skips`);
+        } else {
+          // Reduced skip chance from 60% to 20% for better reliability
+          const skipRssChance = Math.random() < 0.2; // Skip RSS only 20% of the time for auto triggers
+          skipRssFetch = skipRssChance;
+          console.log(`🤖 Auto-trigger detected, ${skipRssFetch ? 'skipping' : 'including'} RSS fetch (${hoursSinceLastRss.toFixed(1)}h since last RSS)`);
+        }
       }
     } catch (e) {
       console.log('🚀 Starting ingestion restart process... [NO BODY]');
