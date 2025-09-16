@@ -630,7 +630,7 @@ async function createUser(req: Request, authHeader: string, payload?: any): Prom
   }
 }
 
-async function updateUser(req: Request, authHeader: string, userId: string): Promise<Response> {
+async function updateUser(req: Request, authHeader: string, userId: string, payload?: any): Promise<Response> {
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: {
@@ -640,12 +640,13 @@ async function updateUser(req: Request, authHeader: string, userId: string): Pro
       },
     });
 
-    const payload = await req.json();
+    // Use provided payload or parse from request body (for backwards compatibility)
+    const userData = payload || await req.json();
     const { 
       display_name, username, first_name, last_name, company_role,
       subscription_tier, role, language_prefs, youtube_embed_pref, 
       onboarding_completed, is_active 
-    } = payload;
+    } = userData;
 
     // Get current user for role check and audit logging
     const { data: authUser } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
@@ -911,7 +912,7 @@ serve(async (req) => {
               return await getUserById(req, authHeader!, userId);
             } else if (Object.keys(body).length > 0 && !body.action) {
               // Update user (body contains user data)
-              return await updateUser(req, authHeader!, userId);
+              return await updateUser(req, authHeader!, userId, body);
             } else {
               // Default to get user by ID for empty body or unrecognized action
               return await getUserById(req, authHeader!, userId);
