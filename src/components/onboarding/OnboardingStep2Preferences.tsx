@@ -1,12 +1,12 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Globe, Youtube, AlertCircle } from "lucide-react";
-import { AVAILABLE_LANGUAGES } from "@/lib/api/profile";
+import { Globe, Youtube, AlertCircle, Loader2 } from "lucide-react";
+import { fetchAvailableLanguages } from "@/lib/api/profile";
 
 interface OnboardingStep2Props {
   formData: {
@@ -24,6 +24,23 @@ export const OnboardingStep2Preferences: React.FC<OnboardingStep2Props> = ({
   onNext,
   onBack
 }) => {
+  const [availableLanguages, setAvailableLanguages] = useState<{ code: string; label: string }[]>([]);
+  const [loadingLanguages, setLoadingLanguages] = useState(true);
+
+  useEffect(() => {
+    const loadLanguages = async () => {
+      try {
+        const languages = await fetchAvailableLanguages();
+        setAvailableLanguages(languages);
+      } catch (error) {
+        console.error('Failed to load languages:', error);
+      } finally {
+        setLoadingLanguages(false);
+      }
+    };
+
+    loadLanguages();
+  }, []);
   const handleLanguageToggle = (languageCode: string, checked: boolean) => {
     let newLanguages = [...formData.language_prefs];
     
@@ -78,7 +95,17 @@ export const OnboardingStep2Preferences: React.FC<OnboardingStep2Props> = ({
             )}
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-80 overflow-y-auto">
-              {AVAILABLE_LANGUAGES.map((language) => {
+              {loadingLanguages ? (
+                <div className="col-span-full flex items-center justify-center p-6">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <span className="ml-2">Loading languages...</span>
+                </div>
+              ) : availableLanguages.length === 0 ? (
+                <div className="col-span-full text-center p-6 text-muted-foreground">
+                  No languages available
+                </div>
+              ) : (
+                availableLanguages.map((language) => {
                 const isSelected = formData.language_prefs.includes(language.code);
                 const isDisabled = !isSelected && !canAddLanguage;
                 
@@ -109,7 +136,8 @@ export const OnboardingStep2Preferences: React.FC<OnboardingStep2Props> = ({
                     </Label>
                   </div>
                 );
-              })}
+                })
+              )}
             </div>
           </div>
 

@@ -217,27 +217,17 @@ export async function updateUserPreferences(preferences: {
 }
 
 /**
- * Available languages for selection
+ * Fetch available languages from database
  */
-export const AVAILABLE_LANGUAGES = [
-  { code: 'en', label: 'English' },
-  { code: 'it', label: 'Italian' },
-  { code: 'es', label: 'Spanish' },
-  { code: 'fr', label: 'French' },
-  { code: 'de', label: 'German' },
-  { code: 'pt', label: 'Portuguese' },
-  { code: 'nl', label: 'Dutch' },
-  { code: 'sv', label: 'Swedish' },
-  { code: 'no', label: 'Norwegian' },
-  { code: 'da', label: 'Danish' },
-  { code: 'fi', label: 'Finnish' },
-  { code: 'pl', label: 'Polish' },
-  { code: 'cs', label: 'Czech' },
-  { code: 'ru', label: 'Russian' },
-  { code: 'tr', label: 'Turkish' },
-  { code: 'ar', label: 'Arabic' },
-  { code: 'hi', label: 'Hindi' },
-  { code: 'ja', label: 'Japanese' },
-  { code: 'ko', label: 'Korean' },
-  { code: 'zh', label: 'Chinese' },
-] as const;
+export async function fetchAvailableLanguages(): Promise<{ code: string; label: string }[]> {
+  const { data, error } = await supabase
+    .from("languages")
+    .select("code, label")
+    .order("label");
+  
+  if (error) {
+    throw new Error(`Failed to fetch languages: ${error.message}`);
+  }
+  
+  return data ?? [];
+}

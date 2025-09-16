@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { CheckCircle, User, Globe, BookOpen, Youtube } from "lucide-react";
-import { AVAILABLE_LANGUAGES } from "@/lib/api/profile";
+import { fetchAvailableLanguages } from "@/lib/api/profile";
 
 interface OnboardingStep4Props {
   formData: {
@@ -29,9 +29,24 @@ export const OnboardingStep4Review: React.FC<OnboardingStep4Props> = ({
   onBack,
   isCompleting
 }) => {
+  const [availableLanguages, setAvailableLanguages] = useState<{ code: string; label: string }[]>([]);
+
+  useEffect(() => {
+    const loadLanguages = async () => {
+      try {
+        const languages = await fetchAvailableLanguages();
+        setAvailableLanguages(languages);
+      } catch (error) {
+        console.error('Failed to load languages:', error);
+      }
+    };
+
+    loadLanguages();
+  }, []);
+
   const getLanguageLabels = (codes: string[]) => {
     return codes.map(code => {
-      const lang = AVAILABLE_LANGUAGES.find(l => l.code === code);
+      const lang = availableLanguages.find(l => l.code === code);
       return lang?.label || code;
     });
   };
