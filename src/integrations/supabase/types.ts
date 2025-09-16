@@ -613,6 +613,7 @@ export type Database = {
           email: string
           first_name: string | null
           id: string
+          is_active: boolean
           language_prefs: string[]
           last_name: string | null
           onboarding_completed: boolean
@@ -630,6 +631,7 @@ export type Database = {
           email: string
           first_name?: string | null
           id: string
+          is_active?: boolean
           language_prefs?: string[]
           last_name?: string | null
           onboarding_completed?: boolean
@@ -647,6 +649,7 @@ export type Database = {
           email?: string
           first_name?: string | null
           id?: string
+          is_active?: boolean
           language_prefs?: string[]
           last_name?: string | null
           onboarding_completed?: boolean
@@ -1103,6 +1106,7 @@ export type Database = {
           email: string
           first_name: string | null
           id: string
+          is_active: boolean
           language_prefs: string[]
           last_name: string | null
           onboarding_completed: boolean
@@ -1280,6 +1284,7 @@ export type Database = {
           email: string
           first_name: string | null
           id: string
+          is_active: boolean
           language_prefs: string[]
           last_name: string | null
           onboarding_completed: boolean

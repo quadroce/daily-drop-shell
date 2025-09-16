@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, ChevronDown, Droplets } from "lucide-react";
+import { Menu, ChevronDown, Droplets, Users, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -76,6 +76,11 @@ const Header = () => {
     ...(isAdmin ? [{ label: "Admin", path: "/admin" }] : [])
   ];
 
+  const adminNavLinks = isAdmin ? [
+    { label: "Dashboard", path: "/admin/dashboard", icon: Settings },
+    { label: "Users", path: "/admin/users", icon: Users },
+  ] : [];
+
   const NavLinks = ({ mobile = false, onLinkClick }: { mobile?: boolean; onLinkClick?: () => void }) => (
     <>
       {navLinks.map((link) => (
@@ -97,7 +102,7 @@ const Header = () => {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-card/80 backdrop-blur">
-      <div className="container flex h-16 items-center justify-between px-4">
+      <div className="container flex h-14 items-center justify-between px-4">
         {/* Logo */}
         <Link to="/" className="flex items-center space-x-2">
           <Droplets className="h-6 w-6 text-primary" />
@@ -108,6 +113,28 @@ const Header = () => {
         <div className="hidden md:flex items-center space-x-6">
           <nav className="flex items-center space-x-8">
             <NavLinks />
+            {/* Admin Navigation */}
+            {isAdmin && (
+              <div className="flex items-center space-x-6 border-l pl-6 ml-6">
+                {adminNavLinks.map((link) => {
+                  const Icon = link.icon;
+                  return (
+                    <Link
+                      key={link.path}
+                      to={link.path}
+                      className={`flex items-center space-x-2 transition-colors hover:text-primary ${
+                        isActive(link.path) 
+                          ? "text-primary font-medium" 
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{link.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </nav>
           
           {/* Search */}

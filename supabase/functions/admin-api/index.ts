@@ -432,6 +432,337 @@ async function youtubeReprocess(req: Request, authHeader: string) {
   }
 }
 
+// Users management functions
+async function getUsers(req: Request, authHeader: string): Promise<Response> {
+  try {
+    const url = new URL(req.url);
+    const search = url.searchParams.get('search') || '';
+    const tier = url.searchParams.get('tier');
+    const role = url.searchParams.get('role');
+    const lang = url.searchParams.get('lang');
+    const active = url.searchParams.get('active') !== 'false'; // default true
+    const sort = url.searchParams.get('sort') || 'created_at';
+    const page = parseInt(url.searchParams.get('page') || '1');
+    const pageSize = parseInt(url.searchParams.get('pageSize') || '50');
+    
+    let query = supabase
+      .from('profiles')
+      .select(`
+        id, email, display_name, username, first_name, last_name, 
+        subscription_tier, role, language_prefs, youtube_embed_pref, 
+        onboarding_completed, created_at, is_active, company_role
+      `, { count: 'exact' })
+      .eq('is_active', active);
+
+    // Search filter
+    if (search) {
+      query = query.or(`email.ilike.%${search}%,display_name.ilike.%${search}%,username.ilike.%${search}%`);
+    }
+
+    // Tier filter  
+    if (tier) {
+      const tiers = tier.split(',');
+      query = query.in('subscription_tier', tiers);
+    }
+
+    // Role filter
+    if (role) {
+      const roles = role.split(',');
+      query = query.in('role', roles);
+    }
+
+    // Language filter
+    if (lang) {
+      query = query.contains('language_prefs', [lang]);
+    }
+
+    // Sorting
+    const ascending = !sort.startsWith('-');
+    const sortField = sort.startsWith('-') ? sort.slice(1) : sort;
+    query = query.order(sortField, { ascending });
+
+    // Pagination
+    const offset = (page - 1) * pageSize;
+    query = query.range(offset, offset + pageSize - 1);
+
+    const { data, error, count } = await query;
+
+    if (error) throw error;
+
+    return new Response(JSON.stringify({
+      users: data,
+      total: count,
+      page,
+      pageSize,
+      totalPages: Math.ceil((count || 0) / pageSize)
+    }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Error getting users:', error);
+    return new Response(JSON.stringify({ error: 'Failed to get users' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+}
+
+async function getUserById(req: Request, authHeader: string, userId: string): Promise<Response> {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select(`
+        id, email, display_name, username, first_name, last_name, 
+        subscription_tier, role, language_prefs, youtube_embed_pref, 
+        onboarding_completed, created_at, is_active, company_role
+      `)
+      .eq('id', userId)
+      .single();
+
+    if (error) throw error;
+
+    return new Response(JSON.stringify(data), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Error getting user:', error);
+    return new Response(JSON.stringify({ error: 'User not found' }), {
+      status: 404,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+}
+
+async function createUser(req: Request, authHeader: string): Promise<Response> {
+  try {
+    const payload = await req.json();
+    const { email, display_name, subscription_tier = 'free', role = 'user' } = payload;
+
+    // Validate required fields
+    if (!email || !display_name) {
+      return new Response(JSON.stringify({ error: 'Email and display_name are required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Get current user for audit logging
+    const { data: authUser } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+    const currentUserId = authUser.user?.id;
+
+    // Create auth user
+    const { data: newAuthUser, error: authError } = await supabase.auth.admin.createUser({
+      email,
+      email_confirm: false,
+      user_metadata: { display_name },
+    });
+
+    if (authError) throw authError;
+
+    // Create profile
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .insert({
+        id: newAuthUser.user.id,
+        email,
+        display_name,
+        subscription_tier,
+        role,
+        language_prefs: [],
+        youtube_embed_pref: true,
+        onboarding_completed: false,
+        is_active: true
+      })
+      .select()
+      .single();
+
+    if (profileError) throw profileError;
+
+    // Send invite email
+    await supabase.auth.admin.inviteUserByEmail(email);
+
+    // Log admin action
+    await supabase.from('admin_audit_log').insert({
+      user_id: currentUserId,
+      action: 'create',
+      resource_type: 'profile',
+      resource_id: newAuthUser.user.id,
+      details: { email, display_name, subscription_tier, role }
+    });
+
+    return new Response(JSON.stringify(profileData), {
+      status: 201,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Error creating user:', error);
+    return new Response(JSON.stringify({ error: 'Failed to create user' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+}
+
+async function updateUser(req: Request, authHeader: string, userId: string): Promise<Response> {
+  try {
+    const payload = await req.json();
+    const { 
+      display_name, username, first_name, last_name, company_role,
+      subscription_tier, role, language_prefs, youtube_embed_pref, 
+      onboarding_completed, is_active 
+    } = payload;
+
+    // Get current user for role check and audit logging
+    const { data: authUser } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+    const currentUserId = authUser.user?.id;
+    
+    const { data: currentUserProfile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', currentUserId)
+      .single();
+
+    // Validate language_prefs if provided
+    if (language_prefs && language_prefs.length > 3) {
+      return new Response(JSON.stringify({ error: 'Maximum 3 languages allowed' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Validate language codes exist
+    if (language_prefs && language_prefs.length > 0) {
+      const { data: languages } = await supabase
+        .from('languages')
+        .select('code')
+        .in('code', language_prefs);
+      
+      if (languages?.length !== language_prefs.length) {
+        return new Response(JSON.stringify({ error: 'Invalid language codes' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    // Only admin can change roles
+    if (role && currentUserProfile?.role !== 'admin' && currentUserProfile?.role !== 'superadmin') {
+      return new Response(JSON.stringify({ error: 'Only admins can change user roles' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Build update object
+    const updateData: any = {};
+    if (display_name !== undefined) updateData.display_name = display_name;
+    if (username !== undefined) updateData.username = username;
+    if (first_name !== undefined) updateData.first_name = first_name;
+    if (last_name !== undefined) updateData.last_name = last_name;
+    if (company_role !== undefined) updateData.company_role = company_role;
+    if (subscription_tier !== undefined) updateData.subscription_tier = subscription_tier;
+    if (role !== undefined) updateData.role = role;
+    if (language_prefs !== undefined) updateData.language_prefs = language_prefs;
+    if (youtube_embed_pref !== undefined) updateData.youtube_embed_pref = youtube_embed_pref;
+    if (onboarding_completed !== undefined) updateData.onboarding_completed = onboarding_completed;
+    if (is_active !== undefined) updateData.is_active = is_active;
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(updateData)
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Log admin action
+    const action = is_active === false ? 'soft_delete' : 
+                  role !== undefined ? 'role_change' :
+                  subscription_tier !== undefined ? 'tier_change' : 'update';
+
+    await supabase.from('admin_audit_log').insert({
+      user_id: currentUserId,
+      action,
+      resource_type: 'profile',
+      resource_id: userId,
+      details: updateData
+    });
+
+    return new Response(JSON.stringify(data), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Error updating user:', error);
+    return new Response(JSON.stringify({ error: 'Failed to update user' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+}
+
+async function softDeleteUser(req: Request, authHeader: string, userId: string): Promise<Response> {
+  try {
+    // Get current user for audit logging
+    const { data: authUser } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+    const currentUserId = authUser.user?.id;
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ is_active: false })
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Log admin action
+    await supabase.from('admin_audit_log').insert({
+      user_id: currentUserId,
+      action: 'soft_delete',
+      resource_type: 'profile', 
+      resource_id: userId,
+      details: { is_active: false }
+    });
+
+    return new Response(JSON.stringify(data), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Error soft deleting user:', error);
+    return new Response(JSON.stringify({ error: 'Failed to soft delete user' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+}
+
+async function getLanguages(req: Request, authHeader: string): Promise<Response> {
+  try {
+    const { data, error } = await supabase
+      .from('languages')
+      .select('code, label')
+      .order('label');
+
+    if (error) throw error;
+
+    return new Response(JSON.stringify(data), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Error getting languages:', error);
+    return new Response(JSON.stringify({ error: 'Failed to get languages' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -482,11 +813,34 @@ serve(async (req) => {
       case '/youtube-reprocess':
         return await youtubeReprocess(req, authHeader!);
       
+      case '/users':
+        if (req.method === 'GET') {
+          return await getUsers(req, authHeader!);
+        } else if (req.method === 'POST') {
+          return await createUser(req, authHeader!);
+        }
+        break;
+      
+      case '/languages':
+        return await getLanguages(req, authHeader!);
+      
       default:
+        // Handle user detail endpoints /users/:id
+        if (pathname.startsWith('/users/')) {
+          const userId = pathname.split('/')[2];
+          if (req.method === 'GET') {
+            return await getUserById(req, authHeader!, userId);
+          } else if (req.method === 'PATCH') {
+            return await updateUser(req, authHeader!, userId);
+          } else if (req.method === 'DELETE') {
+            return await softDeleteUser(req, authHeader!, userId);
+          }
+        }
+        
         return new Response(JSON.stringify({ 
           error: 'Not found',
           pathname: pathname,
-          available_endpoints: ['/sources', '/enqueue', '/retry', '/youtube-reprocess']
+          available_endpoints: ['/sources', '/enqueue', '/retry', '/youtube-reprocess', '/users', '/languages']
         }), {
           status: 404,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
