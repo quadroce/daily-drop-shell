@@ -305,13 +305,35 @@ serve(async (req) => {
     const url_hash = await generateSHA1(canonical);
     console.log(`Canonical URL: ${canonical}, Hash: ${url_hash}`);
 
-    // Fetch the HTML content
-    const fetchResponse = await fetch(url, {
-      headers: {
-        'User-Agent': 'DailyDropsBot/1.0',
-      },
-      redirect: 'follow',
-    });
+    // Fetch the HTML content with better error handling and user agent rotation
+    const userAgents = [
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15',
+      'DailyDropsBot/1.0 (+https://dailydrops.co/about)'
+    ];
+    
+    const randomUserAgent = userAgents[Math.floor(Math.random() * userAgents.length)];
+    
+    let fetchResponse;
+    try {
+      fetchResponse = await fetch(url, {
+        headers: {
+          'User-Agent': randomUserAgent,
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1',
+        },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(30000), // 30 second timeout
+      });
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        throw new Error('Request timeout after 30 seconds');
+      }
+      throw error;
+    }
 
     if (!fetchResponse.ok) {
       const error = `Failed to fetch URL: ${fetchResponse.status} ${fetchResponse.statusText}`;

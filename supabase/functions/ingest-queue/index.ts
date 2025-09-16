@@ -82,92 +82,24 @@ async function callScrapeOg(url: string, sourceId: number | null) {
 async function processQueueItems(limit = 20): Promise<ProcessResult> {
   console.log(`Starting queue processing with limit: ${limit}`);
   
-  // Ensure the ingestion_queue table exists with proper structure (idempotent)
-  try {
-    const createTableSql = `
-      CREATE TABLE IF NOT EXISTS public.ingestion_queue (
-        id BIGSERIAL PRIMARY KEY,
-        url TEXT NOT NULL,
-        source_id BIGINT,
-        status TEXT NOT NULL DEFAULT 'pending',
-        tries INTEGER NOT NULL DEFAULT 0,
-        error TEXT,
-        lang TEXT,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-      CREATE UNIQUE INDEX IF NOT EXISTS ingestion_queue_url_idx ON public.ingestion_queue(url);
-    `;
-    
-    const createResponse = await fetch(`${SUPABASE_URL}/rest/v1/rpc/exec_sql`, {
-      method: 'POST',
+  // Fetch pending queue items using REST API
+  const fetchResponse = await fetch(
+    `${SUPABASE_URL}/rest/v1/ingestion_queue?status=eq.pending&order=created_at.asc&limit=${limit}`,
+    {
       headers: {
         'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
         'apikey': SERVICE_ROLE_KEY,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ sql: createTableSql }),
-    });
-    
-    // Continue even if table creation fails (table might already exist)
-    if (!createResponse.ok) {
-      console.log('Table creation skipped (may already exist)');
     }
-  } catch (error) {
-    console.log('Table creation error (continuing):', error.message);
+  );
+
+  if (!fetchResponse.ok) {
+    const errorText = await fetchResponse.text();
+    throw new Error(`Failed to fetch queue items: ${errorText}`);
   }
-  
-  // 1. Pick up to N rows with FOR UPDATE SKIP LOCKED using raw SQL
-  const selectSql = `
-    SELECT id, url, source_id, status, tries, error, created_at, updated_at
-    FROM public.ingestion_queue 
-    WHERE status = 'pending' 
-    ORDER BY created_at ASC 
-    LIMIT ${limit}
-    FOR UPDATE SKIP LOCKED
-  `;
-  
-  let queueItems: QueueItem[] = [];
-  
-  try {
-    const rawSqlResponse = await fetch(`${SUPABASE_URL}/rest/v1/rpc/exec_sql`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-        'apikey': SERVICE_ROLE_KEY,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ sql: selectSql }),
-    });
 
-    if (rawSqlResponse.ok) {
-      const sqlResult = await rawSqlResponse.json();
-      queueItems = sqlResult.data || [];
-    } else {
-      throw new Error('Raw SQL query failed');
-    }
-  } catch (error) {
-    console.log('FOR UPDATE SKIP LOCKED failed, falling back to regular SELECT');
-    
-    // Fallback to regular REST API query
-    const fetchResponse = await fetch(
-      `${SUPABASE_URL}/rest/v1/ingestion_queue?status=eq.pending&order=created_at.asc&limit=${limit}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-          'apikey': SERVICE_ROLE_KEY,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    if (!fetchResponse.ok) {
-      const errorText = await fetchResponse.text();
-      throw new Error(`Failed to fetch queue items: ${errorText}`);
-    }
-
-    queueItems = await fetchResponse.json();
-  }
+  const queueItems: QueueItem[] = await fetchResponse.json();
 
   console.log(`Found ${queueItems.length} pending items to process`);
 
@@ -177,14 +109,20 @@ async function processQueueItems(limit = 20): Promise<ProcessResult> {
 
   const result: ProcessResult = { processed: 0, done: 0, errors: 0, details: [] };
 
-  // Process items in batches of 3 for controlled concurrency
-  const batchSize = 3;
+  // Process items in batches of 2 for better rate limiting and controlled concurrency
+  const batchSize = 2;
   for (let i = 0; i < queueItems.length; i += batchSize) {
     const batch = queueItems.slice(i, i + batchSize);
+    
+    console.log(`Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(queueItems.length/batchSize)} (${batch.length} items)`);
     
     const promises = batch.map(async (item) => {
       try {
         console.log(`Processing item ${item.id}: ${item.url}`);
+        
+        // Add random delay to prevent rate limiting (100-500ms)
+        const delay = 100 + Math.random() * 400;
+        await new Promise(resolve => setTimeout(resolve, delay));
         
         // 2. Set status to 'processing' and increment tries
         await updateQueueItem(item.id, {
@@ -240,16 +178,20 @@ async function processQueueItems(limit = 20): Promise<ProcessResult> {
         // 5. On other failures, handle retry logic
         const newTries = item.tries + 1;
         
-        // Special handling for 403 Forbidden - these are usually permanent blocks
+        // Special handling for specific error types
         const is403Error = errorMessage.includes('403 Forbidden') || errorMessage.includes('403');
+        const is429Error = errorMessage.includes('429') || errorMessage.toLowerCase().includes('too many requests') || 
+                          errorMessage.toLowerCase().includes('rate limit');
+        const is404Error = errorMessage.includes('404') || errorMessage.includes('Not Found');
+        const is5xxError = /5\d\d/.test(errorMessage); // 500-599 errors
         
-        if (is403Error) {
-          // Mark 403 errors as permanent failures after just 1 attempt
+        if (is403Error || is404Error) {
+          // Mark 403 and 404 errors as permanent failures
           await updateQueueItem(item.id, {
             status: 'error',
             error: `Permanent failure: ${errorMessage}`,
           });
-          console.log(`Item ${item.id} marked as permanent failure due to 403 Forbidden`);
+          console.log(`Item ${item.id} marked as permanent failure due to ${is403Error ? '403 Forbidden' : '404 Not Found'}`);
           
           result.details.push({
             id: item.id,
@@ -257,13 +199,30 @@ async function processQueueItems(limit = 20): Promise<ProcessResult> {
             status: 'failed',
             error: `Permanent failure: ${errorMessage}`
           });
-        } else if (newTries < 5) {
-          // Set back to pending for retry (for non-403 errors)
+        } else if (is429Error && newTries < 8) {
+          // Give more retries for rate limiting, but with exponential backoff
+          const backoffDelay = Math.min(30000, 2000 * Math.pow(2, newTries)); // 2s, 4s, 8s, 16s, 30s max
+          console.log(`Item ${item.id} rate limited, will retry after ${backoffDelay}ms (attempt ${newTries}/8)`);
+          
+          await new Promise(resolve => setTimeout(resolve, backoffDelay));
           await updateQueueItem(item.id, {
             status: 'pending',
             error: errorMessage,
           });
-          console.log(`Item ${item.id} will be retried (attempt ${newTries}/5)`);
+          
+          result.details.push({
+            id: item.id,
+            url: item.url,
+            status: 'retry',
+            error: errorMessage
+          });
+        } else if ((is5xxError || !is403Error && !is404Error && !is429Error) && newTries < 5) {
+          // Standard retry for server errors and other transient issues
+          await updateQueueItem(item.id, {
+            status: 'pending',
+            error: errorMessage,
+          });
+          console.log(`Item ${item.id} will be retried (attempt ${newTries}/5): ${errorMessage}`);
           
           result.details.push({
             id: item.id,
@@ -272,12 +231,12 @@ async function processQueueItems(limit = 20): Promise<ProcessResult> {
             error: errorMessage
           });
         } else {
-          // Max tries reached, set to error
+          // Max tries reached or permanent error, set to error
           await updateQueueItem(item.id, {
             status: 'error',
             error: errorMessage,
           });
-          console.log(`Item ${item.id} failed permanently after ${newTries} attempts`);
+          console.log(`Item ${item.id} failed permanently after ${newTries} attempts: ${errorMessage}`);
           
           result.details.push({
             id: item.id,
@@ -293,6 +252,13 @@ async function processQueueItems(limit = 20): Promise<ProcessResult> {
 
     // Wait for current batch to complete
     const batchResults = await Promise.allSettled(promises);
+    
+    // Add delay between batches to prevent overwhelming servers (1-2 seconds)
+    if (i + batchSize < queueItems.length) {
+      const batchDelay = 1000 + Math.random() * 1000;
+      console.log(`Waiting ${Math.round(batchDelay)}ms before next batch...`);
+      await new Promise(resolve => setTimeout(resolve, batchDelay));
+    }
     
     // Count results
     for (const promiseResult of batchResults) {
