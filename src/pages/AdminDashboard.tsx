@@ -29,6 +29,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { requireSession } from "@/lib/auth";
+import { SitemapTestPanel } from "@/components/SitemapTestPanel";
 
 interface IngestionLog {
   id: number;
@@ -562,12 +563,13 @@ const AdminDashboard = () => {
 
       {/* Tabbed Interface */}
       <Tabs defaultValue="control" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="control">Control Panel</TabsTrigger>
           <TabsTrigger value="debug">Debug Console</TabsTrigger>
           <TabsTrigger value="content">Content & Tagging</TabsTrigger>
           <TabsTrigger value="youtube">YouTube</TabsTrigger>
           <TabsTrigger value="system">System Tools</TabsTrigger>
+          <TabsTrigger value="sitemaps">Sitemaps & SEO</TabsTrigger>
           <TabsTrigger value="logs">Logs & History</TabsTrigger>
         </TabsList>
 
@@ -869,6 +871,13 @@ const AdminDashboard = () => {
                 </Button>
               </CardContent>
             </Card>
+          </div>
+        </TabsContent>
+
+        {/* Sitemaps & SEO */}
+        <TabsContent value="sitemaps">
+          <div className="space-y-6">
+            <SitemapTestPanel />
           </div>
         </TabsContent>
 
