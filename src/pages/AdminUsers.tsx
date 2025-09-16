@@ -217,7 +217,7 @@ const AdminUsers = () => {
   const handleSoftDelete = async (userId: string) => {
     try {
       const { data, error } = await supabase.functions.invoke(`admin-api/users/${userId}`, {
-        method: 'DELETE'
+        body: { action: 'delete' }
       });
 
       if (error) throw error;

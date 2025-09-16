@@ -897,12 +897,28 @@ serve(async (req) => {
         // Handle user detail endpoints /users/:id
         if (pathname.startsWith('/users/')) {
           const userId = pathname.split('/')[2];
-          if (req.method === 'GET') {
+          
+          // Since supabase.functions.invoke always sends POST, we need to handle all operations via POST
+          // and determine the action based on the request body
+          try {
+            const body = await req.json().catch(() => ({}));
+            
+            if (body.action === 'delete') {
+              // Delete/deactivate user
+              return await softDeleteUser(req, authHeader!, userId);
+            } else if (body.action === 'get') {
+              // Get user by ID
+              return await getUserById(req, authHeader!, userId);
+            } else if (Object.keys(body).length > 0 && !body.action) {
+              // Update user (body contains user data)
+              return await updateUser(req, authHeader!, userId);
+            } else {
+              // Default to get user by ID for empty body or unrecognized action
+              return await getUserById(req, authHeader!, userId);
+            }
+          } catch (error) {
+            console.error('Error parsing JSON body for user operation:', error);
             return await getUserById(req, authHeader!, userId);
-          } else if (req.method === 'PATCH') {
-            return await updateUser(req, authHeader!, userId);
-          } else if (req.method === 'DELETE') {
-            return await softDeleteUser(req, authHeader!, userId);
           }
         }
         
