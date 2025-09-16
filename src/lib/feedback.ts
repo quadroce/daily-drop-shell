@@ -1,5 +1,4 @@
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 
 type FeedbackAction = 'open' | 'like' | 'dislike' | 'save' | 'dismiss';
 
@@ -99,17 +98,11 @@ export async function sendFeedbackWithRefresh(action: FeedbackAction, dropId: nu
  * Hook for using feedback with toast notifications
  */
 export function useFeedback() {
-  const { toast } = useToast();
-
   const sendFeedbackWithToast = async (action: FeedbackAction, dropId: number, channel: string = 'web') => {
     const success = await sendFeedbackWithRefresh(action, dropId, channel);
     
     if (!success) {
-      toast({
-        title: "Error",
-        description: "Failed to record your feedback. Please try again.",
-        variant: "destructive"
-      });
+      console.error('Failed to record feedback for action:', action, 'dropId:', dropId);
     }
     
     return success;
