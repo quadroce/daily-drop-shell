@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ExternalLink, Play, Heart, Bookmark, X } from "lucide-react";
 import { useAnalytics } from "@/lib/analytics";
 import { trackOpen, trackSave, trackDismiss, trackLike, trackDislike } from "@/lib/trackers/content";
+import { useFeedback, createDebouncedOpenTracker } from "@/lib/feedback";
 import YouTubePlayer from "./YouTubePlayer";
 import { ImagePlaceholder } from "./ui/image-placeholder";
 
@@ -52,6 +53,10 @@ export const FeedCard = ({
   position
 }: FeedCardComponentProps) => {
   const { track } = useAnalytics();
+  const { sendFeedback } = useFeedback();
+  
+  // Create debounced open tracker for this component instance
+  const debouncedOpenTracker = createDebouncedOpenTracker(2000);
   
   // Check if user is premium (for YouTube embeds)
   const isUserPremium = user?.isPremium || false;
@@ -66,8 +71,13 @@ export const FeedCard = ({
     is_premium: isUserPremium
   };
 
-  const handleAction = (action: "save"|"dismiss"|"like"|"dislike"|"open"|"video_play") => {
-    // Track with content tracker
+  const handleAction = async (action: "save"|"dismiss"|"like"|"dislike"|"open"|"video_play") => {
+    // Send feedback to the new system
+    if (action !== 'video_play') {
+      await sendFeedback(action, Number(id));
+    }
+    
+    // Track with existing analytics (for legacy compatibility)
     switch(action) {
       case 'save':
         trackSave(baseParams);
@@ -95,6 +105,8 @@ export const FeedCard = ({
 
   const handleOpen = () => {
     handleAction("open");
+    // Also track with debounced tracker for dwell time
+    debouncedOpenTracker(Number(id));
     window.open(href, "_blank", "noopener,noreferrer");
   };
 

@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Heart, Bookmark, X, ThumbsDown, ExternalLink, Play, Flag, Crown } from "lucide-react";
 import { getYouTubeThumbnailFromUrl } from "@/lib/youtube";
 import { useTopicsMap } from "@/hooks/useTopicsMap";
+import { useFeedback, createDebouncedOpenTracker } from "@/lib/feedback";
 
 declare global {
   interface Window {
@@ -70,12 +71,16 @@ export function FullWidthVideoCard({
   onReport 
 }: FullWidthVideoCardProps) {
   const { getTopicSlug, isLoading: topicsLoading } = useTopicsMap();
+  const { sendFeedback } = useFeedback();
   const [isPlaying, setIsPlaying] = useState(false);
   const [videoError, setVideoError] = useState(false);
   const [player, setPlayer] = useState<any>(null);
   const [quarterProgressTracked, setQuarterProgressTracked] = useState<Set<number>>(new Set());
   const playerRef = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Create debounced open tracker for this component instance
+  const debouncedOpenTracker = createDebouncedOpenTracker(2000);
   
   const videoId = extractVideoId(item.url, item.youtube_video_id);
   const isValidYouTube = isYouTubeUrl(item.url) && videoId;
@@ -198,6 +203,9 @@ export function FullWidthVideoCard({
   };
   
   const handleExternalLink = () => {
+    // Track the open action with feedback system
+    sendFeedback('open', Number(item.id));
+    debouncedOpenTracker(Number(item.id));
     window.open(item.url, '_blank');
   };
   
@@ -361,7 +369,10 @@ export function FullWidthVideoCard({
                 {onLike && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="ghost" size="sm" onClick={() => onLike(item.id)}>
+                      <Button variant="ghost" size="sm" onClick={async () => {
+                        await sendFeedback('like', Number(item.id));
+                        onLike(item.id);
+                      }}>
                         <Heart className="h-4 w-4" />
                       </Button>
                     </TooltipTrigger>
@@ -372,7 +383,10 @@ export function FullWidthVideoCard({
                 {onSave && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="ghost" size="sm" onClick={() => onSave(item.id)}>
+                      <Button variant="ghost" size="sm" onClick={async () => {
+                        await sendFeedback('save', Number(item.id));
+                        onSave(item.id);
+                      }}>
                         <Bookmark className="h-4 w-4" />
                       </Button>
                     </TooltipTrigger>
@@ -383,7 +397,10 @@ export function FullWidthVideoCard({
                 {onDismiss && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="ghost" size="sm" onClick={() => onDismiss(item.id)}>
+                      <Button variant="ghost" size="sm" onClick={async () => {
+                        await sendFeedback('dismiss', Number(item.id));
+                        onDismiss(item.id);
+                      }}>
                         <X className="h-4 w-4" />
                       </Button>
                     </TooltipTrigger>
