@@ -103,6 +103,28 @@ serve(async (req) => {
       console.log('📊 Cron trigger detected - logging execution for monitoring');
     }
     
+    // Step 0.1: Cleanup failed queue items (clean up first)
+    console.log('🧹 Step 0.1: Cleaning up failed queue items...');
+    const cleanupResult = await callFunction('cleanup-failed-queue', {});
+    results.push(cleanupResult);
+    
+    if (cleanupResult.success) {
+      console.log(`✅ Queue cleanup completed: ${cleanupResult.result?.deleted || 0} problematic items deleted`);
+    } else {
+      console.log(`⚠️ Queue cleanup failed: ${cleanupResult.error}`);
+    }
+    
+    // Step 0.2: Validate URLs in queue
+    console.log('🔍 Step 0.2: Validating queue URLs...');
+    const validateResult = await callFunction('validate-queue-urls', {});
+    results.push(validateResult);
+    
+    if (validateResult.success) {
+      console.log(`✅ URL validation completed: ${validateResult.result?.removed || 0} invalid URLs removed`);
+    } else {
+      console.log(`⚠️ URL validation failed: ${validateResult.error}`);
+    }
+    
     // Step 1: Fetch new RSS feeds (skip if problematic)
     if (!skipRssFetch) {
       console.log('📡 Step 1: Fetching RSS feeds...');
@@ -161,6 +183,8 @@ serve(async (req) => {
       cron_trigger: isCronTrigger,
       steps: results,
       summary: {
+        cleanup_items_deleted: results.find(r => r.step === 'cleanup-failed-queue')?.result?.deleted || 0,
+        invalid_urls_removed: results.find(r => r.step === 'validate-queue-urls')?.result?.removed || 0,
         rss_feeds_processed: results.find(r => r.step === 'fetch-rss')?.result?.sources || 0,
         new_items_enqueued: results.find(r => r.step === 'fetch-rss')?.result?.enqueued || 0,
         queue_items_processed: results.find(r => r.step === 'ingest-queue')?.result?.processed || 0,
@@ -227,7 +251,9 @@ curl -X POST https://qimelntuxquptqqynxzv.supabase.co/functions/v1/restart-inges
   -H "Content-Type: application/json"
 
 This function will:
-1. Fetch new RSS feeds and enqueue items
-2. Process the ingestion queue (50 items)  
-3. Tag new drops (30 items, 2 concurrent requests)
+0. Cleanup failed queue items (delete items with 5+ failures)
+1. Validate queue URLs (remove malformed URLs)
+2. Fetch new RSS feeds and enqueue items
+3. Process the ingestion queue (50 items)  
+4. Tag new drops (30 items, 2 concurrent requests)
 */

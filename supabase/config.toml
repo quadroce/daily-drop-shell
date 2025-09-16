@@ -72,5 +72,11 @@ verify_jwt = false
 [functions.serve-topics-archive-sitemap]
 verify_jwt = false
 
+[functions.cleanup-failed-queue]
+verify_jwt = false
+
+[functions.validate-queue-urls]
+verify_jwt = false
+
 [functions.generate-sitemap]
 verify_jwt = false

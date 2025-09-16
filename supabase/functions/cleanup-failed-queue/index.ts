@@ -68,35 +68,31 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Mark them as failed instead of deleting
+    // Delete them definitively instead of just marking as failed
     const itemIds = allProblematicItems.map(item => item.id)
     
-    const { error: updateError } = await supabase
+    const { error: deleteError } = await supabase
       .from('ingestion_queue')
-      .update({ 
-        status: 'failed',
-        error: 'Automatically failed after multiple retries or malformed URL detected',
-        updated_at: new Date().toISOString()
-      })
+      .delete()
       .in('id', itemIds)
 
-    if (updateError) {
-      console.error('Error updating failed items:', updateError)
-      throw updateError
+    if (deleteError) {
+      console.error('Error deleting failed items:', deleteError)
+      throw deleteError
     }
 
-    console.log(`✅ Successfully marked ${itemIds.length} items as failed`)
+    console.log(`✅ Successfully deleted ${itemIds.length} problematic items`)
 
-    // Log details of cleaned items for debugging
+    // Log details of deleted items for debugging
     allProblematicItems.forEach(item => {
-      console.log(`Cleaned item ${item.id}: ${item.url?.substring(0, 100)}... (tries: ${item.tries})`)
+      console.log(`Deleted item ${item.id}: ${item.url?.substring(0, 100)}... (tries: ${item.tries})`)
     })
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Successfully cleaned ${itemIds.length} problematic queue items`,
-        cleaned: itemIds.length,
+        message: `Successfully deleted ${itemIds.length} problematic queue items`,
+        deleted: itemIds.length,
         items: allProblematicItems.map(item => ({
           id: item.id,
           url: item.url?.substring(0, 100) + '...',
