@@ -89,3 +89,6 @@ verify_jwt = false
 
 [functions.test-sitemap-submissions]
 verify_jwt = false
+
+[functions.embed-drops]
+verify_jwt = false
