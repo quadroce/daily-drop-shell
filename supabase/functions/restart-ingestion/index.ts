@@ -198,6 +198,25 @@ serve(async (req) => {
     // Log to database for monitoring if this was a cron trigger
     if (isCronTrigger) {
       try {
+        // Log to ingestion_logs table for health monitoring
+        await fetch(`${SUPABASE_URL}/rest/v1/ingestion_logs`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json',
+            'apikey': SERVICE_ROLE_KEY,
+          },
+          body: JSON.stringify({
+            cycle_timestamp: new Date().toISOString(),
+            feeds_processed: summary.summary.rss_feeds_processed,
+            new_articles: summary.summary.new_items_enqueued,
+            ingestion_processed: summary.summary.queue_items_processed,
+            articles_tagged: summary.summary.articles_tagged,
+            errors: results.filter(r => !r.success).map(r => r.error || 'Unknown error'),
+            success: overallSuccess
+          }),
+        });
+        
         const logResponse = await fetch(`${SUPABASE_URL}/rest/v1/cron_execution_log`, {
           method: 'POST',
           headers: {

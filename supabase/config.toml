@@ -78,5 +78,8 @@ verify_jwt = false
 [functions.validate-queue-urls]
 verify_jwt = false
 
+[functions.manual-health-fix]
+verify_jwt = false
+
 [functions.generate-sitemap]
 verify_jwt = false
