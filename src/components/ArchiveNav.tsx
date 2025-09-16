@@ -24,12 +24,7 @@ export const ArchiveNav = ({ slug, selectedDate, availableDates }: ArchiveNavPro
   return (
     <div className="flex items-center justify-between p-4 border-b border-border">
       <div className="flex items-center gap-2">
-        <Link 
-          to={`/topics/${slug}`}
-          className="text-sm text-muted-foreground hover:text-foreground"
-        >
-          ← Back to {slug}
-        </Link>
+        <h1 className="text-lg font-semibold text-foreground">Archive</h1>
       </div>
 
       <div className="flex items-center gap-2">
@@ -67,6 +62,12 @@ export const ArchiveNav = ({ slug, selectedDate, availableDates }: ArchiveNavPro
             </Button>
           </Link>
         )}
+
+        <Link to={`/topics/${slug}/archive`}>
+          <Button variant="outline" className="ml-2">
+            Archive
+          </Button>
+        </Link>
       </div>
     </div>
   );

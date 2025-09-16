@@ -4,8 +4,6 @@ import { Seo } from "@/components/Seo";
 import { DailyDrop } from "@/components/DailyDrop";
 import { ArchiveNav } from "@/components/ArchiveNav";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
 import { getTopicDaily, getTopicArchive, getTopicData } from "@/lib/api/topics";
 import { useAnalytics } from "@/lib/analytics";
 import { useEffect } from "react";
@@ -51,8 +49,12 @@ export const TopicDailyArchivePage = () => {
     return <Navigate to="/404" replace />;
   }
 
+  const articleCount = dailyItems?.length || 0;
+  const videoCount = dailyItems?.filter(item => item.type === 'video').length || 0;
   const canonical = `${window.location.origin}/topics/${slug}/${date}`;
   const formattedDate = format(parseISO(date), 'MMMM d, yyyy');
+  const title = `${topic?.title} - ${formattedDate} (${articleCount} articles)`;
+  const description = `Explore ${articleCount} curated articles ${videoCount > 0 ? `and ${videoCount} videos ` : ''}from ${topic?.title} on ${formattedDate}. Stay updated with the latest insights, research, and trends in ${topic?.title?.toLowerCase()}.`;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -108,8 +110,8 @@ export const TopicDailyArchivePage = () => {
   return (
     <>
       <Seo
-        title={`${topic?.title} - ${formattedDate} | Daily Archive`}
-        description={`Content and news from ${topic?.title} on ${formattedDate}. Browse the daily drop archive.`}
+        title={title}
+        description={description}
         canonical={canonical}
         jsonLd={jsonLd}
       />
@@ -124,21 +126,44 @@ export const TopicDailyArchivePage = () => {
 
       <div className="border-b border-border">
         <div className="max-w-4xl mx-auto px-4 py-6">
-          <div className="flex items-center gap-4 mb-4">
-            <Link to={`/topics/${slug}/archive`}>
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Archive
-              </Button>
-            </Link>
-          </div>
+          {/* Breadcrumb */}
+          <nav className="mb-6" aria-label="Breadcrumb">
+            <ol className="flex items-center space-x-2 text-sm text-muted-foreground">
+              <li>
+                <Link to="/topics" className="hover:text-foreground transition-colors">Topics</Link>
+              </li>
+              <li>/</li>
+              <li>
+                <Link to={`/topics/${slug}`} className="hover:text-foreground transition-colors">{topic?.title}</Link>
+              </li>
+              <li>/</li>
+              <li>
+                <Link to={`/topics/${slug}/archive`} className="hover:text-foreground transition-colors">Archive</Link>
+              </li>
+              <li>/</li>
+              <li className="text-foreground font-medium">{formattedDate}</li>
+            </ol>
+          </nav>
           
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            {topic?.title}
-          </h1>
-          <p className="text-lg text-muted-foreground">
-            {formattedDate}
-          </p>
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground mb-2">
+                {topic?.title}
+              </h1>
+              <div className="flex items-center gap-4">
+                <p className="text-lg text-muted-foreground">
+                  {formattedDate}
+                </p>
+                {articleCount > 0 && (
+                  <div className="text-sm text-muted-foreground bg-muted px-3 py-1 rounded-full">
+                    {articleCount} article{articleCount !== 1 ? 's' : ''}
+                    {videoCount > 0 && ` • ${videoCount} video${videoCount !== 1 ? 's' : ''}`}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -169,6 +194,7 @@ export const TopicDailyArchivePage = () => {
           }}
           user={user}
           onEngage={handleEngage}
+          hideConstraintAlert={true}
         />
       )}
     </>

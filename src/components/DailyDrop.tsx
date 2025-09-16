@@ -11,9 +11,10 @@ export type DailyDropProps = {
   };
   user?: { isLoggedIn: boolean; isPremium: boolean };
   onEngage?: (e: { itemId: string; action: "save"|"dismiss"|"like"|"dislike"|"open"|"video_play" }) => void;
+  hideConstraintAlert?: boolean;
 };
 
-export const DailyDrop = ({ items, constraints, user, onEngage }: DailyDropProps) => {
+export const DailyDrop = ({ items, constraints, user, onEngage, hideConstraintAlert = false }: DailyDropProps) => {
   // Validate constraints
   const videoCount = items.filter(item => item.type === "video").length;
   const sourceCount = new Map<string, number>();
@@ -28,7 +29,7 @@ export const DailyDrop = ({ items, constraints, user, onEngage }: DailyDropProps
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      {hasConstraintViolations && (
+      {hasConstraintViolations && !hideConstraintAlert && (
         <Alert className="mb-6">
           <Info className="h-4 w-4" />
           <AlertDescription>
