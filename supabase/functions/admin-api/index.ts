@@ -435,6 +435,14 @@ async function youtubeReprocess(req: Request, authHeader: string) {
 // Users management functions
 async function getUsers(req: Request, authHeader: string): Promise<Response> {
   try {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: {
+        headers: {
+          Authorization: authHeader,
+        },
+      },
+    });
+
     const url = new URL(req.url);
     const search = url.searchParams.get('search') || '';
     const tier = url.searchParams.get('tier');
@@ -510,6 +518,14 @@ async function getUsers(req: Request, authHeader: string): Promise<Response> {
 
 async function getUserById(req: Request, authHeader: string, userId: string): Promise<Response> {
   try {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: {
+        headers: {
+          Authorization: authHeader,
+        },
+      },
+    });
+
     const { data, error } = await supabase
       .from('profiles')
       .select(`
@@ -537,6 +553,14 @@ async function getUserById(req: Request, authHeader: string, userId: string): Pr
 
 async function createUser(req: Request, authHeader: string): Promise<Response> {
   try {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: {
+        headers: {
+          Authorization: authHeader,
+        },
+      },
+    });
+
     const payload = await req.json();
     const { email, display_name, subscription_tier = 'free', role = 'user' } = payload;
 
@@ -607,6 +631,14 @@ async function createUser(req: Request, authHeader: string): Promise<Response> {
 
 async function updateUser(req: Request, authHeader: string, userId: string): Promise<Response> {
   try {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: {
+        headers: {
+          Authorization: authHeader,
+        },
+      },
+    });
+
     const payload = await req.json();
     const { 
       display_name, username, first_name, last_name, company_role,
@@ -706,6 +738,14 @@ async function updateUser(req: Request, authHeader: string, userId: string): Pro
 
 async function softDeleteUser(req: Request, authHeader: string, userId: string): Promise<Response> {
   try {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: {
+        headers: {
+          Authorization: authHeader,
+        },
+      },
+    });
+
     // Get current user for audit logging
     const { data: authUser } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
     const currentUserId = authUser.user?.id;
@@ -743,6 +783,14 @@ async function softDeleteUser(req: Request, authHeader: string, userId: string):
 
 async function getLanguages(req: Request, authHeader: string): Promise<Response> {
   try {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: {
+        headers: {
+          Authorization: authHeader,
+        },
+      },
+    });
+
     const { data, error } = await supabase
       .from('languages')
       .select('code, label')
