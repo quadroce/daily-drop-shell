@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Check, Star, Users, Building, Zap, Mail, Smartphone, Globe, TrendingUp } from "lucide-react";
 import { track } from "@/lib/analytics";
 import { useEffect } from "react";
+import { Seo } from "@/components/Seo";
 
 const Pricing = () => {
   // Track pricing page view
@@ -104,7 +105,62 @@ const Pricing = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <>
+      <Seo
+        title="DailyDrops Pricing - Choose Your Plan"
+        description="Free daily content drops, Premium WhatsApp delivery (€9/month), Corporate dashboard (€49/month), and custom Sponsor plans. Start free today."
+        canonical="https://dailydrops.cloud/pricing"
+        ogImage="https://dailydrops.cloud/og-pricing.png"
+        faq={[
+          {
+            question: "Can I upgrade or downgrade anytime?",
+            answer: "Yes, you can change your plan anytime. Upgrades take effect immediately, downgrades at the end of your current billing cycle."
+          },
+          {
+            question: "What happens to my WhatsApp number if I downgrade?",
+            answer: "Your WhatsApp number remains saved in your account. If you upgrade again, delivery will resume automatically without re-verification."
+          },
+          {
+            question: "How does content personalization work?",
+            answer: "Our AI analyzes your topic preferences, reading history, and feedback to curate content that matches your interests. Premium users get more advanced personalization algorithms."
+          }
+        ]}
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "Service",
+          "name": "DailyDrops Content Curation Service",
+          "description": "Personalized content discovery platform with multiple subscription tiers",
+          "provider": {
+            "@type": "Organization",
+            "name": "DailyDrops"
+          },
+          "hasOfferCatalog": {
+            "@type": "OfferCatalog",
+            "name": "DailyDrops Plans",
+            "itemListElement": [
+              {
+                "@type": "Offer",
+                "itemOffered": {
+                  "@type": "Service",
+                  "name": "Free Plan"
+                },
+                "price": "0",
+                "priceCurrency": "EUR"
+              },
+              {
+                "@type": "Offer",
+                "itemOffered": {
+                  "@type": "Service",
+                  "name": "Premium Plan"
+                },
+                "price": "9",
+                "priceCurrency": "EUR"
+              }
+            ]
+          }
+        }}
+      />
+      <div className="min-h-screen bg-background">
       {/* Hero Section */}
       <div className="container mx-auto px-4 py-16 text-center">
         <div className="max-w-3xl mx-auto mb-16">
@@ -249,6 +305,7 @@ const Pricing = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

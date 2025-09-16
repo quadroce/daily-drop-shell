@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Building, Shield, BarChart3, Rss, Upload, FileText, Users, CheckCircle, Plus, TrendingUp } from "lucide-react";
+import { Seo } from "@/components/Seo";
 
 const Corporate = () => {
   // TODO: Connect to corporate source management system
@@ -51,7 +52,32 @@ const Corporate = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <>
+      <Seo
+        title="DailyDrops Corporate - Official Source Dashboard"
+        description="Corporate dashboard for organizations to manage RSS feeds, API integrations, and content submissions. Official source verification and analytics included. €49/month."
+        canonical="https://dailydrops.cloud/corporate"
+        ogImage="https://dailydrops.cloud/og-corporate.png"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "Service",
+          "name": "DailyDrops Corporate Dashboard",
+          "description": "Official source management dashboard for organizations to distribute content through DailyDrops platform",
+          "provider": {
+            "@type": "Organization",
+            "name": "DailyDrops"
+          },
+          "offers": {
+            "@type": "Offer",
+            "price": "49",
+            "priceCurrency": "EUR",
+            "availability": "https://schema.org/InStock"
+          },
+          "serviceType": "Content Management",
+          "areaServed": "Worldwide"
+        }}
+      />
+      <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="bg-gradient-to-r from-primary/10 to-accent/10">
         <div className="container mx-auto px-4 py-12">
@@ -354,6 +380,7 @@ const Corporate = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

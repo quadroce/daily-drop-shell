@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import EmailVerification from "@/components/EmailVerification";
 import { SocialAuthButtons } from "@/components/SocialAuthButtons";
 import { track } from "@/lib/analytics";
+import { Seo } from "@/components/Seo";
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -211,7 +212,24 @@ const Auth = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <>
+      <Seo
+        title="Sign In to DailyDrops - Personalized Content Discovery"
+        description="Join DailyDrops to discover personalized content curated by AI. Sign up with Google, LinkedIn, or email to start your content discovery journey."
+        canonical="https://dailydrops.cloud/auth"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          "name": "DailyDrops Authentication",
+          "description": "Sign in or create an account to access personalized content curation",
+          "isPartOf": {
+            "@type": "WebSite",
+            "name": "DailyDrops",
+            "url": "https://dailydrops.cloud"
+          }
+        }}
+      />
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-foreground">Welcome to DailyDrops</h1>
@@ -429,6 +447,7 @@ const Auth = () => {
         </Tabs>
       </div>
     </div>
+    </>
   );
 };
 

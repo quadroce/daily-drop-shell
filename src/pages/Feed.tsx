@@ -17,6 +17,7 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { FullWidthVideoCard } from "@/components/FullWidthVideoCard";
 import { track } from "@/lib/analytics";
 import { trackDropViewed } from "@/lib/trackers/content";
+import { Seo } from "@/components/Seo";
 
 // Add YouTube preconnect for performance
 if (typeof document !== 'undefined') {
@@ -720,7 +721,25 @@ const Feed = () => {
   console.log('[Feed] Rendering main feed, hasPreferences:', hasPreferences, 'drops.length:', drops.length);
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <>
+      <Seo
+        title="Your Daily Content Feed - DailyDrops"
+        description="Discover personalized content curated by AI based on your interests. Get daily tech updates, insights, and trending topics delivered to your feed."
+        canonical="https://dailydrops.cloud/feed"
+        noindex={!hasPreferences}
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          "name": "DailyDrops Personal Feed",
+          "description": "Personalized content discovery feed with AI-curated articles, videos, and insights",
+          "isPartOf": {
+            "@type": "WebSite",
+            "name": "DailyDrops",
+            "url": "https://dailydrops.cloud"
+          }
+        }}
+      />
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-2">Today's Drops</h1>
         <p className="text-muted-foreground">Curated content based on your interests</p>
@@ -827,6 +846,7 @@ const Feed = () => {
         )}
       </div>
     </div>
+    </>
   );
 };
 

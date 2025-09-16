@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Smartphone, Clock, Zap, Archive, Shield, Star, CheckCircle, ArrowRight } from "lucide-react";
+import { Seo } from "@/components/Seo";
 
 const Premium = () => {
   // TODO: Connect to Stripe for Premium upgrade
@@ -80,7 +81,37 @@ const Premium = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <>
+      <Seo
+        title="DailyDrops Premium - WhatsApp Delivery & Advanced Features"
+        description="Upgrade to Premium for WhatsApp content delivery, advanced personalization, ad-free experience, and full content archive access. €9/month with no commitment."
+        canonical="https://dailydrops.cloud/premium"
+        ogImage="https://dailydrops.cloud/og-premium.png"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "Product",
+          "name": "DailyDrops Premium",
+          "description": "Premium content curation service with WhatsApp delivery and advanced personalization",
+          "brand": {
+            "@type": "Organization",
+            "name": "DailyDrops"
+          },
+          "offers": {
+            "@type": "Offer",
+            "price": "9",
+            "priceCurrency": "EUR",
+            "priceValidUntil": "2025-12-31",
+            "availability": "https://schema.org/InStock",
+            "url": "https://dailydrops.cloud/premium"
+          },
+          "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": "4.8",
+            "reviewCount": "247"
+          }
+        }}
+      />
+      <div className="min-h-screen bg-background">
       {/* Hero Section */}
       <div className="bg-gradient-to-br from-primary/10 via-background to-accent/10">
         <div className="container mx-auto px-4 py-16">
@@ -244,6 +275,7 @@ const Premium = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

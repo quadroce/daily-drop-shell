@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertCircle, Mail, Clock, Info } from "lucide-react";
 import { track } from "@/lib/analytics";
+import { Seo } from "@/components/Seo";
 
 const Newsletter = () => {
   const [isSubscribed, setIsSubscribed] = useState(true);
@@ -30,7 +31,24 @@ const Newsletter = () => {
   ];
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <>
+      <Seo
+        title="Newsletter Settings - DailyDrops"
+        description="Manage your weekly DailyDrops newsletter subscription. Choose delivery times and customize your content preferences for curated weekly updates."
+        canonical="https://dailydrops.cloud/newsletter"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          "name": "Newsletter Settings",
+          "description": "Configure and manage your DailyDrops newsletter subscription preferences",
+          "isPartOf": {
+            "@type": "WebSite",
+            "name": "DailyDrops",
+            "url": "https://dailydrops.cloud"
+          }
+        }}
+      />
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-2">Newsletter Settings</h1>
         <p className="text-muted-foreground">
@@ -207,6 +225,7 @@ const Newsletter = () => {
         </Card>
       </div>
     </div>
+    </>
   );
 };
 
