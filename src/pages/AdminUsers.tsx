@@ -57,11 +57,11 @@ const AdminUsers = () => {
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState({
-    tier: "",
-    role: "",
+    tier: "all",
+    role: "all",
     active: "true",
-    lang: "",
-    onboarding: "",
+    lang: "all",
+    onboarding: "all",
     youtube: ""
   });
   const [currentPage, setCurrentPage] = useState(1);
@@ -136,7 +136,7 @@ const AdminUsers = () => {
 
       // Add filters
       Object.entries(filters).forEach(([key, value]) => {
-        if (value) {
+        if (value && value !== "all") {
           params.append(key, value);
         }
       });
@@ -240,11 +240,11 @@ const AdminUsers = () => {
 
   const resetFilters = () => {
     setFilters({
-      tier: "",
-      role: "",
+      tier: "all",
+      role: "all",
       active: "true",
-      lang: "",
-      onboarding: "",
+      lang: "all",
+      onboarding: "all",
       youtube: ""
     });
     setSearchQuery("");
@@ -354,7 +354,7 @@ const AdminUsers = () => {
                 <SelectValue placeholder="Subscription" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Tiers</SelectItem>
+                <SelectItem value="all">All Tiers</SelectItem>
                 <SelectItem value="free">Free</SelectItem>
                 <SelectItem value="premium">Premium</SelectItem>
                 <SelectItem value="sponsor">Sponsor</SelectItem>
@@ -367,7 +367,7 @@ const AdminUsers = () => {
                 <SelectValue placeholder="Role" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Roles</SelectItem>
+                <SelectItem value="all">All Roles</SelectItem>
                 <SelectItem value="user">User</SelectItem>
                 <SelectItem value="editor">Editor</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
@@ -381,7 +381,7 @@ const AdminUsers = () => {
               <SelectContent>
                 <SelectItem value="true">Active</SelectItem>
                 <SelectItem value="false">Inactive</SelectItem>
-                <SelectItem value="">All</SelectItem>
+                <SelectItem value="all">All</SelectItem>
               </SelectContent>
             </Select>
 
@@ -390,7 +390,7 @@ const AdminUsers = () => {
                 <SelectValue placeholder="Language" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Languages</SelectItem>
+                <SelectItem value="all">All Languages</SelectItem>
                 {languages.map((lang) => (
                   <SelectItem key={lang.code} value={lang.code}>
                     {lang.label}
@@ -404,7 +404,7 @@ const AdminUsers = () => {
                 <SelectValue placeholder="Onboarding" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All</SelectItem>
+                <SelectItem value="all">All</SelectItem>
                 <SelectItem value="true">Completed</SelectItem>
                 <SelectItem value="false">Pending</SelectItem>
               </SelectContent>
