@@ -400,7 +400,7 @@ export const getTopicDaily = async (slug: string, date: string): Promise<FeedCar
           name: article.sources?.name || 'Unknown Source',
           url: article.sources?.name ? `https://${article.sources.name.toLowerCase().replace(/\s+/g, '')}.com` : '#'
         },
-        image: article.image_url,
+        imageUrl: article.image_url,
         summary: article.summary || '',
         tags: article.tags || [slug],
         publishedAt: article.published_at || article.created_at,
