@@ -841,14 +841,23 @@ serve(async (req) => {
   const url = new URL(req.url);
   let pathname = url.pathname;
   
+  console.log('Original pathname:', pathname);
+  
   // Extract the actual endpoint from Supabase function path
   if (pathname.startsWith('/functions/v1/admin-api/')) {
     pathname = pathname.replace('/functions/v1/admin-api', '');
+    console.log('After functions/v1/admin-api replacement:', pathname);
   } else if (pathname.startsWith('/admin-api/')) {
     pathname = pathname.replace('/admin-api', '');
+    console.log('After admin-api replacement:', pathname);
   }
   
-  console.log('Routing to pathname:', pathname);
+  // Ensure we have a leading slash for empty results
+  if (!pathname || pathname === '') {
+    pathname = '/';
+  }
+  
+  console.log('Final routing pathname:', pathname);
 
   try {
     switch (pathname) {
@@ -866,13 +875,18 @@ serve(async (req) => {
       
       case '/users':
         // Distinguish between fetch and create based on request body content
-        const body = await req.json();
-        if (body.email && body.display_name) {
-          // Body contains user data - create user
-          return await createUser(req, authHeader!, body);
-        } else {
-          // Body contains search parameters - fetch users
-          return await getUsers(req, authHeader!, body);
+        try {
+          const body = await req.json().catch(() => ({}));
+          if (body.email && body.display_name) {
+            // Body contains user data - create user
+            return await createUser(req, authHeader!, body);
+          } else {
+            // Body contains search parameters - fetch users
+            return await getUsers(req, authHeader!, body);
+          }
+        } catch (error) {
+          console.error('Error parsing JSON body for /users:', error);
+          return await getUsers(req, authHeader!, {});
         }
         break;
       
