@@ -658,6 +658,21 @@ async function updateUser(req: Request, authHeader: string, userId: string, payl
       .eq('id', currentUserId)
       .single();
 
+    // Get current target user profile to compare changes
+    const { data: currentProfile, error: fetchError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (fetchError || !currentProfile) {
+      console.error('Error fetching current profile:', fetchError);
+      return new Response(JSON.stringify({ error: 'User not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Validate language_prefs if provided
     if (language_prefs && language_prefs.length > 3) {
       return new Response(JSON.stringify({ error: 'Maximum 3 languages allowed' }), {
@@ -689,19 +704,70 @@ async function updateUser(req: Request, authHeader: string, userId: string, payl
       });
     }
 
-    // Build update object
+    // Build update data - only include fields that have actually changed
     const updateData: any = {};
-    if (display_name !== undefined) updateData.display_name = display_name;
-    if (username !== undefined) updateData.username = username;
-    if (first_name !== undefined) updateData.first_name = first_name;
-    if (last_name !== undefined) updateData.last_name = last_name;
-    if (company_role !== undefined) updateData.company_role = company_role;
-    if (subscription_tier !== undefined) updateData.subscription_tier = subscription_tier;
-    if (role !== undefined) updateData.role = role;
-    if (language_prefs !== undefined) updateData.language_prefs = language_prefs;
-    if (youtube_embed_pref !== undefined) updateData.youtube_embed_pref = youtube_embed_pref;
-    if (onboarding_completed !== undefined) updateData.onboarding_completed = onboarding_completed;
-    if (is_active !== undefined) updateData.is_active = is_active;
+    if (display_name !== undefined && display_name !== currentProfile.display_name) {
+      updateData.display_name = display_name;
+    }
+    if (first_name !== undefined && first_name !== currentProfile.first_name) {
+      updateData.first_name = first_name;
+    }
+    if (last_name !== undefined && last_name !== currentProfile.last_name) {
+      updateData.last_name = last_name;
+    }
+    if (company_role !== undefined && company_role !== currentProfile.company_role) {
+      updateData.company_role = company_role;
+    }
+    if (subscription_tier !== undefined && subscription_tier !== currentProfile.subscription_tier) {
+      updateData.subscription_tier = subscription_tier;
+    }
+    if (role !== undefined && role !== currentProfile.role) {
+      updateData.role = role;
+    }
+    if (language_prefs !== undefined && JSON.stringify(language_prefs) !== JSON.stringify(currentProfile.language_prefs)) {
+      updateData.language_prefs = language_prefs;
+    }
+    if (youtube_embed_pref !== undefined && youtube_embed_pref !== currentProfile.youtube_embed_pref) {
+      updateData.youtube_embed_pref = youtube_embed_pref;
+    }
+    if (onboarding_completed !== undefined && onboarding_completed !== currentProfile.onboarding_completed) {
+      updateData.onboarding_completed = onboarding_completed;
+    }
+    if (is_active !== undefined && is_active !== currentProfile.is_active) {
+      updateData.is_active = is_active;
+    }
+
+    // Special handling for username - check for duplicates if it has changed
+    if (username !== undefined && username !== currentProfile.username) {
+      // Check if username already exists for another user
+      if (username && username.trim() !== '') {
+        const { data: existingUser } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('username', username)
+          .neq('id', userId)
+          .single();
+
+        if (existingUser) {
+          return new Response(JSON.stringify({ 
+            error: 'Username already taken',
+            details: 'This username is already in use by another user'
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
+      updateData.username = username;
+    }
+
+    // If no fields have changed, return success without updating
+    if (Object.keys(updateData).length === 0) {
+      return new Response(JSON.stringify(currentProfile), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const { data, error } = await supabase
       .from('profiles')
@@ -710,7 +776,31 @@ async function updateUser(req: Request, authHeader: string, userId: string, payl
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error updating user:', error);
+      
+      // Handle specific PostgreSQL constraint violations
+      if (error.code === '23505') {
+        if (error.message.includes('profiles_username_key')) {
+          return new Response(JSON.stringify({ 
+            error: 'Username already taken',
+            details: 'This username is already in use by another user'
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        return new Response(JSON.stringify({ 
+          error: 'Duplicate value',
+          details: 'A field value you are trying to set already exists'
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      throw error;
+    }
 
     // Log admin action
     const action = is_active === false ? 'soft_delete' : 
