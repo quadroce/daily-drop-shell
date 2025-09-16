@@ -276,6 +276,7 @@ export type Database = {
         Row: {
           authority_score: number | null
           created_at: string
+          embedding: string | null
           embeddings: string | null
           id: number
           image_url: string | null
@@ -308,6 +309,7 @@ export type Database = {
         Insert: {
           authority_score?: number | null
           created_at?: string
+          embedding?: string | null
           embeddings?: string | null
           id?: number
           image_url?: string | null
@@ -340,6 +342,7 @@ export type Database = {
         Update: {
           authority_score?: number | null
           created_at?: string
+          embedding?: string | null
           embeddings?: string | null
           id?: number
           image_url?: string | null
@@ -933,6 +936,24 @@ export type Database = {
         }
         Relationships: []
       }
+      user_profile_vectors: {
+        Row: {
+          profile_vec: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          profile_vec: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          profile_vec?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_topic_preferences: {
         Row: {
           created_at: string | null
@@ -1066,6 +1087,7 @@ export type Database = {
         Returns: {
           authority_score: number | null
           created_at: string
+          embedding: string | null
           embeddings: string | null
           id: number
           image_url: string | null
