@@ -433,7 +433,7 @@ async function youtubeReprocess(req: Request, authHeader: string) {
 }
 
 // Users management functions
-async function getUsers(req: Request, authHeader: string): Promise<Response> {
+async function getUsers(req: Request, authHeader: string, body?: any): Promise<Response> {
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: {
@@ -443,15 +443,16 @@ async function getUsers(req: Request, authHeader: string): Promise<Response> {
       },
     });
 
-    const url = new URL(req.url);
-    const search = url.searchParams.get('search') || '';
-    const tier = url.searchParams.get('tier');
-    const role = url.searchParams.get('role');
-    const lang = url.searchParams.get('lang');
-    const active = url.searchParams.get('active') !== 'false'; // default true
-    const sort = url.searchParams.get('sort') || 'created_at';
-    const page = parseInt(url.searchParams.get('page') || '1');
-    const pageSize = parseInt(url.searchParams.get('pageSize') || '50');
+    // Read parameters from body (for POST requests) or URL (for GET requests)
+    const params = body || {};
+    const search = params.search || '';
+    const tier = params.tier;
+    const role = params.role;
+    const lang = params.lang;
+    const active = params.active !== 'false'; // default true
+    const sort = params.sort || 'created_at';
+    const page = parseInt(params.page || '1');
+    const pageSize = parseInt(params.pageSize || '50');
     
     let query = supabase
       .from('profiles')
@@ -551,7 +552,7 @@ async function getUserById(req: Request, authHeader: string, userId: string): Pr
   }
 }
 
-async function createUser(req: Request, authHeader: string): Promise<Response> {
+async function createUser(req: Request, authHeader: string, payload?: any): Promise<Response> {
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: {
@@ -561,8 +562,8 @@ async function createUser(req: Request, authHeader: string): Promise<Response> {
       },
     });
 
-    const payload = await req.json();
-    const { email, display_name, subscription_tier = 'free', role = 'user' } = payload;
+    const body = payload || await req.json();
+    const { email, display_name, subscription_tier = 'free', role = 'user' } = body;
 
     // Validate required fields
     if (!email || !display_name) {
@@ -862,10 +863,14 @@ serve(async (req) => {
         return await youtubeReprocess(req, authHeader!);
       
       case '/users':
-        if (req.method === 'GET') {
-          return await getUsers(req, authHeader!);
-        } else if (req.method === 'POST') {
-          return await createUser(req, authHeader!);
+        // Distinguish between fetch and create based on request body content
+        const body = await req.json();
+        if (body.email && body.display_name) {
+          // Body contains user data - create user
+          return await createUser(req, authHeader!, body);
+        } else {
+          // Body contains search parameters - fetch users
+          return await getUsers(req, authHeader!, body);
         }
         break;
       
