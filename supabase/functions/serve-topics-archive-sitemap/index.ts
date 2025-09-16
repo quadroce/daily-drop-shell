@@ -119,12 +119,29 @@ async function generateTopicsArchiveSitemap(supabase: any, baseUrl: string): Pro
   return urls;
 }
 
+async function logSitemapGeneration(supabase: any, path: string, count: number, duration: number): Promise<void> {
+  try {
+    await supabase
+      .from('sitemap_runs')
+      .insert({
+        started_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        success: true,
+        total_urls: count,
+        archive_urls_count: count
+      });
+  } catch (error) {
+    console.warn('Failed to log sitemap generation:', error);
+  }
+}
+
 Deno.serve(async (req) => {
   // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  const startTime = Date.now();
   console.log('Serving topics archive sitemap request...');
 
   try {
@@ -139,6 +156,10 @@ Deno.serve(async (req) => {
     
     // Build sitemap XML
     const sitemapXml = buildSitemap(archiveUrls);
+    const duration = Date.now() - startTime;
+    
+    // Log sitemap generation
+    await logSitemapGeneration(supabase, 'sitemaps/topics-archive.xml', archiveUrls.length, duration);
 
     return new Response(sitemapXml, {
       headers: {

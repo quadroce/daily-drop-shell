@@ -77,7 +77,36 @@ async function generateCoreSitemap(baseUrl: string): Promise<SitemapUrl[]> {
     lastmod: now
   });
 
+  urls.push({
+    loc: `${baseUrl}/premium`,
+    changefreq: 'weekly',
+    priority: 0.7,
+    lastmod: now
+  });
+
+  urls.push({
+    loc: `${baseUrl}/newsletter`,
+    changefreq: 'weekly', 
+    priority: 0.6,
+    lastmod: now
+  });
+
   return urls;
+}
+
+async function logSitemapGeneration(supabase: any, path: string, count: number, duration: number): Promise<void> {
+  try {
+    await supabase
+      .from('sitemap_runs')
+      .insert({
+        started_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        success: true,
+        total_urls: count
+      });
+  } catch (error) {
+    console.warn('Failed to log sitemap generation:', error);
+  }
 }
 
 Deno.serve(async (req) => {
@@ -86,9 +115,14 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  const startTime = Date.now();
   console.log('Serving core sitemap request...');
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const baseUrl = 'https://dailydrops.cloud';
     
     // Generate core sitemap URLs
@@ -96,6 +130,10 @@ Deno.serve(async (req) => {
     
     // Build sitemap XML
     const sitemapXml = buildSitemap(coreUrls);
+    const duration = Date.now() - startTime;
+    
+    // Log sitemap generation
+    await logSitemapGeneration(supabase, 'sitemaps/core.xml', coreUrls.length, duration);
 
     return new Response(sitemapXml, {
       headers: {

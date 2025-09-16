@@ -5,66 +5,35 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface SitemapUrl {
-  loc: string;
-  lastmod?: string;
-  changefreq?: 'always' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'never';
-  priority?: number;
-}
-
-function escapeXml(unsafe: string): string {
-  return unsafe.replace(/[<>&'"]/g, (c) => {
-    switch (c) {
-      case '<': return '&lt;';
-      case '>': return '&gt;';
-      case '&': return '&amp;';
-      case "'": return '&apos;';
-      case '"': return '&quot;';
-      default: return c;
-    }
-  });
-}
-
-function buildUrlEntry(url: SitemapUrl): string {
-  const entries = [`    <loc>${escapeXml(url.loc)}</loc>`];
-  
-  if (url.lastmod) {
-    entries.push(`    <lastmod>${url.lastmod}</lastmod>`);
-  }
-  if (url.changefreq) {
-    entries.push(`    <changefreq>${url.changefreq}</changefreq>`);
-  }
-  if (url.priority) {
-    entries.push(`    <priority>${url.priority}</priority>`);
-  }
-
-  return `  <url>\n${entries.join('\n')}\n  </url>`;
-}
-
-function buildSitemap(urls: SitemapUrl[]): string {
-  const xmlHeader = '<?xml version="1.0" encoding="UTF-8"?>';
-  const urlsetOpen = '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
-  const urlsetClose = '</urlset>';
-  
-  const urlEntries = urls.map(buildUrlEntry).join('\n');
-  
-  return [xmlHeader, urlsetOpen, urlEntries, urlsetClose].join('\n');
-}
-
 function buildSitemapIndex(sitemaps: { loc: string; lastmod?: string }[]): string {
   const xmlHeader = '<?xml version="1.0" encoding="UTF-8"?>';
   const sitemapIndexOpen = '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
   const sitemapIndexClose = '</sitemapindex>';
-
+  
   const sitemapEntries = sitemaps.map(sitemap => {
-    const entries = [`    <loc>${escapeXml(sitemap.loc)}</loc>`];
+    const entries = [`    <loc>${sitemap.loc}</loc>`];
     if (sitemap.lastmod) {
       entries.push(`    <lastmod>${sitemap.lastmod}</lastmod>`);
     }
     return `  <sitemap>\n${entries.join('\n')}\n  </sitemap>`;
   }).join('\n');
-
+  
   return [xmlHeader, sitemapIndexOpen, sitemapEntries, sitemapIndexClose].join('\n');
+}
+
+async function logSitemapGeneration(supabase: any, path: string, count: number, duration: number): Promise<void> {
+  try {
+    await supabase
+      .from('sitemap_runs')
+      .insert({
+        started_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        success: true,
+        total_urls: count
+      });
+  } catch (error) {
+    console.warn('Failed to log sitemap generation:', error);
+  }
 }
 
 Deno.serve(async (req) => {
@@ -73,7 +42,8 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  console.log('Serving sitemap request...');
+  const startTime = Date.now();
+  console.log('Serving sitemap index request...');
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -89,6 +59,11 @@ Deno.serve(async (req) => {
       { loc: `${baseUrl}/sitemaps/topics.xml`, lastmod: now },
       { loc: `${baseUrl}/sitemaps/topics-archive.xml`, lastmod: now }
     ]);
+    
+    const duration = Date.now() - startTime;
+    
+    // Log sitemap generation
+    await logSitemapGeneration(supabase, 'sitemap.xml', 3, duration);
 
     return new Response(sitemapIndex, {
       headers: {
@@ -99,10 +74,10 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Error generating sitemap:', error);
+    console.error('Error generating sitemap index:', error);
     
     return new Response(
-      JSON.stringify({ error: 'Failed to generate sitemap' }), 
+      JSON.stringify({ error: 'Failed to generate sitemap index' }), 
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

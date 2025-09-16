@@ -1,6 +1,8 @@
 # Sitemap redirects to Supabase functions
-/sitemap.xml    https://qimelntuxquptqqynxzv.supabase.co/functions/v1/sitemap-proxy?path=sitemap.xml    200
-/sitemap-proxy/*    https://qimelntuxquptqqynxzv.supabase.co/functions/v1/sitemap-proxy?path=:splat    200
+/sitemap.xml    https://qimelntuxquptqqynxzv.supabase.co/functions/v1/serve-sitemap    200
+/sitemaps/core.xml    https://qimelntuxquptqqynxzv.supabase.co/functions/v1/serve-core-sitemap    200
+/sitemaps/topics.xml    https://qimelntuxquptqqynxzv.supabase.co/functions/v1/serve-topics-sitemap    200
+/sitemaps/topics-archive.xml    https://qimelntuxquptqqynxzv.supabase.co/functions/v1/serve-topics-archive-sitemap    200
 
 # Handle all other routes with React Router
 /*    /index.html   200

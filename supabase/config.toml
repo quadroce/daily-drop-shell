@@ -83,3 +83,6 @@ verify_jwt = false
 
 [functions.generate-sitemap]
 verify_jwt = false
+
+[functions.indexnow-integration]
+verify_jwt = false

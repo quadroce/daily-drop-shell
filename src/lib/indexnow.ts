@@ -1,77 +1,64 @@
-// IndexNow integration for rapid re-crawling by Bing/Microsoft
+import { supabase } from '@/integrations/supabase/client';
+
 export class IndexNowService {
-  private static readonly BING_INDEXNOW_ENDPOINT = 'https://api.indexnow.org/indexnow';
-  private static readonly API_KEY = 'dailydrops-indexnow-2025';
-
+  /**
+   * Submit a single URL to IndexNow via the new integration
+   */
   static async submitUrl(url: string): Promise<boolean> {
-    try {
-      const payload = {
-        host: new URL(url).hostname,
-        key: this.API_KEY,
-        keyLocation: `${new URL(url).origin}/${this.API_KEY}.txt`,
-        urlList: [url]
-      };
-
-      const response = await fetch(this.BING_INDEXNOW_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-
-      return response.ok;
-    } catch (error) {
-      console.error('IndexNow submission failed:', error);
-      return false;
-    }
+    return this.submitUrls([url]);
   }
 
+  /**
+   * Submit multiple URLs to IndexNow via the new integration
+   */
   static async submitUrls(urls: string[]): Promise<boolean> {
-    if (urls.length === 0) return true;
+    if (!urls.length) return false;
 
     try {
-      const baseUrl = new URL(urls[0]);
-      const payload = {
-        host: baseUrl.hostname,
-        key: this.API_KEY,
-        keyLocation: `${baseUrl.origin}/${this.API_KEY}.txt`,
-        urlList: urls
-      };
-
-      const response = await fetch(this.BING_INDEXNOW_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+      const { data, error } = await supabase.functions.invoke('indexnow-integration', {
+        body: { urls, trigger: 'manual' }
       });
 
-      return response.ok;
+      if (error) {
+        console.error('IndexNow submission error:', error);
+        return false;
+      }
+
+      return data?.success || false;
     } catch (error) {
-      console.error('IndexNow batch submission failed:', error);
+      console.error('Error invoking IndexNow integration:', error);
       return false;
     }
   }
 
+  /**
+   * Submit the current page URL to IndexNow
+   */
   static async submitCurrentPage(): Promise<boolean> {
-    return this.submitUrl(window.location.href);
+    const currentUrl = window.location.href;
+    return this.submitUrl(currentUrl);
   }
 }
 
-// Utility hook for triggering IndexNow submissions
-export const useIndexNow = () => {
-  const submitCurrentPage = async () => {
-    await IndexNowService.submitCurrentPage();
+/**
+ * React hook for IndexNow submissions
+ */
+export function useIndexNow() {
+  const submitCurrentPage = async (): Promise<boolean> => {
+    return IndexNowService.submitCurrentPage();
   };
 
-  const submitUrl = async (url: string) => {
-    await IndexNowService.submitUrl(url);
+  const submitUrl = async (url: string): Promise<boolean> => {
+    return IndexNowService.submitUrl(url);
   };
 
-  const submitUrls = async (urls: string[]) => {
-    await IndexNowService.submitUrls(urls);
+  const submitUrls = async (urls: string[]): Promise<boolean> => {
+    return IndexNowService.submitUrls(urls);
   };
 
-  return { submitCurrentPage, submitUrl, submitUrls };
-};
+  return {
+    submitCurrentPage,
+    submitUrl,
+    submitUrls
+  };
+}
