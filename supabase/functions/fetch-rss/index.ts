@@ -158,13 +158,20 @@ serve(async (req) => {
     const url = new URL(req.url);
     const sourceIdParam = url.searchParams.get('source_id');
     
-    console.log(`Fetching RSS feeds${sourceIdParam ? ` for source ${sourceIdParam}` : ' for all active sources'}`);
+    // NEW: Pagination parameters to prevent timeouts
+    const offsetParam = parseInt(url.searchParams.get('offset') || '0', 10);
+    const limitParam = parseInt(url.searchParams.get('limit') || '50', 10); // Max 50 sources per execution
+    
+    console.log(`Fetching RSS feeds (offset: ${offsetParam}, limit: ${limitParam})${sourceIdParam ? ` for source ${sourceIdParam}` : ' for active sources'}`);
 
-    // Build query for active sources with feed_url
-    let sourcesQuery = `${SUPABASE_URL}/rest/v1/sources?status=eq.active&feed_url=not.is.null&select=id,name,feed_url`;
+    // Build query for active sources with feed_url and pagination
+    let sourcesQuery = `${SUPABASE_URL}/rest/v1/sources?status=eq.active&feed_url=not.is.null&select=id,name,feed_url&order=id.asc`;
     
     if (sourceIdParam) {
       sourcesQuery += `&id=eq.${sourceIdParam}`;
+    } else {
+      // Add pagination only when not fetching a specific source
+      sourcesQuery += `&offset=${offsetParam}&limit=${limitParam}`;
     }
 
     // Fetch active sources with RSS feeds
@@ -183,20 +190,22 @@ serve(async (req) => {
     }
 
     const sources: Source[] = await sourcesResponse.json();
-    console.log(`Found ${sources.length} active sources with RSS feeds`);
+    console.log(`Found ${sources.length} sources to process (offset: ${offsetParam})`);
 
     if (sources.length === 0) {
       return new Response(JSON.stringify({ 
         sources: 0, 
         enqueued: 0, 
-        message: 'No active sources with RSS feeds found' 
+        offset: offsetParam,
+        has_more: false,
+        message: sources.length === 0 && offsetParam === 0 ? 'No active sources with RSS feeds found' : 'No more sources to process'
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Process feeds in very small batches to avoid CPU time limits
-    const BATCH_SIZE = 3; // Process only 3 sources at a time to avoid timeouts
+    // Process feeds in small batches to avoid CPU time limits  
+    const BATCH_SIZE = 3; // Process 3 sources at a time
     const results: FeedResult[] = [];
     
     console.log(`Processing ${sources.length} sources in batches of ${BATCH_SIZE}`);
@@ -211,9 +220,9 @@ serve(async (req) => {
       
       results.push(...batchResults);
       
-      // Longer delay between batches to prevent CPU exhaustion
+      // Small delay between batches to prevent CPU exhaustion
       if (i + BATCH_SIZE < sources.length) {
-        await new Promise(resolve => setTimeout(resolve, 500)); // Increased to 500ms
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
     }
 
@@ -222,14 +231,21 @@ serve(async (req) => {
       result.errors.map(error => `${result.sourceName}: ${error}`)
     );
 
-    console.log(`Processed ${sources.length} sources, enqueued ${totalEnqueued} items`);
+    console.log(`Processed ${sources.length} sources, enqueued ${totalEnqueued} items (offset: ${offsetParam})`);
     if (allErrors.length > 0) {
       console.warn('Errors encountered:', allErrors);
     }
 
+    // Determine if there are more sources to process
+    const hasMore = sources.length === limitParam; // If we got exactly the limit, there might be more
+
     return new Response(JSON.stringify({
       sources: sources.length,
       enqueued: totalEnqueued,
+      offset: offsetParam,
+      limit: limitParam,
+      has_more: hasMore,
+      next_offset: hasMore ? offsetParam + limitParam : null,
       results: results.map(r => ({
         sourceId: r.sourceId,
         sourceName: r.sourceName,

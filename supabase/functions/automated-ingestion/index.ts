@@ -26,10 +26,31 @@ interface ProcessingStats {
   errors: string[];
 }
 
-async function callEdgeFunction(functionName: string, body: any = {}): Promise<any> {
+async function callEdgeFunction(functionName: string, body: any = {}, queryParams: string = ''): Promise<any> {
   try {
-    console.log(`Calling ${functionName} function...`);
+    console.log(`Calling ${functionName} function${queryParams ? ` with params: ${queryParams}` : ''}...`);
     
+    // For fetch-rss with query parameters, we need to use a direct HTTP call
+    if (functionName === 'fetch-rss' && queryParams) {
+      const response = await fetch(`${supabaseUrl}/functions/v1/fetch-rss${queryParams}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseServiceKey}`,
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log(`${functionName} completed successfully:`, data);
+      return data;
+    }
+    
+    // Regular Supabase function invocation for other functions
     const { data, error } = await supabase.functions.invoke(functionName, {
       body,
       headers: {
@@ -66,18 +87,53 @@ async function runAutomatedIngestion(): Promise<ProcessingStats> {
   try {
     console.log('🚀 Starting automated content ingestion cycle...');
 
-    // Step 1: Fetch RSS feeds
-    console.log('📡 Step 1: Fetching RSS feeds...');
+    // Step 1: Fetch RSS feeds in multiple batches to prevent timeouts
+    console.log('📡 Step 1: Fetching RSS feeds in paginated batches...');
+    
+    let totalFeedsProcessed = 0;
+    let totalNewArticles = 0;
+    let offset = 0;
+    const limit = 40; // Process 40 sources per batch to avoid timeouts
+    let hasMore = true;
+    let batchNumber = 1;
+
     try {
-      const rssResult = await callEdgeFunction('fetch-rss', { 
-        trigger: 'automated',
-        max_feeds: 100 // INCREASED: Process more feeds
-      });
+      while (hasMore) {
+        console.log(`📡 Processing RSS batch ${batchNumber} (offset: ${offset}, limit: ${limit})...`);
+        
+        try {
+          const rssResult = await callEdgeFunction('fetch-rss', {}, `?offset=${offset}&limit=${limit}`);
+          
+          const feedsProcessed = rssResult?.sources || 0;
+          const newArticles = rssResult?.enqueued || 0;
+          
+          totalFeedsProcessed += feedsProcessed;
+          totalNewArticles += newArticles;
+          hasMore = rssResult?.has_more || false;
+          
+          console.log(`✅ RSS batch ${batchNumber} completed: ${feedsProcessed} feeds, ${newArticles} new articles`);
+          
+          if (hasMore) {
+            offset += limit;
+            batchNumber++;
+            // Small delay between batches to prevent overwhelming the system
+            await waitWithTimeout(2000);
+          }
+          
+        } catch (batchError) {
+          console.error(`❌ RSS batch ${batchNumber} failed:`, batchError);
+          stats.errors.push(`RSS batch ${batchNumber} failed: ${batchError.message}`);
+          // Continue with next batch even if one fails
+          offset += limit;
+          batchNumber++;
+          hasMore = batchNumber <= 10; // Safety limit: max 10 batches (400 sources)
+        }
+      }
       
-      stats.feeds_processed = rssResult?.feeds_processed || 0;
-      stats.new_articles = rssResult?.new_items || 0;
+      stats.feeds_processed = totalFeedsProcessed;
+      stats.new_articles = totalNewArticles;
       
-      console.log(`✅ RSS fetch completed: ${stats.feeds_processed} feeds, ${stats.new_articles} new articles`);
+      console.log(`✅ All RSS batches completed: ${totalFeedsProcessed} total feeds, ${totalNewArticles} total new articles`);
     } catch (error) {
       stats.errors.push(`RSS fetch failed: ${error.message}`);
       console.error('❌ RSS fetch failed:', error);
