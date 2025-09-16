@@ -844,6 +844,8 @@ serve(async (req) => {
   // Extract the actual endpoint from Supabase function path
   if (pathname.startsWith('/functions/v1/admin-api/')) {
     pathname = pathname.replace('/functions/v1/admin-api', '');
+  } else if (pathname.startsWith('/admin-api/')) {
+    pathname = pathname.replace('/admin-api', '');
   }
   
   console.log('Routing to pathname:', pathname);
