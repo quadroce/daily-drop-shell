@@ -82,18 +82,9 @@ export const FullWidthVideoCard: React.FC<FullWidthVideoCardProps> = ({
     }
   }, [item.id, initializeStates, isPremium, isValidYouTube]);
 
-  // Get current engagement state
-  const engagementState = getState(item.id.toString());
-  const loadingState = isLoading(item.id.toString());
-  
-  // If not premium or not YouTube, don't render this component
-  if (!isPremium || !isValidYouTube) {
-    return null;
-  }
-
-  // Load YouTube API
+  // Load YouTube API - always call this hook but only execute when conditions are met
   useEffect(() => {
-    if (!isPlaying) return;
+    if (!isPremium || !isValidYouTube || !isPlaying) return;
 
     const loadYouTubeAPI = () => {
       if (window.YT) {
@@ -154,7 +145,16 @@ export const FullWidthVideoCard: React.FC<FullWidthVideoCardProps> = ({
     return () => {
       stopProgressTracking();
     };
-  }, [isPlaying, videoId, item.id]);
+  }, [isPlaying, videoId, item.id, isPremium, isValidYouTube]);
+
+  // Get current engagement state
+  const engagementState = getState(item.id.toString());
+  const loadingState = isLoading(item.id.toString());
+  
+  // If not premium or not YouTube, don't render this component
+  if (!isPremium || !isValidYouTube) {
+    return null;
+  }
 
   const getCurrentProgress = (ytPlayer: any): number => {
     if (!ytPlayer || !ytPlayer.getCurrentTime || !ytPlayer.getDuration) return 0;
