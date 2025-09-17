@@ -12,18 +12,21 @@
           "id": "2025-09-11-1",
           "title": "OpenAI Announces GPT-5 with Revolutionary Reasoning Capabilities",
           "href": "https://openai.com/gpt-5-announcement",
+          "imageUrl": "https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
           "source": { "name": "OpenAI Blog", "url": "https://openai.com/blog" }
         },
         {
           "id": "2025-09-11-2", 
           "title": "Meta's Code Llama 3 Outperforms GPT-4 in Programming Tasks",
           "href": "https://meta.ai/code-llama-3",
+          "imageUrl": "https://via.placeholder.com/400x200/3b82f6/ffffff?text=Meta+AI",
           "source": { "name": "Meta AI", "url": "https://meta.ai" }
         },
         {
           "id": "2025-09-11-3",
           "title": "Google DeepMind Solves All Known Protein Structures",
           "href": "https://deepmind.google/alphafold-3",
+          "imageUrl": "https://via.placeholder.com/400x200/10b981/ffffff?text=DeepMind",
           "source": { "name": "DeepMind", "url": "https://deepmind.google" }
         }
       ]
@@ -35,12 +38,14 @@
           "id": "2025-09-10-1",
           "title": "AI Startup Raises $500M for Next-Gen Training Infrastructure",
           "href": "https://techcrunch.com/ai-startup-funding",
+          "imageUrl": "https://via.placeholder.com/400x200/8b5cf6/ffffff?text=AI+Startup",
           "source": { "name": "TechCrunch", "url": "https://techcrunch.com" }
         },
         {
           "id": "2025-09-10-2",
           "title": "New Research Shows 90% Reduction in AI Model Training Time",
           "href": "https://arxiv.org/efficiency-breakthrough",
+          "imageUrl": "https://via.placeholder.com/400x200/f59e0b/ffffff?text=Research",
           "source": { "name": "arXiv", "url": "https://arxiv.org" }
         }
       ]

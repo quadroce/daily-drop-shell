@@ -162,7 +162,7 @@ export type ArchiveIndex = {
   availableDates: string[];
   days: {
     date: string;
-    items: Pick<FeedCardProps, "id"|"title"|"href"|"source">[];
+    items: Pick<FeedCardProps, "id"|"title"|"href"|"source"|"imageUrl">[];
   }[];
 };
 
@@ -281,6 +281,7 @@ export const getTopicArchive = async (slug: string, isPremium: boolean): Promise
         id,
         title,
         url,
+        image_url,
         published_at,
         created_at,
         sources (
@@ -301,7 +302,7 @@ export const getTopicArchive = async (slug: string, isPremium: boolean): Promise
     }
 
     // Group articles by date
-    const dayGroups = new Map<string, Array<Pick<FeedCardProps, "id"|"title"|"href"|"source">>>();
+    const dayGroups = new Map<string, Array<Pick<FeedCardProps, "id"|"title"|"href"|"source"|"imageUrl">>>();
     
     articles.forEach(article => {
       const date = format(parseISO(article.published_at || article.created_at), 'yyyy-MM-dd');
@@ -314,6 +315,7 @@ export const getTopicArchive = async (slug: string, isPremium: boolean): Promise
         id: article.id.toString(),
         title: article.title,
         href: article.url,
+        imageUrl: article.image_url,
         source: { 
           name: article.sources?.name || 'Unknown Source',
           url: article.sources?.name ? `https://${article.sources.name.toLowerCase().replace(/\s+/g, '')}.com` : '#'
