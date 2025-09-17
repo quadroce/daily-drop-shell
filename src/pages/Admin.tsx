@@ -8,7 +8,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { VectorSystemInit } from "@/components/VectorSystemInit";
-import { Loader2, Users, Database, List, ArrowLeft, Rss, Cog, Tags, Monitor, Map, Globe, Youtube, Settings } from "lucide-react";
+import { NewsletterTestPanel } from "@/components/admin/NewsletterTestPanel";
+import { Loader2, Users, Database, List, ArrowLeft, Rss, Cog, Tags, Monitor, Map, Globe, Youtube, Settings, Mail } from "lucide-react";
 
 interface Profile {
   id: string;
@@ -763,6 +764,9 @@ const Admin = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Newsletter Test Panel */}
+      <NewsletterTestPanel />
 
       {/* Vector System Initialization */}
       <VectorSystemInit />
