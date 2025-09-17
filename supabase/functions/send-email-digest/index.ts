@@ -33,7 +33,7 @@ serve(async (req) => {
 
     // Initialize services
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
-    const emailFrom = Deno.env.get('EMAIL_FROM') || 'newsletter@dailydrops.ai';
+    const emailFrom = Deno.env.get('EMAIL_FROM') || 'Daily Drops <onboarding@resend.dev>';
     
     if (!resendApiKey) {
       console.error('RESEND_API_KEY not configured');
