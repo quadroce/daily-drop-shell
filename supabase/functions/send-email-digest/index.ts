@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "npm:resend@2.0.0";
+import { renderTemplate } from "../_shared/email-template.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -92,64 +93,11 @@ serve(async (req) => {
     const subject = `${testPrefix}Your ${cadence} digest - ${itemCount} new articles`;
     console.log(`   - Generated subject: ${subject}`);
 
-    console.log('10. Creating HTML email content...');
+    console.log('10. Creating HTML email content using shared template...');
     console.log(`    - Processing ${itemCount} items for HTML generation`);
     
-    // Create simple HTML email
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <title>${subject}</title>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { text-align: center; padding: 20px 0; border-bottom: 2px solid #f0f0f0; }
-            .logo { font-size: 24px; font-weight: bold; color: #2563eb; }
-            .greeting { margin: 20px 0; }
-            .article { margin: 20px 0; padding: 15px; border: 1px solid #e5e5e5; border-radius: 8px; }
-            .article h3 { margin: 0 0 10px 0; color: #1a1a1a; }
-            .article p { margin: 5px 0; color: #666; }
-            .article a { color: #2563eb; text-decoration: none; }
-            .article a:hover { text-decoration: underline; }
-            .tags { margin: 10px 0; }
-            .tag { display: inline-block; padding: 2px 8px; margin: 2px; background: #f0f9ff; color: #0369a1; border-radius: 12px; font-size: 12px; }
-            .footer { text-align: center; padding: 20px 0; border-top: 1px solid #e5e5e5; margin-top: 40px; color: #666; font-size: 14px; }
-            ${testMode ? '.test-banner { background: #fef3c7; color: #92400e; padding: 10px; text-align: center; margin-bottom: 20px; border-radius: 4px; }' : ''}
-          </style>
-        </head>
-        <body>
-          ${testMode ? '<div class="test-banner"><strong>TEST MODE</strong> - This is a test newsletter</div>' : ''}
-          
-          <div class="header">
-            <div class="logo">📧 DailyDrops</div>
-          </div>
-
-          <div class="greeting">
-            <h2>Hi ${userName}! 👋</h2>
-            <p>Here's your ${cadence} digest with ${itemCount} new articles tailored to your interests.</p>
-          </div>
-
-          ${digestContent.digest.items.map((item: any, index: number) => `
-            <div class="article">
-              <h3><a href="${item.url}" target="_blank">${item.title}</a></h3>
-              ${item.summary ? `<p>${item.summary}</p>` : ''}
-              ${item.tags && item.tags.length > 0 ? `
-                <div class="tags">
-                  ${item.tags.map((tag: string) => `<span class="tag">${tag}</span>`).join('')}
-                </div>
-              ` : ''}
-              <p><small>Published: ${new Date(item.published_at).toLocaleDateString()}</small></p>
-            </div>
-          `).join('')}
-
-          <div class="footer">
-            <p>You're receiving this because you're subscribed to DailyDrops newsletter.</p>
-            <p><a href="#" style="color: #666;">Unsubscribe</a> | <a href="#" style="color: #666;">Update preferences</a></p>
-          </div>
-        </body>
-      </html>
-    `;
+    // Use the shared email template
+    const htmlContent = renderTemplate(digestContent);
     
     console.log(`    - HTML content length: ${htmlContent.length} characters`);
     console.log('    - HTML content preview (first 200 chars):', htmlContent.substring(0, 200));
