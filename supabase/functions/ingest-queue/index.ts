@@ -120,6 +120,26 @@ async function processQueueItems(limit = 20): Promise<ProcessResult> {
       try {
         console.log(`Processing item ${item.id}: ${item.url}`);
         
+        // Validate URL format before processing
+        try {
+          new URL(item.url);
+        } catch (urlError) {
+          console.warn(`Invalid URL format for item ${item.id}: ${item.url}`);
+          await updateQueueItem(item.id, {
+            status: 'error',
+            error: `Invalid URL format: ${item.url}`,
+          });
+          
+          result.details.push({
+            id: item.id,
+            url: item.url,
+            status: 'failed',
+            error: 'Invalid URL format'
+          });
+          
+          return { success: false, id: item.id, error: 'Invalid URL format' };
+        }
+        
         // Add random delay to prevent rate limiting (100-500ms)
         const delay = 100 + Math.random() * 400;
         await new Promise(resolve => setTimeout(resolve, delay));

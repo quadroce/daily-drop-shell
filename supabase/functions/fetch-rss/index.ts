@@ -54,11 +54,34 @@ function parseFeed(xmlContent: string): RSSItem[] {
       const entries = Array.isArray(parsed.feed.entry) 
         ? parsed.feed.entry 
         : [parsed.feed.entry];
-      return entries.map(entry => ({
-        title: entry.title?.['#text'] || entry.title,
-        link: entry.link?.['@_href'] || entry.link,
-        published: entry.published || entry.updated
-      }));
+      return entries.map(entry => {
+        let linkUrl = null;
+        
+        // Handle different link formats in Atom feeds
+        if (entry.link) {
+          if (typeof entry.link === 'string') {
+            // Simple string URL
+            linkUrl = entry.link;
+          } else if (Array.isArray(entry.link)) {
+            // Array of link objects - find the main HTML link
+            const htmlLink = entry.link.find(link => 
+              link['@_type'] === 'text/html' || 
+              link['@_rel'] === 'alternate' ||
+              !link['@_rel'] // No rel attribute usually means main link
+            );
+            linkUrl = htmlLink?.['@_href'] || entry.link[0]?.['@_href'];
+          } else if (typeof entry.link === 'object') {
+            // Single link object
+            linkUrl = entry.link['@_href'] || entry.link.href;
+          }
+        }
+        
+        return {
+          title: entry.title?.['#text'] || entry.title,
+          link: linkUrl,
+          published: entry.published || entry.updated
+        };
+      });
     }
     
     return [];
@@ -100,6 +123,15 @@ async function processFeed(source: Source): Promise<FeedResult> {
     // Enqueue each item
     const enqueuePromises = items.map(async (item) => {
       if (!item.link) return null;
+      
+      // Validate URL format to prevent malformed URLs from entering the queue
+      try {
+        new URL(item.link);
+      } catch (urlError) {
+        console.warn(`Skipping malformed URL: ${item.link}`);
+        result.errors.push(`Malformed URL: ${item.link}`);
+        return null;
+      }
       
       const queueData = {
         url: item.link,
