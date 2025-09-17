@@ -116,50 +116,139 @@ async function classifyDrop(drop: Drop, topics: Topic[], params: { max_l3?: numb
   const user = `TITLE: ${drop.title}\n\nSUMMARY: ${drop.summary ?? "No summary available"}`.slice(0, 8000);
 
   console.log(`Classifying drop ${drop.id}: ${drop.title.slice(0, 50)}...`);
+  const startTime = Date.now();
 
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "gpt-4.1-2025-04-14",
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user }
-      ],
-      max_tokens: 500,
-      temperature: 0.3,
-      response_format: { type: "json_object" }
-    }),
-  });
-  
-  if (!res.ok) {
-    const errorText = await res.text();
-    console.error(`OpenAI API error for drop ${drop.id}:`, errorText);
-    throw new Error(`OpenAI ${res.status} ${errorText}`);
+  // Retry logic with exponential backoff
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "gpt-4.1-2025-04-14",
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: user }
+          ],
+          max_tokens: 500,
+          temperature: 0.3,
+          response_format: { type: "json_object" }
+        }),
+      });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        
+        // Check if it's a rate limit error
+        if (res.status === 429 && attempt < 3) {
+          const delay = Math.pow(2, attempt - 1) * 1000; // 1s, 2s exponential backoff
+          console.log(`Rate limit hit for drop ${drop.id}, retrying in ${delay}ms (attempt ${attempt})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        
+        console.error(`OpenAI API error for drop ${drop.id}:`, errorText);
+        throw new Error(`OpenAI ${res.status} ${errorText}`);
+      }
+      
+      const out = await res.json();
+      const txt = out.choices?.[0]?.message?.content ?? "{}";
+      
+      const duration = Date.now() - startTime;
+      console.log(`OpenAI call completed for drop ${drop.id} in ${duration}ms (attempt ${attempt})`);
+      
+      let parsed: any;
+      try { 
+        parsed = JSON.parse(txt); 
+      } catch (e) {
+        console.error(`JSON parse error for drop ${drop.id}:`, e, "Raw text:", txt);
+        parsed = { l1: "", l2: "", l3: [] };
+      }
+      
+      // Normalize and validate
+      parsed.l1 = String(parsed.l1 || "").toLowerCase();
+      parsed.l2 = String(parsed.l2 || "").toLowerCase();
+      parsed.l3 = Array.isArray(parsed.l3) ? parsed.l3.map(String).map(s => s.toLowerCase()) : [];
+      if (parsed.language) parsed.language = String(parsed.language).slice(0, 5);
+      
+      console.log(`Parsed classification for drop ${drop.id}:`, parsed);
+      
+      return parsed as ClassifyOut;
+      
+    } catch (error) {
+      if (attempt === 3) {
+        console.error(`Failed to classify drop ${drop.id} after 3 attempts:`, error);
+        throw error;
+      }
+      
+      const delay = Math.pow(2, attempt - 1) * 1000;
+      console.log(`Error classifying drop ${drop.id}, retrying in ${delay}ms:`, error);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
   }
   
-  const out = await res.json();
-  const txt = out.choices?.[0]?.message?.content ?? "{}";
+  // This should never be reached, but TypeScript needs it
+  throw new Error(`Failed to classify drop ${drop.id}`);
+}
+
+// ===== Parallel processing utilities =====
+async function processDropsBatch(drops: Drop[], topics: Topic[], params: { max_l3?: number }, concurrency: number = 3): Promise<any[]> {
+  const results: any[] = [];
   
-  console.log(`Raw OpenAI response for drop ${drop.id}:`, txt);
+  console.log(`Processing ${drops.length} drops with concurrency ${concurrency}`);
+  const batchStartTime = Date.now();
   
-  let parsed: any;
-  try { 
-    parsed = JSON.parse(txt); 
-  } catch (e) {
-    console.error(`JSON parse error for drop ${drop.id}:`, e, "Raw text:", txt);
-    parsed = { l1: "", l2: "", l3: [] };
+  // Process drops in batches of 'concurrency'
+  for (let i = 0; i < drops.length; i += concurrency) {
+    const batch = drops.slice(i, i + concurrency);
+    const batchNumber = Math.floor(i / concurrency) + 1;
+    const totalBatches = Math.ceil(drops.length / concurrency);
+    
+    console.log(`Processing batch ${batchNumber}/${totalBatches} (${batch.length} drops)`);
+    const chunkStartTime = Date.now();
+    
+    // Process all drops in this batch in parallel
+    const batchPromises = batch.map(async (drop) => {
+      try {
+        const raw = await classifyDrop(drop, topics, params);
+        const enforced = enforce121(raw, topics, params);
+        
+        console.log(`Drop ${drop.id} enforced result:`, enforced);
+
+        // Use new structure: separate L1, L2, L3
+        await setDropTags(drop.id, enforced.l1TopicId, enforced.l2TopicId, enforced.l3Tags, raw.language);
+
+        return { 
+          id: drop.id, 
+          l1_topic_id: enforced.l1TopicId, 
+          l2_topic_id: enforced.l2TopicId, 
+          l3_tags: enforced.l3Tags, 
+          language: raw.language ?? null, 
+          ok: true 
+        };
+      } catch (e) {
+        console.error(`Error processing drop ${drop.id}:`, e);
+        return { id: drop.id, error: String(e), ok: false };
+      }
+    });
+    
+    // Wait for all drops in this batch to complete
+    const batchResults = await Promise.all(batchPromises);
+    results.push(...batchResults);
+    
+    const chunkDuration = Date.now() - chunkStartTime;
+    console.log(`Batch ${batchNumber} completed in ${chunkDuration}ms (${(chunkDuration / batch.length).toFixed(0)}ms per drop)`);
+    
+    // Add small delay between batches to avoid overwhelming the API
+    if (i + concurrency < drops.length) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
   }
   
-  // Normalize and validate
-  parsed.l1 = String(parsed.l1 || "").toLowerCase();
-  parsed.l2 = String(parsed.l2 || "").toLowerCase();
-  parsed.l3 = Array.isArray(parsed.l3) ? parsed.l3.map(String).map(s => s.toLowerCase()) : [];
-  if (parsed.language) parsed.language = String(parsed.language).slice(0, 5);
+  const totalDuration = Date.now() - batchStartTime;
+  console.log(`All ${drops.length} drops processed in ${totalDuration}ms (${(totalDuration / drops.length).toFixed(0)}ms per drop average)`);
   
-  console.log(`Parsed classification for drop ${drop.id}:`, parsed);
-  
-  return parsed as ClassifyOut;
+  return results;
 }
 
 // ===== Post-processing / enforcement =====
@@ -251,7 +340,7 @@ serve(async (req) => {
     const url = new URL(req.url);
     const limitParam = url.searchParams.get("limit");
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
-    const limit = Number(limitParam ?? body.limit ?? 25);
+    const limit = Number(limitParam ?? body.limit ?? 50);
     const max_l3 = Number(body.max_l3 ?? 3);
     
     // Supporto per force_retag e drop_ids specifici
@@ -273,30 +362,21 @@ serve(async (req) => {
     }
 
     console.log(`Starting tagging process for ${drops.length} drops with ${topics.length} topics`);
-    const results: any[] = [];
+    const processStartTime = Date.now();
 
-    for (const drop of drops) {
-      try {
-        const raw = await classifyDrop(drop, topics, { max_l3 });
-        const enforced = enforce121(raw, topics, { max_l3 });
-        
-        console.log(`Drop ${drop.id} enforced result:`, enforced);
+    // Determine concurrency based on batch size
+    const concurrency = Math.min(5, Math.max(3, Math.floor(drops.length / 10)));
+    console.log(`Using concurrency level: ${concurrency}`);
 
-        // Use new structure: separate L1, L2, L3
-        await setDropTags(drop.id, enforced.l1TopicId, enforced.l2TopicId, enforced.l3Tags, raw.language);
+    // Process drops in parallel batches
+    const results = await processDropsBatch(drops, topics, { max_l3 }, concurrency);
 
-        results.push({ 
-          id: drop.id, 
-          l1_topic_id: enforced.l1TopicId, 
-          l2_topic_id: enforced.l2TopicId, 
-          l3_tags: enforced.l3Tags, 
-          language: raw.language ?? null, 
-          ok: true 
-        });
-      } catch (e) {
-        results.push({ id: drop.id, error: String(e), ok: false });
-      }
-    }
+    const totalDuration = Date.now() - processStartTime;
+    const successCount = results.filter(r => r.ok).length;
+    const errorCount = results.filter(r => !r.ok).length;
+    
+    console.log(`Tagging completed: ${successCount} successful, ${errorCount} errors in ${totalDuration}ms`);
+    console.log(`Performance: ${(totalDuration / drops.length).toFixed(0)}ms per drop average`);
 
     return jres(200, { processed: results.length, results });
   } catch (err) {
