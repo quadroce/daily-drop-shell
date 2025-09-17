@@ -64,6 +64,10 @@ export const FullWidthVideoCard: React.FC<FullWidthVideoCardProps> = ({
   onDismiss,
 }) => {
   const { isPremium } = useUserProfile();
+  const videoId = extractVideoId(item.url, item.youtube_video_id);
+  const isValidYouTube = isYouTubeUrl(item.url) && videoId;
+  
+  // Always call all hooks in the same order
   const { updateEngagement, getState, isLoading, initializeStates } = useEngagementState();
   const [isPlaying, setIsPlaying] = useState(false);
   const [player, setPlayer] = useState<any>(null);
@@ -73,15 +77,14 @@ export const FullWidthVideoCard: React.FC<FullWidthVideoCardProps> = ({
 
   // Initialize engagement state for this drop
   useEffect(() => {
-    initializeStates([item.id.toString()]);
-  }, [item.id, initializeStates]);
+    if (isPremium && isValidYouTube) {
+      initializeStates([item.id.toString()]);
+    }
+  }, [item.id, initializeStates, isPremium, isValidYouTube]);
 
   // Get current engagement state
   const engagementState = getState(item.id.toString());
   const loadingState = isLoading(item.id.toString());
-
-  const videoId = extractVideoId(item.url, item.youtube_video_id);
-  const isValidYouTube = isYouTubeUrl(item.url) && videoId;
   
   // If not premium or not YouTube, don't render this component
   if (!isPremium || !isValidYouTube) {
