@@ -36,6 +36,7 @@ import { FullWidthVideoCard } from "@/components/FullWidthVideoCard";
 import { track } from "@/lib/analytics";
 import { trackDropViewed } from "@/lib/trackers/content";
 import { Seo } from "@/components/Seo";
+import { useEngagementState } from "@/hooks/useEngagementState";
 
 // Add YouTube preconnect for performance
 if (typeof document !== "undefined") {
@@ -55,6 +56,7 @@ const Feed = () => {
   const { fallbackPrefs, isFallbackActive } = usePreferences();
   const { getTopicSlug, isLoading: topicsLoading } = useTopicsMap();
   const { isPremium } = useUserProfile();
+  const { updateEngagement, initializeStates } = useEngagementState();
   const [drops, setDrops] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasPreferences, setHasPreferences] = useState<boolean | null>(null);
@@ -332,84 +334,14 @@ const Feed = () => {
     fetchCandidateDrops();
   }, [isFallbackActive, fallbackPrefs]);
 
-  const handleSave = async (dropId: number) => {
-    try {
-      await requireSession();
-
-      const { data: { user } } = await supabase.auth.getUser();
-      const { error } = await supabase
-        .from("bookmarks")
-        .insert({ user_id: user!.id, drop_id: dropId });
-
-      if (error) {
-        console.error("Error saving bookmark:", error);
-        toast({
-          title: "Action failed. Please sign in and try again.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      toast({
-        title: "Saved to your profile.",
-      });
-    } catch (error) {
-      if (error instanceof Error && error.message === "NO_SESSION") {
-        return; // Already handled by requireSession
-      }
-
-      console.error("Error saving bookmark:", error);
-      toast({
-        title: "Action failed. Please sign in and try again.",
-        variant: "destructive",
-      });
+  // Initialize engagement states when drops are loaded
+  useEffect(() => {
+    if (drops.length > 0) {
+      const dropIds = drops.map(drop => drop.id.toString());
+      initializeStates(dropIds);
     }
-  };
+  }, [drops, initializeStates]);
 
-  const handleEngagement = async (dropId: number, action: string) => {
-    try {
-      if (action !== "open") {
-        await requireSession();
-      }
-
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user && action !== "open") return;
-
-      const { error } = await supabase
-        .from("engagement_events")
-        .insert({
-          user_id: user?.id,
-          drop_id: dropId,
-          action,
-          channel: "web",
-        });
-
-      if (error) {
-        console.error("Error recording engagement:", error);
-        if (action !== "open") {
-          toast({
-            title: "Action failed. Please sign in and try again.",
-            variant: "destructive",
-          });
-        }
-        return;
-      }
-
-      console.debug(`[Engagement] ${action} recorded for drop ${dropId}`);
-    } catch (error) {
-      if (error instanceof Error && error.message === "NO_SESSION") {
-        return; // Already handled by requireSession
-      }
-
-      console.error("Error recording engagement:", error);
-      if (action !== "open") {
-        toast({
-          title: "Action failed. Please sign in and try again.",
-          variant: "destructive",
-        });
-      }
-    }
-  };
 
   /* const sponsoredContent = {
     id: "sponsored-1",
@@ -511,18 +443,16 @@ const Feed = () => {
                       variant="ghost"
                       size="icon"
                       className="shrink-0 h-6 w-6"
-                      onClick={() => {
-                        window.open(drop.url, "_blank");
-                        handleEngagement(drop.id, "open");
-
-                        // Track content click
-                        track("content_click", {
-                          drop_id: drop.id,
-                          content_id: drop.id,
-                          source: drop.source || drop.source_name,
-                          topic: drop.l1_topic || drop.tags?.[0],
-                        });
-                      }}
+                        onClick={() => {
+                          // Track content click  
+                          track("content_click", {
+                            drop_id: drop.id,
+                            content_id: drop.id,
+                            source: drop.source || drop.source_name,
+                            topic: drop.l1_topic || drop.tags?.[0],
+                          });
+                          window.open(drop.url, "_blank");
+                        }}
                     >
                       <ExternalLink className="h-3 w-3" />
                     </Button>
@@ -614,7 +544,31 @@ const Feed = () => {
                         size="icon"
                         className="h-6 w-6 hover:bg-success/10 hover:text-success"
                         onClick={() => {
-                          handleSave(drop.id);
+                          updateEngagement(drop.id.toString(), "like");
+
+                          // Track like action
+                          track("like_item", {
+                            drop_id: drop.id,
+                            content_id: drop.id,
+                            source: drop.source || drop.source_name,
+                            topic: drop.l1_topic || drop.tags?.[0],
+                          });
+                        }}
+                      >
+                        <Heart className="h-3 w-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Like</TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 hover:bg-success/10 hover:text-success"
+                        onClick={() => {
+                          updateEngagement(drop.id.toString(), "save");
 
                           // Track save action
                           track("save_item", {
@@ -638,7 +592,7 @@ const Feed = () => {
                         size="icon"
                         className="h-6 w-6 hover:bg-destructive/10 hover:text-destructive"
                         onClick={() => {
-                          handleEngagement(drop.id, "dismiss");
+                          updateEngagement(drop.id.toString(), "dismiss");
 
                           // Track dismiss action
                           track("dismiss_item", {
@@ -660,32 +614,8 @@ const Feed = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 hover:bg-primary/10 hover:text-primary"
-                        onClick={() => {
-                          handleEngagement(drop.id, "like");
-
-                          // Track like action
-                          track("like_item", {
-                            drop_id: drop.id,
-                            content_id: drop.id,
-                            source: drop.source || drop.source_name,
-                            topic: drop.l1_topic || drop.tags?.[0],
-                          });
-                        }}
-                      >
-                        <Heart className="h-3 w-3" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Like</TooltipContent>
-                  </Tooltip>
-
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
                         className="h-6 w-6 hover:bg-muted"
-                        onClick={() => handleEngagement(drop.id, "dislike")}
+                        onClick={() => updateEngagement(drop.id.toString(), "dislike")}
                       >
                         <ThumbsDown className="h-3 w-3" />
                       </Button>
@@ -892,16 +822,12 @@ const Feed = () => {
                       <FullWidthVideoCard
                         key={drop.id}
                         item={drop}
-                        isPremium={isPremium}
-                        onSave={handleSave}
-                        onLike={(id) => handleEngagement(Number(id), "like")}
-                        onDismiss={(id) =>
-                          handleEngagement(Number(id), "dismiss")}
-                        onReport={(id) =>
-                          handleEngagement(Number(id), "report")}
-                      />
-                    );
-                  }
+                         onSave={(id) => updateEngagement(id.toString(), "save")}
+                         onLike={(id) => updateEngagement(id.toString(), "like")}
+                         onDismiss={(id) => updateEngagement(id.toString(), "dismiss")}
+                       />
+                     );
+                   }
 
                   // Otherwise render regular card (including subsequent YouTube videos for premium users)
                   console.log(`[Feed] Rendering DropCard for drop ${index}`);

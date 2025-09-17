@@ -1,12 +1,14 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ExternalLink, Play, Heart, Bookmark, X } from "lucide-react";
+import { ExternalLink, Play, Heart, Bookmark, X, ThumbsDown } from "lucide-react";
 import { useAnalytics } from "@/lib/analytics";
-import { trackOpen, trackSave, trackDismiss, trackLike, trackDislike } from "@/lib/trackers/content";
-import { useFeedback, createDebouncedOpenTracker } from "@/lib/feedback";
+import { trackOpen } from "@/lib/trackers/content";
+import { createDebouncedOpenTracker } from "@/lib/feedback";
 import YouTubePlayer from "./YouTubePlayer";
 import { ImagePlaceholder } from "./ui/image-placeholder";
+import { useEngagementState } from "@/hooks/useEngagementState";
+import { useEffect } from "react";
 
 export type FeedCardProps = {
   id: string;
@@ -53,7 +55,7 @@ export const FeedCard = ({
   position
 }: FeedCardComponentProps) => {
   const { track } = useAnalytics();
-  const { sendFeedback } = useFeedback();
+  const { updateEngagement, getState, isLoading, initializeStates } = useEngagementState();
   
   // Create debounced open tracker for this component instance
   const debouncedOpenTracker = createDebouncedOpenTracker(2000);
@@ -61,6 +63,15 @@ export const FeedCard = ({
   // Check if user is premium (for YouTube embeds)
   const isUserPremium = user?.isPremium || false;
   const showInlineVideo = type === "video" && youtubeId && isUserPremium;
+
+  // Initialize engagement state for this drop
+  useEffect(() => {
+    initializeStates([id]);
+  }, [id, initializeStates]);
+
+  // Get current engagement state
+  const engagementState = getState(id);
+  const loadingState = isLoading(id);
 
   const baseParams = {
     content_id: id,
@@ -71,47 +82,24 @@ export const FeedCard = ({
     is_premium: isUserPremium
   };
 
-  const handleAction = async (action: "save"|"dismiss"|"like"|"dislike"|"open"|"video_play") => {
-    // Send feedback to the new system
-    if (action !== 'video_play') {
-      await sendFeedback(action, Number(id));
+  const handleEngagementAction = async (action: "save"|"dismiss"|"like"|"dislike") => {
+    const success = await updateEngagement(id, action);
+    if (success) {
+      // Call legacy handler if provided
+      onEngage?.({ itemId: id, action });
     }
-    
-    // Track with existing analytics (for legacy compatibility)
-    switch(action) {
-      case 'save':
-        trackSave(baseParams);
-        break;
-      case 'dismiss':
-        trackDismiss(baseParams);
-        break;
-      case 'like':
-        trackLike(baseParams);
-        break;
-      case 'dislike':
-        trackDislike(baseParams);
-        break;
-      case 'open':
-        trackOpen(baseParams);
-        break;
-      case 'video_play':
-        track('video_play', { ...baseParams, video_id: youtubeId });
-        break;
-    }
-
-    // Call legacy handler if provided
-    onEngage?.({ itemId: id, action });
   };
 
   const handleOpen = () => {
-    handleAction("open");
+    trackOpen(baseParams);
     // Also track with debounced tracker for dwell time
     debouncedOpenTracker(Number(id));
+    // Call legacy handler if provided
+    onEngage?.({ itemId: id, action: "open" });
     window.open(href, "_blank", "noopener,noreferrer");
   };
 
   const handleVideoPlay = () => {
-    handleAction("video_play");
     if (user?.isPremium && youtubeId) {
       // Premium users see inline video - tracking handled by YouTubePlayer
       track('video_play', { 
@@ -119,15 +107,17 @@ export const FeedCard = ({
         video_id: youtubeId,
         platform: 'youtube_inline_premium'
       });
-      return;
+    } else {
+      // Free users open YouTube externally
+      track('video_play', { 
+        content_id: id, 
+        video_id: youtubeId,
+        platform: 'youtube_external'
+      });
+      window.open(`https://www.youtube.com/watch?v=${youtubeId}`, "_blank");
     }
-    // Free users open YouTube externally
-    track('video_play', { 
-      content_id: id, 
-      video_id: youtubeId,
-      platform: 'youtube_external'
-    });
-    window.open(`https://www.youtube.com/watch?v=${youtubeId}`, "_blank");
+    // Call legacy handler if provided
+    onEngage?.({ itemId: id, action: "video_play" });
   };
 
   const formatDuration = (seconds?: number) => {
@@ -277,24 +267,49 @@ export const FeedCard = ({
                 <Button 
                   variant="ghost" 
                   size="sm"
-                  onClick={() => handleAction("like")}
-                  className="h-7 w-7 p-0"
+                  onClick={() => handleEngagementAction("like")}
+                  disabled={loadingState}
+                  className={`h-7 w-7 p-0 ${engagementState.isLiked ? 'text-rose-600' : ''}`}
+                  aria-pressed={engagementState.isLiked}
+                  aria-label={engagementState.isLiked ? 'Unlike' : 'Like'}
                 >
-                  <Heart className="h-3 w-3" />
+                  <Heart className={`h-3 w-3 ${engagementState.isLiked ? 'fill-current' : ''}`} />
                 </Button>
+                
+                {/* Hide Save button if item is liked (auto-saved) */}
+                {!engagementState.isLiked && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => handleEngagementAction("save")}
+                    disabled={loadingState}
+                    className={`h-7 w-7 p-0 ${engagementState.isSaved ? 'text-primary' : ''}`}
+                    aria-pressed={engagementState.isSaved}
+                    aria-label={engagementState.isSaved ? 'Unsave' : 'Save'}
+                  >
+                    <Bookmark className={`h-3 w-3 ${engagementState.isSaved ? 'fill-current' : ''}`} />
+                  </Button>
+                )}
+                
                 <Button 
                   variant="ghost" 
                   size="sm"
-                  onClick={() => handleAction("save")}
-                  className="h-7 w-7 p-0"
+                  onClick={() => handleEngagementAction("dislike")}
+                  disabled={loadingState}
+                  className={`h-7 w-7 p-0 ${engagementState.isDisliked ? 'text-slate-600' : ''}`}
+                  aria-pressed={engagementState.isDisliked}
+                  aria-label={engagementState.isDisliked ? 'Remove dislike' : 'Dislike'}
                 >
-                  <Bookmark className="h-3 w-3" />
+                  <ThumbsDown className={`h-3 w-3 ${engagementState.isDisliked ? 'fill-current' : ''}`} />
                 </Button>
+                
                 <Button 
                   variant="ghost" 
                   size="sm"
-                  onClick={() => handleAction("dismiss")}
+                  onClick={() => handleEngagementAction("dismiss")}
+                  disabled={loadingState}
                   className="h-7 w-7 p-0"
+                  aria-label="Dismiss"
                 >
                   <X className="h-3 w-3" />
                 </Button>
