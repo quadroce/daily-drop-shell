@@ -29,7 +29,6 @@ import {
   getYouTubeThumbnailFromUrl,
 } from "@/lib/youtube";
 import { requireSession } from "@/lib/auth";
-import { useEngagement } from "@/hooks/useEngagement";
 import { useTopicsMap } from "@/hooks/useTopicsMap";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { FullWidthVideoCard } from "@/components/FullWidthVideoCard";
@@ -49,16 +48,21 @@ const getImageUrl = (drop: any) => {
 
 // DropCard component extracted outside Feed to fix React hooks error #310
 const DropCard = (
-  { drop, isSponsored = false, updateEngagement, track, getTopicSlug, topicsLoading }: { 
+  { drop, isSponsored = false, updateEngagement, track, getTopicSlug, topicsLoading, getState, isLoading }: { 
     drop: any; 
     isSponsored?: boolean;
     updateEngagement: (dropId: string, action: string) => Promise<boolean>;
     track: (event: string, params: any) => void;
     getTopicSlug: (label: string) => string;
     topicsLoading: boolean;
+    getState: (dropId: string) => any;
+    isLoading: (dropId: string) => boolean;
   },
 ) => {
   const imageUrl = getImageUrl(drop);
+  const dropId = drop.id.toString();
+  const engagementState = getState(dropId);
+  const loadingState = isLoading(dropId);
 
   return (
     <TooltipProvider>
@@ -232,71 +236,98 @@ const DropCard = (
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 hover:bg-success/10 hover:text-success"
-                      onClick={() => {
-                        updateEngagement(drop.id.toString(), "like");
-
-                        // Track like action
-                        track("like_item", {
-                          drop_id: drop.id,
-                          content_id: drop.id,
-                          source: drop.source || drop.source_name,
-                          topic: drop.l1_topic || drop.tags?.[0],
-                        });
+                      className={`h-6 w-6 ${
+                        engagementState.isLiked 
+                          ? "bg-success/20 text-success hover:bg-success/30" 
+                          : "hover:bg-success/10 hover:text-success"
+                      }`}
+                      disabled={loadingState}
+                      aria-pressed={engagementState.isLiked}
+                      onClick={async () => {
+                        const success = await updateEngagement(dropId, "like");
+                        if (success) {
+                          track("like_item", {
+                            drop_id: drop.id,
+                            content_id: drop.id,
+                            source: drop.source || drop.source_name,
+                            topic: drop.l1_topic || drop.tags?.[0],
+                          });
+                        }
                       }}
                     >
-                      <Heart className="h-3 w-3" />
+                      <Heart className={`h-3 w-3 ${engagementState.isLiked ? "fill-current" : ""}`} />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Like</TooltipContent>
+                  <TooltipContent>
+                    {engagementState.isLiked ? "Unlike" : "Like"}
+                  </TooltipContent>
                 </Tooltip>
+
+                {/* Only show Save button if not liked (since like auto-saves) */}
+                {!engagementState.isLiked && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={`h-6 w-6 ${
+                          engagementState.isSaved 
+                            ? "bg-success/20 text-success hover:bg-success/30" 
+                            : "hover:bg-success/10 hover:text-success"
+                        }`}
+                        disabled={loadingState}
+                        aria-pressed={engagementState.isSaved}
+                        onClick={async () => {
+                          const success = await updateEngagement(dropId, "save");
+                          if (success) {
+                            track("save_item", {
+                              drop_id: drop.id,
+                              content_id: drop.id,
+                              source: drop.source || drop.source_name,
+                              topic: drop.l1_topic || drop.tags?.[0],
+                            });
+                          }
+                        }}
+                      >
+                        <Bookmark className={`h-3 w-3 ${engagementState.isSaved ? "fill-current" : ""}`} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {engagementState.isSaved ? "Unsave" : "Save"}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
 
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 hover:bg-success/10 hover:text-success"
-                      onClick={() => {
-                        updateEngagement(drop.id.toString(), "save");
-
-                        // Track save action
-                        track("save_item", {
-                          drop_id: drop.id,
-                          content_id: drop.id,
-                          source: drop.source || drop.source_name,
-                          topic: drop.l1_topic || drop.tags?.[0],
-                        });
-                      }}
-                    >
-                      <Bookmark className="h-3 w-3" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Save</TooltipContent>
-                </Tooltip>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 hover:bg-destructive/10 hover:text-destructive"
-                      onClick={() => {
-                        updateEngagement(drop.id.toString(), "dismiss");
-
-                        // Track dismiss action
-                        track("dismiss_item", {
-                          drop_id: drop.id,
-                          content_id: drop.id,
-                          source: drop.source || drop.source_name,
-                          topic: drop.l1_topic || drop.tags?.[0],
-                        });
+                      className={`h-6 w-6 ${
+                        engagementState.isDismissed 
+                          ? "bg-destructive/20 text-destructive hover:bg-destructive/30" 
+                          : "hover:bg-destructive/10 hover:text-destructive"
+                      }`}
+                      disabled={loadingState}
+                      aria-pressed={engagementState.isDismissed}
+                      onClick={async () => {
+                        const success = await updateEngagement(dropId, "dismiss");
+                        if (success) {
+                          track("dismiss_item", {
+                            drop_id: drop.id,
+                            content_id: drop.id,
+                            source: drop.source || drop.source_name,
+                            topic: drop.l1_topic || drop.tags?.[0],
+                          });
+                        }
                       }}
                     >
                       <X className="h-3 w-3" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Dismiss</TooltipContent>
+                  <TooltipContent>
+                    {engagementState.isDismissed ? "Undismiss" : "Dismiss"}
+                  </TooltipContent>
                 </Tooltip>
 
                 <Tooltip>
@@ -304,13 +335,21 @@ const DropCard = (
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 hover:bg-muted"
-                      onClick={() => updateEngagement(drop.id.toString(), "dislike")}
+                      className={`h-6 w-6 ${
+                        engagementState.isDisliked 
+                          ? "bg-muted text-muted-foreground" 
+                          : "hover:bg-muted"
+                      }`}
+                      disabled={loadingState}
+                      aria-pressed={engagementState.isDisliked}
+                      onClick={() => updateEngagement(dropId, "dislike")}
                     >
-                      <ThumbsDown className="h-3 w-3" />
+                      <ThumbsDown className={`h-3 w-3 ${engagementState.isDisliked ? "fill-current" : ""}`} />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Dislike</TooltipContent>
+                  <TooltipContent>
+                    {engagementState.isDisliked ? "Remove dislike" : "Dislike"}
+                  </TooltipContent>
                 </Tooltip>
               </div>
             </div>
@@ -400,13 +439,10 @@ const Feed = () => {
   const { fallbackPrefs, isFallbackActive } = usePreferences();
   const { getTopicSlug, isLoading: topicsLoading } = useTopicsMap();
   const { isPremium } = useUserProfile();
-  const { updateEngagement, initializeStates } = useEngagementState();
+  const { updateEngagement, initializeStates, getState, isLoading: isEngagementLoading } = useEngagementState();
   const [drops, setDrops] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasPreferences, setHasPreferences] = useState<boolean | null>(null);
-
-  // Track engagement on this page
-  useEngagement();
 
   const mockDrops = [
     {
@@ -838,16 +874,18 @@ const Feed = () => {
                      );
                    }
 
-                  // Otherwise render regular card (including subsequent YouTube videos for premium users)
-                  console.log(`[Feed] Rendering DropCard for drop ${index}`);
-                  return <DropCard 
-                    key={drop.id} 
-                    drop={drop} 
-                    updateEngagement={updateEngagement}
-                    track={track}
-                    getTopicSlug={getTopicSlug}
-                    topicsLoading={topicsLoading}
-                  />;
+                   // Otherwise render regular card (including subsequent YouTube videos for premium users)
+                   console.log(`[Feed] Rendering DropCard for drop ${index}`);
+                   return <DropCard 
+                     key={drop.id} 
+                     drop={drop} 
+                     updateEngagement={updateEngagement}
+                     track={track}
+                     getTopicSlug={getTopicSlug}
+                     topicsLoading={topicsLoading}
+                     getState={getState}
+                     isLoading={isEngagementLoading}
+                   />;
                 })}
 
                 {/* End of feed message */}
