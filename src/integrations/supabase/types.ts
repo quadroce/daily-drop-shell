@@ -50,6 +50,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "admin_audit_log_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_newsletter_targets"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       bookmarks: {
@@ -82,6 +89,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookmarks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_newsletter_targets"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -153,6 +167,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "corporate_sources_corp_user_id_fkey"
+            columns: ["corp_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_newsletter_targets"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -270,7 +291,44 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "daily_batches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_newsletter_targets"
+            referencedColumns: ["user_id"]
+          },
         ]
+      }
+      delivery_log: {
+        Row: {
+          channel: string
+          id: number
+          meta: Json | null
+          provider_message_id: string | null
+          sent_at: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          channel?: string
+          id?: number
+          meta?: Json | null
+          provider_message_id?: string | null
+          sent_at?: string
+          status: string
+          user_id: string
+        }
+        Update: {
+          channel?: string
+          id?: number
+          meta?: Json | null
+          provider_message_id?: string | null
+          sent_at?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       drops: {
         Row: {
@@ -403,6 +461,33 @@ export type Database = {
           },
         ]
       }
+      email_jobs: {
+        Row: {
+          created_at: string
+          id: number
+          last_error: string | null
+          scheduled_for: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          last_error?: string | null
+          scheduled_for: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          last_error?: string | null
+          scheduled_for?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       engagement_events: {
         Row: {
           action: string
@@ -445,6 +530,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engagement_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_newsletter_targets"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -555,16 +647,22 @@ export type Database = {
       newsletter_subscriptions: {
         Row: {
           active: boolean
+          cadence: string
+          confirmed: boolean
           slot: string
           user_id: string
         }
         Insert: {
           active?: boolean
+          cadence: string
+          confirmed?: boolean
           slot?: string
           user_id: string
         }
         Update: {
           active?: boolean
+          cadence?: string
+          confirmed?: boolean
           slot?: string
           user_id?: string
         }
@@ -575,6 +673,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "newsletter_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "v_newsletter_targets"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -604,6 +709,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "v_newsletter_targets"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -793,6 +905,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "sponsor_contents_sponsor_user_id_fkey"
+            columns: ["sponsor_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_newsletter_targets"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       tagging_params: {
@@ -827,6 +946,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tagging_params_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "v_newsletter_targets"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -1034,6 +1160,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "whatsapp_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "v_newsletter_targets"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       youtube_cache: {
@@ -1065,7 +1198,18 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_newsletter_targets: {
+        Row: {
+          cadence: string | null
+          confirmed: boolean | null
+          email: string | null
+          subscription_tier:
+            | Database["public"]["Enums"]["subscription_tier"]
+            | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_soft_delete_drop: {

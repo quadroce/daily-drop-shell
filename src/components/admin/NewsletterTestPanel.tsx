@@ -42,6 +42,12 @@ export const NewsletterTestPanel = () => {
     fetchSubscriptions();
   }, []);
 
+  // Add refresh function for after creating subscriptions
+  const refreshData = () => {
+    fetchUsers();
+    fetchSubscriptions();
+  };
+
   const fetchUsers = async () => {
     try {
       setLoadingUsers(true);
@@ -132,6 +138,9 @@ export const NewsletterTestPanel = () => {
           title: "Newsletter Sent Successfully",
           description: `Test newsletter sent to user ${selectedUserId}. Email: ${emailData.emailSent}`,
         });
+        
+        // Refresh data to show updated subscription status
+        refreshData();
       } else {
         throw new Error(emailData?.error || 'Failed to send newsletter');
       }
