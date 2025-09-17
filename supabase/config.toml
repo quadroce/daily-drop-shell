@@ -1,5 +1,8 @@
 project_id = "qimelntuxquptqqynxzv"
 
+[functions.test-embedding-init]
+verify_jwt = false
+
 [functions.sitemap-proxy]
 verify_jwt = false
 
