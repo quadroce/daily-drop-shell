@@ -46,14 +46,17 @@ async function refreshAllUserProfiles() {
       .from('engagement_events')
       .select('user_id')
       .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()) // Last 30 days
-      .neq('user_id', null);
+      .not('user_id', 'is', null);
 
     if (usersError) {
       throw usersError;
     }
 
-    // Get unique user IDs
-    const uniqueUserIds = [...new Set(users?.map(u => u.user_id) || [])];
+    // Get unique user IDs and filter out any null/undefined values
+    const uniqueUserIds = [...new Set(
+      users?.map(u => u.user_id)
+        .filter(id => id !== null && id !== undefined && id !== '') || []
+    )];
     console.log(`Found ${uniqueUserIds.length} users with recent engagement to refresh`);
 
     let successful = 0;
