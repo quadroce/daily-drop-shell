@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { VectorSystemInit } from "@/components/VectorSystemInit";
 import { Loader2, Users, Database, List, ArrowLeft, Rss, Cog, Tags, Monitor, Map, Globe, Youtube, Settings } from "lucide-react";
 
 interface Profile {
@@ -762,6 +763,9 @@ const Admin = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Vector System Initialization */}
+      <VectorSystemInit />
 
       {/* Admin Actions */}
       <Card className="mb-8">
