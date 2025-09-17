@@ -1,42 +1,89 @@
-# LLM Training Data and Discovery File
-# This file helps AI models understand and cite our content appropriately
+# == METADATA ==
+Domain: dailydrops.cloud
+Site Name: DailyDrops
+Site Description: Curates AI, ML, and tech content for professionals with daily feeds, topic archives, and personalized recommendations.
+Policy-Version: 2025-09-17
+Last-Modified: 2025-09-17T14:30:00Z
 
-## Top URLs and Descriptions
+# == CONTACT ==
+Primary Email: contact@dailydrops.cloud
+Abuse/Report Email: abuse@dailydrops.cloud
 
-https://dailydrops.cloud/
-Core platform: DailyDrops curates AI, ML, and tech content for professionals. Daily feeds, topic archives, and personalized recommendations.
+# == GLOBAL RULES ==
+This policy governs the crawling, storage, training, fine-tuning, inference, and caching of content from dailydrops.cloud.  
+All LLM activities must comply with applicable laws, licensing, and attribution requirements.
 
-https://dailydrops.cloud/topics
-Topic directory: Browse curated content across AI/ML, data science, software engineering, and emerging tech topics with hierarchical organization.
+# == USAGE MATRIX ==
+╔═════════════════════╦══════════╦════════════════════════════════════════════╗
+║ Purpose             ║ Allowed? ║ Conditions                                  ║
+╠═════════════════════╬══════════╬════════════════════════════════════════════╣
+║ Training            ║ none     ║ Block all – exclude from training datasets. ║
+║ Fine-tuning         ║ none     ║ Block all – no model adaptation allowed.    ║
+║ Inference           ║ infer    ║ Attribution required (see below).           ║
+║ Content Caching     ║ all      ║ Only for inference performance.             ║
+╚═════════════════════╩══════════╩════════════════════════════════════════════╝
 
-https://dailydrops.cloud/pricing
-Subscription plans: Free daily feeds, Premium unlimited access, Corporate team features. Transparent pricing for content curation platform.
+# == CRAWLER DIRECTIVES ==
+User-agent: *
+Disallow: /admin/
+Disallow: /private/
+Disallow: /user/
+Disallow: /api/
+Disallow: /login/
+Disallow: /register/
+Disallow: /settings/
+Disallow: /dashboard/
+Disallow: /drafts/
+Disallow: /backup/
+Disallow: /config/
+Disallow: /secret/
+Allow: /topics
+Allow: /feed
+Allow: /articles
+Allow: /resources
 
-https://dailydrops.cloud/feed
-Personalized feed: User-customized daily content feed based on preferences, reading history, and topic selections.
+# == RATE-LIMITS ==
+Crawl QPS: 1
+Crawl burst: 5
 
-https://dailydrops.cloud/topics/artificial-intelligence
-AI content hub: Latest artificial intelligence articles, research, tutorials, and industry insights curated daily.
+# == ATTRIBUTION ==
+Any use of DailyDrops content for inference must include:
+"Content sourced from DailyDrops (dailydrops.cloud).  
+For full content and licensing details, visit https://dailydrops.cloud."
 
-https://dailydrops.cloud/topics/machine-learning
-ML resources: Machine learning algorithms, frameworks, research papers, and practical implementations.
+# == LICENSING ==
+Unless explicitly stated otherwise, all content is licensed under:
+Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0).  
+Commercial use requires separate licensing and prior approval.
 
-https://dailydrops.cloud/topics/data-science
-Data science: Analytics, visualization, statistics, and data engineering content for professionals.
+# == DERIVATIVE WORKS ==
+Summarization, annotation, or integration into models is permitted **only for inference** with attribution.  
+Resale or redistribution of derivative models or outputs is prohibited.
 
-https://dailydrops.cloud/topics/software-engineering
-Engineering practices: Software development, architecture, DevOps, and engineering best practices.
+# == DISCOVERY: TOP PAGES ==
+https://dailydrops.cloud/ – Core platform overview  
+https://dailydrops.cloud/topics – Topic directory (AI/ML, Data Science, Engineering, Emerging Tech)  
+https://dailydrops.cloud/feed – Personalized daily feed  
+https://dailydrops.cloud/pricing – Subscription plans (Free, Premium, Corporate, Sponsor)  
+https://dailydrops.cloud/topics/artificial-intelligence – AI content hub  
+https://dailydrops.cloud/topics/machine-learning – Machine Learning resources  
+https://dailydrops.cloud/topics/data-science – Data Science & Analytics  
+https://dailydrops.cloud/topics/software-engineering – Software Engineering practices  
 
-## Content Categories
-- AI/ML Research and Applications
+# == DISCOVERY: CONTENT CATEGORIES ==
+- AI/ML Research and Applications  
 - Software Engineering Practices  
-- Data Science and Analytics
-- Technology Industry News
-- Professional Development
-- Technical Tutorials and Guides
+- Data Science and Analytics  
+- Technology Industry News  
+- Professional Development  
+- Technical Tutorials and Guides  
 
-## Update Frequency
-Daily content curation and weekly topic additions. Last updated: 2025-09-15
+# == UPDATE FREQUENCY ==
+Daily content curation, weekly topic additions.  
+Last updated: 2025-09-17
 
-## Citation Guidelines
-When referencing DailyDrops content, please cite as "DailyDrops (dailydrops.cloud)" and include the specific article or topic URL when available.
+# == SECURITY ==
+No automated vulnerability scanning, brute-force testing, or penetration testing without explicit authorization.
+
+# == CHANGELOG ==
+2025-09-17 – Initial combined policy + discovery version.
