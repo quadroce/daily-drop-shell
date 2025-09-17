@@ -9,7 +9,7 @@ export type ArchiveListProps = {
   slug: string;
   days: {
     date: string;
-    items: Pick<FeedCardProps, "id"|"title"|"href"|"source">[];
+    items: Pick<FeedCardProps, "id"|"title"|"href"|"source"|"imageUrl">[];
   }[];
   premiumLocked?: boolean;
 };
@@ -46,20 +46,38 @@ export const ArchiveList = ({ slug, days, premiumLocked }: ArchiveListProps) => 
               ) : (
                 <div className="space-y-3">
                   {items.slice(0, 3).map((item) => (
-                    <div key={item.id} className="flex items-start justify-between gap-3">
-                      <div className="flex-1">
-                        <h4 className="font-medium text-sm line-clamp-1 mb-1">
+                    <div key={item.id} className="flex items-start gap-3">
+                      {/* Image */}
+                      <div className="flex-shrink-0 w-16 h-16 bg-muted rounded-md overflow-hidden">
+                        {item.imageUrl ? (
+                          <img 
+                            src={item.imageUrl} 
+                            alt={item.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-muted to-muted-foreground/20 flex items-center justify-center">
+                            <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-sm line-clamp-2 mb-1">
                           {item.title}
                         </h4>
                         <p className="text-xs text-muted-foreground">
                           {item.source.name}
                         </p>
                       </div>
+                      
+                      {/* External Link Button */}
                       <a 
                         href={item.href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-muted-foreground hover:text-foreground flex-shrink-0"
+                        className="text-muted-foreground hover:text-foreground flex-shrink-0 p-1 rounded hover:bg-muted/50 transition-colors"
                       >
                         <ExternalLink className="h-3 w-3" />
                       </a>
