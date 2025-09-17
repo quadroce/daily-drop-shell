@@ -23,6 +23,7 @@ interface ProcessingStats {
   new_articles: number;
   ingestion_processed: number;
   articles_tagged: number;
+  embeddings_processed?: number;
   errors: string[];
 }
 
@@ -178,6 +179,28 @@ async function runAutomatedIngestion(): Promise<ProcessingStats> {
       stats.errors.push(`Tagging failed: ${error.message}`);
       console.error('❌ Tagging failed:', error);
     }
+
+    // Reduced wait time
+    await waitWithTimeout(1000);
+
+    // Step 4: Generate embeddings for new content
+    console.log('🧠 Step 4: Generating embeddings for recent content...');
+    let embeddingsProcessed = 0;
+    try {
+      const embeddingsResult = await callEdgeFunction('automated-embeddings', {
+        action: 'embeddings',
+        since_minutes: 120 // Last 2 hours to catch all new content
+      });
+      
+      embeddingsProcessed = embeddingsResult?.result?.processed || 0;
+      console.log(`✅ Embeddings completed: ${embeddingsProcessed} drops processed`);
+    } catch (error) {
+      stats.errors.push(`Embeddings failed: ${error.message}`);
+      console.error('❌ Embeddings failed:', error);
+    }
+    
+    // Add embeddings to stats
+    stats.embeddings_processed = embeddingsProcessed;
 
     console.log('🎉 Automated ingestion cycle completed!', stats);
     
