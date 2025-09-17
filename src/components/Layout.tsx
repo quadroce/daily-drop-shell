@@ -1,6 +1,8 @@
 import { ReactNode } from "react";
 import Header from "./Header";
 import Footer from "./Footer";
+import { AlphaRibbon } from "./AlphaRibbon";
+import { FeedbackFab } from "./FeedbackFab";
 
 interface LayoutProps {
   children: ReactNode;
@@ -14,6 +16,8 @@ const Layout = ({ children }: LayoutProps) => {
         {children}
       </main>
       <Footer />
+      <AlphaRibbon />
+      <FeedbackFab />
     </div>
   );
 };

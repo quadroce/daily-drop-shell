@@ -3,10 +3,11 @@ import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Users, Database, List, ArrowLeft, Rss, Cog, Tags, Monitor, Map, Globe, Youtube } from "lucide-react";
+import { Loader2, Users, Database, List, ArrowLeft, Rss, Cog, Tags, Monitor, Map, Globe, Youtube, Settings } from "lucide-react";
 
 interface Profile {
   id: string;
@@ -37,6 +38,11 @@ interface CronJob {
   enabled: boolean;
 }
 
+interface UISettings {
+  show_alpha_ribbon: boolean;
+  show_feedback_button: boolean;
+}
+
 const Admin = () => {
   const { user, session, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -58,6 +64,10 @@ const Admin = () => {
     taggedPercentage: 0,
   });
   const [topTags, setTopTags] = useState<TopTag[]>([]);
+  const [uiSettings, setUiSettings] = useState<UISettings>({
+    show_alpha_ribbon: true,
+    show_feedback_button: true,
+  });
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -96,6 +106,7 @@ const Admin = () => {
           await fetchDashboardStats();
           await fetchCronJobs();
           await fetchTaggingStats();
+          await fetchUISettings();
         }
         
         setLoading(false);
@@ -242,6 +253,66 @@ const Admin = () => {
       setTopTags(topTagsArray);
     } catch (error) {
       console.error('Error fetching tagging stats:', error);
+    }
+  };
+
+  const fetchUISettings = async () => {
+    try {
+      const { data } = await supabase
+        .from('settings')
+        .select('key, value')
+        .in('key', ['show_alpha_ribbon', 'show_feedback_button']);
+
+      if (data) {
+        const settings: UISettings = {
+          show_alpha_ribbon: true,
+          show_feedback_button: true,
+        };
+
+        data.forEach(setting => {
+          const value = setting.value as unknown as { enabled: boolean };
+          if (setting.key === 'show_alpha_ribbon') {
+            settings.show_alpha_ribbon = value?.enabled ?? true;
+          } else if (setting.key === 'show_feedback_button') {
+            settings.show_feedback_button = value?.enabled ?? true;
+          }
+        });
+
+        setUiSettings(settings);
+      }
+    } catch (error) {
+      console.error('Error fetching UI settings:', error);
+    }
+  };
+
+  const updateUISetting = async (key: keyof UISettings, enabled: boolean) => {
+    setActionLoading(`ui-${key}`);
+    try {
+      const { error } = await supabase
+        .from('settings')
+        .upsert({
+          key,
+          value: { enabled },
+          updated_at: new Date().toISOString(),
+        });
+
+      if (error) throw error;
+
+      setUiSettings(prev => ({ ...prev, [key]: enabled }));
+
+      toast({
+        title: "UI Setting Updated",
+        description: `${key.replace('_', ' ')} has been ${enabled ? 'enabled' : 'disabled'}`,
+      });
+    } catch (error) {
+      console.error('Error updating UI setting:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : 'Failed to update setting',
+        variant: "destructive",
+      });
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -644,6 +715,50 @@ const Admin = () => {
             <p className="text-sm text-muted-foreground">
               View real-time stats, manage cron jobs, and monitor ingestion logs
             </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* UI Settings */}
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            UI Settings
+          </CardTitle>
+          <CardDescription>
+            Control UI elements visibility across the platform
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <label className="text-sm font-medium">Alpha Ribbon</label>
+                <p className="text-xs text-muted-foreground">
+                  Show "ALPHA VERSION" badge in top-right corner
+                </p>
+              </div>
+              <Switch
+                checked={uiSettings.show_alpha_ribbon}
+                onCheckedChange={(checked) => updateUISetting('show_alpha_ribbon', checked)}
+                disabled={actionLoading === 'ui-show_alpha_ribbon'}
+              />
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <label className="text-sm font-medium">Feedback Button</label>
+                <p className="text-xs text-muted-foreground">
+                  Show feedback FAB in bottom-right corner
+                </p>
+              </div>
+              <Switch
+                checked={uiSettings.show_feedback_button}
+                onCheckedChange={(checked) => updateUISetting('show_feedback_button', checked)}
+                disabled={actionLoading === 'ui-show_feedback_button'}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
