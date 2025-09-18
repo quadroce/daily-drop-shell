@@ -39,6 +39,22 @@ async function getDropsToEmbed(sinceMinutes: number): Promise<Drop[]> {
 }
 
 async function generateEmbeddings(texts: string[]): Promise<number[][]> {
+  // Validazione input pre-OpenAI
+  if (!texts || texts.length === 0) {
+    throw new Error('Empty texts array provided to generateEmbeddings');
+  }
+  
+  const validTexts = texts.filter(text => text && text.trim().length >= 3);
+  if (validTexts.length === 0) {
+    throw new Error('No valid texts after filtering');
+  }
+  
+  if (validTexts.length !== texts.length) {
+    console.warn(`Filtered ${texts.length - validTexts.length} invalid texts`);
+  }
+  
+  console.log(`Sending ${validTexts.length} texts to OpenAI (first text preview: "${validTexts[0].substring(0, 100)}...")`);
+  
   const response = await fetch('https://api.openai.com/v1/embeddings', {
     method: 'POST',
     headers: {
@@ -47,7 +63,7 @@ async function generateEmbeddings(texts: string[]): Promise<number[][]> {
     },
     body: JSON.stringify({
       model: EMBEDDING_MODEL,
-      input: texts,
+      input: validTexts, // usa solo testi validi
       encoding_format: 'float',
     }),
   });
@@ -55,10 +71,20 @@ async function generateEmbeddings(texts: string[]): Promise<number[][]> {
   if (!response.ok) {
     const errorText = await response.text();
     console.error('OpenAI API error:', response.status, errorText);
+    console.error('Request payload sample:', JSON.stringify({
+      model: EMBEDDING_MODEL,
+      input: validTexts.slice(0, 2), // Log solo i primi 2 per debug
+      encoding_format: 'float',
+    }, null, 2));
     throw new Error(`OpenAI API error: ${response.status} ${errorText}`);
   }
 
   const result = await response.json();
+  
+  if (!result.data || !Array.isArray(result.data)) {
+    throw new Error('Invalid response format from OpenAI API');
+  }
+  
   return result.data.map((item: any) => item.embedding);
 }
 
@@ -77,7 +103,7 @@ async function updateDropEmbeddings(dropIds: number[], embeddings: number[][]): 
 }
 
 async function processBatch(drops: Drop[]): Promise<{ success: number; errors: number }> {
-  const BATCH_SIZE = 100;
+  const BATCH_SIZE = 50; // Ridotto per evitare timeout
   let totalSuccess = 0;
   let totalErrors = 0;
   
@@ -87,32 +113,62 @@ async function processBatch(drops: Drop[]): Promise<{ success: number; errors: n
     try {
       console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}, items ${i + 1}-${Math.min(i + BATCH_SIZE, drops.length)}`);
       
-      // Build text for each drop
-      const texts = batch.map(drop => {
-        const title = drop.title || '';
-        const summary = drop.summary || '';
-        const tags = Array.isArray(drop.tags) ? drop.tags.join(',') : '';
-        return `${title} ${summary} ${tags}`.trim();
-      });
+      // Build and validate text for each drop
+      const textsWithIds: { text: string; id: number }[] = [];
       
-      // Generate embeddings
+      for (const drop of batch) {
+        const title = (drop.title || '').trim();
+        const summary = (drop.summary || '').trim();
+        const tags = Array.isArray(drop.tags) ? drop.tags.join(' ') : '';
+        
+        let text = `${title} ${summary} ${tags}`.trim();
+        
+        // Validazione input per OpenAI
+        if (!text || text.length < 3) {
+          console.warn(`Skipping drop ${drop.id}: text too short or empty`);
+          totalErrors++;
+          continue;
+        }
+        
+        // Limite di lunghezza (OpenAI max ~8000 token ≈ 30000 char)
+        if (text.length > 25000) {
+          text = text.substring(0, 25000) + '...';
+          console.warn(`Truncated text for drop ${drop.id} (too long)`);
+        }
+        
+        // Rimuovi caratteri problematici
+        text = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+        
+        textsWithIds.push({ text, id: drop.id });
+      }
+      
+      if (textsWithIds.length === 0) {
+        console.warn('No valid texts in this batch, skipping');
+        continue;
+      }
+      
+      // Generate embeddings solo per testi validi
+      const texts = textsWithIds.map(item => item.text);
       const embeddings = await generateEmbeddings(texts);
       
       // Update drops with embeddings
-      const dropIds = batch.map(drop => drop.id);
+      const dropIds = textsWithIds.map(item => item.id);
       await updateDropEmbeddings(dropIds, embeddings);
       
-      totalSuccess += batch.length;
-      console.log(`Successfully embedded ${batch.length} drops in this batch`);
+      totalSuccess += textsWithIds.length;
+      console.log(`Successfully embedded ${textsWithIds.length} drops in this batch`);
       
-      // Rate limiting: wait 100ms between batches
+      // Rate limiting: attesa più lunga tra batch
       if (i + BATCH_SIZE < drops.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
       
     } catch (error) {
       console.error(`Error processing batch starting at index ${i}:`, error);
       totalErrors += batch.length;
+      
+      // In caso di errore, aspetta prima del prossimo batch
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
   

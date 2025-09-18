@@ -74,7 +74,29 @@ Deno.serve(async (req) => {
 
     if (!feedbackData || feedbackData.length === 0) {
       console.log('No feedback with embeddings found for user');
-      return new Response(null, { status: 204, headers: corsHeaders });
+      
+      // Verifica se ci sono feedback senza embeddings
+      const { data: allFeedback } = await supabase
+        .from('engagement_events')
+        .select('action')
+        .eq('user_id', userId)
+        .gte('created_at', ninetyDaysAgo.toISOString());
+      
+      const message = allFeedback && allFeedback.length > 0 
+        ? `Found ${allFeedback.length} feedback items but none have embeddings. Try running 'Process Recent Embeddings' first.`
+        : 'No user feedback found. Start interacting with content to build your profile.';
+      
+      return new Response(
+        JSON.stringify({ 
+          error: 'No feedback with embeddings found',
+          details: message,
+          total_feedback: allFeedback?.length || 0
+        }),
+        { 
+          status: 422, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
     console.log(`Processing ${feedbackData.length} feedback items`);
@@ -111,8 +133,24 @@ Deno.serve(async (req) => {
     });
 
     if (weightedVectors.length === 0) {
-      console.log('No significant weighted vectors found');
-      return new Response(null, { status: 204, headers: corsHeaders });
+      console.log(`No significant weighted vectors found (processed ${feedbackData.length} feedback items)`);
+      console.log('Action summary:', feedbackData.reduce((acc: any, item: any) => {
+        acc[item.action] = (acc[item.action] || 0) + 1;
+        return acc;
+      }, {}));
+      
+      // Restituire un errore più informativo invece di 204
+      return new Response(
+        JSON.stringify({ 
+          error: 'No significant user feedback found to generate profile vector',
+          feedback_items: feedbackData.length,
+          details: 'Try interacting with more content (like, save, open articles) to build your profile'
+        }),
+        { 
+          status: 422, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
     // Compute weighted average vector
