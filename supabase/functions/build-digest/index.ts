@@ -80,44 +80,86 @@ serve(async (req) => {
         break;
     }
 
-    // Get relevant content based on user's topics, languages and time window
-    let dropsQuery = supabase
-      .from('drops')
-      .select('id, title, url, summary, image_url, published_at, tags, lang_code')
-      .eq('tag_done', true)
-      .order('published_at', { ascending: false });
-
-    if (timeWindow) {
-      dropsQuery = dropsQuery.gte('published_at', timeWindow);
-    }
-
-    // Filter by language preferences first (up to 3 languages)
-    if (user.language_prefs && user.language_prefs.length > 0) {
-      console.log(`Filtering by user language preferences: ${user.language_prefs.join(', ')}`);
-      dropsQuery = dropsQuery.in('lang_code', user.language_prefs);
-    }
-
-    // If user has topic preferences, filter by them
-    if (preferences?.selected_topic_ids?.length > 0) {
-      // Get topic slugs from IDs
-      const { data: topics } = await supabase
-        .from('topics')
-        .select('slug')
-        .in('id', preferences.selected_topic_ids);
-
-      const topicSlugs = topics?.map(t => t.slug) || [];
-      if (topicSlugs.length > 0) {
-        dropsQuery = dropsQuery.overlaps('tags', topicSlugs);
-      }
-    }
-
-    // Try to get preferred content first
-    const { data: preferredDrops, error: dropsError } = await dropsQuery.limit(testMode ? 5 : 10);
-
-    let drops = preferredDrops;
+    // PRIORITY 1: Try to use user_feed_cache (unified algorithm with background-feed-ranking)
+    console.log('Checking user_feed_cache for pre-ranked content...');
     
-    // If we don't have enough items with language filtering, get more without language filter
-    if (!dropsError && drops && drops.length < (testMode ? 3 : 5)) {
+    const { data: cachedDrops, error: cacheError } = await supabase
+      .from('user_feed_cache')
+      .select(`
+        drop_id, final_score, reason_for_ranking, position,
+        drops!inner(id, title, url, summary, image_url, published_at, tags, lang_code, type)
+      `)
+      .eq('user_id', userId)
+      .gt('expires_at', new Date().toISOString())
+      .order('position', { ascending: true })
+      .limit(testMode ? 5 : 10);
+
+    let drops: any[] = [];
+    let dropIds: number[] = [];
+    let usedCacheContent = false;
+
+    if (!cacheError && cachedDrops && cachedDrops.length > 0) {
+      console.log(`Found ${cachedDrops.length} items in user_feed_cache, using unified ranking algorithm`);
+      
+      // Extract drops from cache with flattened structure
+      drops = cachedDrops.map(item => ({
+        id: item.drops.id,
+        title: item.drops.title,
+        url: item.drops.url,
+        summary: item.drops.summary,
+        image_url: item.drops.image_url,
+        published_at: item.drops.published_at,
+        tags: item.drops.tags,
+        lang_code: item.drops.lang_code,
+        type: item.drops.type,
+        final_score: item.final_score,
+        reason_for_ranking: item.reason_for_ranking
+      }));
+      
+      dropIds = drops.map(d => d.id);
+      usedCacheContent = true;
+    } else {
+      console.log(`No valid cache found (error: ${cacheError?.message || 'none'}, items: ${cachedDrops?.length || 0}), falling back to legacy algorithm...`);
+      
+      // FALLBACK: Use legacy logic from original build-digest
+      let dropsQuery = supabase
+        .from('drops')
+        .select('id, title, url, summary, image_url, published_at, tags, lang_code, type')
+        .eq('tag_done', true)
+        .order('published_at', { ascending: false });
+
+      if (timeWindow) {
+        dropsQuery = dropsQuery.gte('published_at', timeWindow);
+      }
+
+      // Filter by language preferences first (up to 3 languages)
+      if (user.language_prefs && user.language_prefs.length > 0) {
+        console.log(`Filtering by user language preferences: ${user.language_prefs.join(', ')}`);
+        dropsQuery = dropsQuery.in('lang_code', user.language_prefs);
+      }
+
+      // If user has topic preferences, filter by them
+      if (preferences?.selected_topic_ids?.length > 0) {
+        // Get topic slugs from IDs
+        const { data: topics } = await supabase
+          .from('topics')
+          .select('slug')
+          .in('id', preferences.selected_topic_ids);
+
+        const topicSlugs = topics?.map(t => t.slug) || [];
+        if (topicSlugs.length > 0) {
+          dropsQuery = dropsQuery.overlaps('tags', topicSlugs);
+        }
+      }
+
+      // Try to get preferred content first
+      const { data: preferredDrops, error: dropsError } = await dropsQuery.limit(testMode ? 5 : 10);
+      drops = preferredDrops || [];
+      
+      dropIds = drops.map(d => d.id);
+      
+      // If we don't have enough items with language filtering, get more without language filter
+      if (drops && drops.length < (testMode ? 3 : 5)) {
       console.log(`Only found ${drops.length} items with language preferences, getting more without language filter...`);
       
       let fallbackQuery = supabase
@@ -154,13 +196,6 @@ serve(async (req) => {
       }
     }
 
-    if (dropsError) {
-      console.error('Error fetching drops:', dropsError);
-      return new Response(
-        JSON.stringify({ success: false, error: 'Failed to fetch content' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     // Graceful degradation: send fewer items rather than skipping entirely
     if (!drops || drops.length === 0) {
@@ -210,7 +245,7 @@ serve(async (req) => {
     // Render HTML email template
     const htmlContent = renderTemplate(digestContent);
 
-    console.log(`Successfully built digest with ${drops.length} items for user ${userId}`);
+    console.log(`Successfully built digest with ${drops.length} items for user ${userId} (source: ${usedCacheContent ? 'user_feed_cache' : 'legacy_query'})`);
 
     return new Response(
       JSON.stringify({
@@ -219,6 +254,8 @@ serve(async (req) => {
         htmlContent,
         itemCount: drops.length,
         timeWindow,
+        dropIds: dropIds, // For debugging and analytics tracking
+        algorithmSource: usedCacheContent ? 'user_feed_cache' : 'legacy_fallback',
       }),
       {
         status: 200,
