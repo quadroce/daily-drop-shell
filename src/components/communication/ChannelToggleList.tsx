@@ -212,6 +212,18 @@ export const ChannelToggleList: React.FC<ChannelToggleListProps> = ({
       [channelId]: newState
     }));
 
+    // If in onboarding mode, don't save immediately - just update local state
+    if (location === 'onboarding') {
+      // Track the toggle event for onboarding
+      track('channel_toggle', {
+        channel: channelId,
+        state: newState ? 'on' : 'off',
+        location
+      });
+      return;
+    }
+
+    // Profile mode - save immediately
     setSaving(prev => ({ ...prev, [channelId]: true }));
 
     try {

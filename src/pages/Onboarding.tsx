@@ -11,6 +11,7 @@ import { OnboardingStep2Preferences } from "@/components/onboarding/OnboardingSt
 import { OnboardingStep3Communication } from "@/components/onboarding/OnboardingStep3Communication";
 import { OnboardingStep4Topics } from "@/components/onboarding/OnboardingStep4Topics";
 import { OnboardingStep5Review } from "@/components/onboarding/OnboardingStep5Review";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Topic {
   id: number;
@@ -37,6 +38,9 @@ const OnboardingPage: React.FC = () => {
   });
 
   const [selectedTopics, setSelectedTopics] = useState<number[]>([]);
+  const [communicationPrefs, setCommunicationPrefs] = useState<{ [key: string]: boolean }>({
+    newsletter: true // Default to true
+  });
 
   // Load topics and prefill from OAuth if available
   useEffect(() => {
@@ -156,6 +160,26 @@ const OnboardingPage: React.FC = () => {
         await saveTopics(selectedTopics);
       }
       
+      // Save communication preferences
+      if (communicationPrefs.newsletter !== undefined) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { error } = await supabase
+            .from('newsletter_subscriptions')
+            .upsert({
+              user_id: user.id,
+              active: communicationPrefs.newsletter,
+              slot: 'morning',
+              cadence: 'daily'
+            });
+          
+          if (error) {
+            console.error('Error saving newsletter preference:', error);
+            throw error;
+          }
+        }
+      }
+      
       // Mark onboarding as complete
       await markOnboardingComplete();
       
@@ -236,6 +260,8 @@ const OnboardingPage: React.FC = () => {
           
           {currentStep === 3 && (
             <OnboardingStep3Communication
+              communicationPrefs={communicationPrefs}
+              onCommunicationChange={setCommunicationPrefs}
               onNext={handleNext}
               onBack={handleBack}
             />

@@ -1,14 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Bell } from "lucide-react";
 import { ChannelToggleList } from "@/components/communication/ChannelToggleList";
 
 interface OnboardingStep3Props {
+  communicationPrefs: { [key: string]: boolean };
+  onCommunicationChange: (prefs: { [key: string]: boolean }) => void;
   onNext: () => void;
   onBack: () => void;
 }
 
 export const OnboardingStep3Communication: React.FC<OnboardingStep3Props> = ({
+  communicationPrefs,
+  onCommunicationChange,
   onNext,
   onBack
 }) => {
@@ -28,7 +32,10 @@ export const OnboardingStep3Communication: React.FC<OnboardingStep3Props> = ({
       </div>
 
       {/* Channel Toggle List */}
-      <ChannelToggleList location="onboarding" />
+      <ChannelToggleList 
+        location="onboarding" 
+        onChannelsChange={onCommunicationChange}
+      />
 
       {/* Action Buttons */}
       <div className="flex justify-between pt-6">
