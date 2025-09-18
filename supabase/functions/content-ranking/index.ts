@@ -319,14 +319,26 @@ serve(async (req) => {
 
     console.log(`[Ranking] Processing ${drops.length} candidate drops for ranking`);
 
-    // Get source information
+    // Get source information and topic labels
     const sourceIds = [...new Set(drops.map(d => d.source_id).filter(Boolean))];
-    const { data: sources } = await supabaseClient
-      .from('sources')
-      .select('id, name, type')
-      .in('id', sourceIds);
+    const topicIds = [...new Set([
+      ...drops.map(d => d.l1_topic_id).filter(Boolean),
+      ...drops.map(d => d.l2_topic_id).filter(Boolean)
+    ])];
+    
+    const [sourcesResult, topicsResult] = await Promise.all([
+      supabaseClient
+        .from('sources')
+        .select('id, name, type')
+        .in('id', sourceIds),
+      supabaseClient
+        .from('topics')
+        .select('id, label')
+        .in('id', topicIds)
+    ]);
 
-    const sourceMap = new Map(sources?.map(s => [s.id, s]) || []);
+    const sourceMap = new Map(sourcesResult.data?.map(s => [s.id, s]) || []);
+    const topicMap = new Map(topicsResult.data?.map(t => [t.id, t.label]) || []);
 
     // PERFORMANCE OPTIMIZATION: Get user topics ONCE outside the loop
     let userTopicSlugs: string[] = [];
@@ -518,6 +530,9 @@ serve(async (req) => {
         }
 
         const source = sourceMap.get(drop.source_id);
+        const l1Topic = drop.l1_topic_id ? topicMap.get(drop.l1_topic_id) : undefined;
+        const l2Topic = drop.l2_topic_id ? topicMap.get(drop.l2_topic_id) : undefined;
+        
         rankedDrops.push({
           id: drop.id,
           title: drop.title,
@@ -526,6 +541,8 @@ serve(async (req) => {
           image_url: drop.image_url,
           type: drop.type,
           tags: drop.tags || [],
+          l1_topic: l1Topic,
+          l2_topic: l2Topic,
           final_score: finalScore,
           reason_for_ranking: reasonFactors.slice(0, 2).join(' • ') || 'Relevant content',
           summary: drop.summary
