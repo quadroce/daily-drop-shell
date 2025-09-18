@@ -31,6 +31,13 @@ export async function refreshUserProfile(userId?: string) {
     
     if (error) {
       console.error('User profile refresh error:', error);
+      
+      // Handle specific error cases with better messages
+      if (error.message && error.message.includes('non-2xx status code')) {
+        // This is likely a 422 error with insufficient feedback
+        throw new Error('Insufficient user feedback to generate profile vector. Try interacting with more content (like, save, or open articles) to build your profile.');
+      }
+      
       throw error;
     }
     
