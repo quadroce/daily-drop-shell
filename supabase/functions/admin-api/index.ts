@@ -54,16 +54,12 @@ interface AdminValidationResult {
   userRole?: string;
 }
 
-async function validateAdminRole(): Promise<AdminValidationResult> {
-  // Create Supabase client that will automatically use the JWT from the request context
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
+async function validateAdminRole(req: Request): Promise<AdminValidationResult> {
   try {
-    // Get the current user from the JWT in the request context
-    const { data: authData, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !authData.user) {
-      console.log('Auth error or no user:', authError);
+    // Extract JWT from Authorization header
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('No authorization header found');
       return { 
         valid: false, 
         error: 'no_auth',
@@ -71,9 +67,32 @@ async function validateAdminRole(): Promise<AdminValidationResult> {
       };
     }
 
-    const userId = authData.user.id;
+    const jwt = authHeader.replace('Bearer ', '');
+    console.log('JWT extracted from header:', jwt.substring(0, 20) + '...');
+
+    // Create Supabase client with service role key
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Set the session using the JWT
+    const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+      access_token: jwt,
+      refresh_token: 'dummy_refresh_token' // Required but not used
+    });
+
+    if (sessionError || !sessionData.user) {
+      console.log('Session error:', sessionError);
+      return { 
+        valid: false, 
+        error: 'invalid_token',
+        errorMessage: 'Invalid authentication token. Please login again.'
+      };
+    }
+
+    const userId = sessionData.user.id;
+    console.log('Authenticated user ID:', userId);
     
-    // Check role from profiles table
+    // Check role from profiles table using service role client
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('role')
@@ -90,6 +109,7 @@ async function validateAdminRole(): Promise<AdminValidationResult> {
     }
 
     const userRole = profile?.role;
+    console.log('User role:', userRole);
     const isAdmin = userRole === 'admin' || userRole === 'superadmin';
     
     if (!isAdmin) {
@@ -102,6 +122,7 @@ async function validateAdminRole(): Promise<AdminValidationResult> {
       };
     }
 
+    console.log('Admin validation successful for user:', userId);
     return { valid: true, payload: { sub: userId } };
   } catch (error) {
     console.log('Error validating admin role:', error);
@@ -899,7 +920,7 @@ serve(async (req) => {
   }
 
   // Validate admin role
-  const validation = await validateAdminRole();
+  const validation = await validateAdminRole(req);
   
   if (!validation.valid) {
     const statusCode = validation.error === 'no_auth' || validation.error === 'invalid_token' ? 401 : 403;
