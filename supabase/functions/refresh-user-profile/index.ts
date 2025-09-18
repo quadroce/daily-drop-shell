@@ -11,6 +11,40 @@ interface FeedbackRow {
   embedding: number[] | null;
 }
 
+// Helper function to parse embeddings from various formats (vector, string, array)
+function parseEmbedding(embedding: any): number[] | null {
+  if (!embedding) return null;
+  
+  // Already an array
+  if (Array.isArray(embedding)) {
+    return embedding;
+  }
+  
+  // String representation (parse it)
+  if (typeof embedding === 'string') {
+    try {
+      // Handle vector format like "[1,2,3]" or PostgreSQL array format
+      const cleaned = embedding.replace(/[\[\]]/g, '').split(',').map(x => parseFloat(x.trim()));
+      return cleaned.every(x => !isNaN(x)) ? cleaned : null;
+    } catch (e) {
+      console.log(`    ↳ Failed to parse string embedding: ${e}`);
+      return null;
+    }
+  }
+  
+  // Handle object with numeric properties (sometimes vector types return as objects)
+  if (typeof embedding === 'object' && embedding !== null) {
+    const keys = Object.keys(embedding);
+    if (keys.length > 0 && keys.every(k => !isNaN(parseInt(k)))) {
+      const arr = keys.sort((a, b) => parseInt(a) - parseInt(b)).map(k => embedding[k]);
+      return arr.every(x => typeof x === 'number' && !isNaN(x)) ? arr : null;
+    }
+  }
+  
+  console.log(`    ↳ Unknown embedding format: ${typeof embedding}`);
+  return null;
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -254,7 +288,7 @@ Deno.serve(async (req) => {
     const actionWeights: { [key: string]: number } = {
       'like': 3,
       'save': 2,
-      'open': 1,
+      'open': 2, // Doubled from 1 to 2
       'dismiss': -2,
       'dislike': -3
     };
@@ -269,16 +303,21 @@ Deno.serve(async (req) => {
     console.log(`🧮 Step 17: Computing weighted vectors`);
     
     feedbackData.forEach((item: any, index: number) => {
-      const embedding = item.drops.embedding;
+      const rawEmbedding = item.drops.embedding;
       console.log(`  ↳ Processing item ${index + 1}/${feedbackData.length}:`);
       console.log(`    ↳ Action: ${item.action}`);
       console.log(`    ↳ Created at: ${item.created_at}`);
-      console.log(`    ↳ Has embedding: ${!!embedding}`);
-      console.log(`    ↳ Embedding is array: ${Array.isArray(embedding)}`);
-      console.log(`    ↳ Embedding length: ${Array.isArray(embedding) ? embedding.length : 'N/A'}`);
+      console.log(`    ↳ Has embedding: ${!!rawEmbedding}`);
+      console.log(`    ↳ Raw embedding type: ${typeof rawEmbedding}`);
+      console.log(`    ↳ Raw embedding is array: ${Array.isArray(rawEmbedding)}`);
       
-      if (!embedding || !Array.isArray(embedding)) {
-        console.log(`    ↳ ❌ Skipping: invalid embedding`);
+      // Parse embedding from any format
+      const embedding = parseEmbedding(rawEmbedding);
+      console.log(`    ↳ Parsed embedding: ${!!embedding}`);
+      console.log(`    ↳ Parsed embedding length: ${embedding?.length || 'N/A'}`);
+      
+      if (!embedding) {
+        console.log(`    ↳ ❌ Skipping: could not parse embedding`);
         return;
       }
 
@@ -296,13 +335,13 @@ Deno.serve(async (req) => {
       const finalWeight = actionWeight * timeDecay;
       console.log(`    ↳ Final weight: ${finalWeight.toFixed(4)}`);
 
-      if (Math.abs(finalWeight) > 0.01) { // Only include if weight is significant
+      if (Math.abs(finalWeight) > 0.005) { // Reduced threshold from 0.01 to 0.005
         const weightedEmbedding = embedding.map(val => val * finalWeight);
         weightedVectors.push(weightedEmbedding);
         weights.push(Math.abs(finalWeight));
         console.log(`    ↳ ✅ Added to weighted vectors (total: ${weightedVectors.length})`);
       } else {
-        console.log(`    ↳ ❌ Skipped: weight too small (${Math.abs(finalWeight).toFixed(4)} < 0.01)`);
+        console.log(`    ↳ ❌ Skipped: weight too small (${Math.abs(finalWeight).toFixed(4)} < 0.005)`);
       }
     });
 
