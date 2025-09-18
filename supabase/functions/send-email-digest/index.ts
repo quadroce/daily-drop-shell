@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "npm:resend@2.0.0";
 import { renderTemplate } from "../_shared/email-template.ts";
-import { generateUnsubscribeToken } from "../unsubscribe-newsletter/index.ts";
+import { generateUnsubscribeToken } from "../_shared/unsubscribe-tokens.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

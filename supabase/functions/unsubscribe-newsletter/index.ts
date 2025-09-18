@@ -1,71 +1,11 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { createHmac } from "https://deno.land/std@0.190.0/crypto/mod.ts";
+import { generateUnsubscribeToken, verifyUnsubscribeToken, UnsubscribeToken } from "../_shared/unsubscribe-tokens.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-interface UnsubscribeToken {
-  userId: string;
-  email: string;
-  cadence: string;
-  timestamp: number;
-}
-
-// Utility functions for token management
-function generateUnsubscribeToken(userId: string, email: string, cadence: string): string {
-  const secretKey = Deno.env.get('UNSUBSCRIBE_SECRET') || 'fallback-secret-key';
-  const timestamp = Date.now();
-  
-  const payload = JSON.stringify({ userId, email, cadence, timestamp });
-  const encoder = new TextEncoder();
-  const key = encoder.encode(secretKey);
-  const data = encoder.encode(payload);
-  
-  // Create HMAC signature
-  const signature = createHmac("sha256", key).update(data).toString();
-  
-  // Combine payload and signature
-  const token = btoa(payload) + '.' + signature;
-  return token;
-}
-
-function verifyUnsubscribeToken(token: string): UnsubscribeToken | null {
-  try {
-    const secretKey = Deno.env.get('UNSUBSCRIBE_SECRET') || 'fallback-secret-key';
-    const [encodedPayload, signature] = token.split('.');
-    
-    if (!encodedPayload || !signature) {
-      return null;
-    }
-    
-    const payload = atob(encodedPayload);
-    const encoder = new TextEncoder();
-    const key = encoder.encode(secretKey);
-    const data = encoder.encode(payload);
-    
-    // Verify signature
-    const expectedSignature = createHmac("sha256", key).update(data).toString();
-    if (signature !== expectedSignature) {
-      return null;
-    }
-    
-    const tokenData: UnsubscribeToken = JSON.parse(payload);
-    
-    // Check if token is not expired (90 days)
-    const expirationTime = 90 * 24 * 60 * 60 * 1000; // 90 days in ms
-    if (Date.now() - tokenData.timestamp > expirationTime) {
-      return null;
-    }
-    
-    return tokenData;
-  } catch (error) {
-    console.error('Error verifying token:', error);
-    return null;
-  }
-}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -405,6 +345,3 @@ function generateErrorPage(title: string, message: string): string {
     </html>
   `;
 }
-
-// Export the token generation function for use in other edge functions
-export { generateUnsubscribeToken };
