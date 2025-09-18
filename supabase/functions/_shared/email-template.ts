@@ -18,10 +18,12 @@ interface DigestContent {
     }>;
   };
   testMode?: boolean;
+  unsubscribeUrl?: string;
+  preferencesUrl?: string;
 }
 
 export function renderTemplate(content: DigestContent): string {
-  const { user, digest, testMode } = content;
+  const { user, digest, testMode, unsubscribeUrl, preferencesUrl } = content;
   
   return `
     <!DOCTYPE html>
@@ -377,8 +379,8 @@ export function renderTemplate(content: DigestContent): string {
             </div>
             <div class="footer-tier">${user.subscription_tier.toUpperCase()} member</div>
             <div class="footer-links">
-              <a href="#" style="color: #64748b;">Manage preferences</a> • 
-              <a href="#" style="color: #64748b;">Unsubscribe</a>
+              <a href="${preferencesUrl || '#'}" style="color: #64748b;">Manage preferences</a> • 
+              <a href="${unsubscribeUrl || '#'}" style="color: #64748b;">Unsubscribe</a>
             </div>
           </div>
         </div>

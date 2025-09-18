@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "npm:resend@2.0.0";
 import { renderTemplate } from "../_shared/email-template.ts";
+import { generateUnsubscribeToken } from "../unsubscribe-newsletter/index.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -96,8 +97,21 @@ serve(async (req) => {
     console.log('10. Creating HTML email content using shared template...');
     console.log(`    - Processing ${itemCount} items for HTML generation`);
     
+    // Generate unsubscribe token
+    const unsubscribeToken = generateUnsubscribeToken(userId, userEmail, cadence);
+    const frontendOrigin = Deno.env.get('FRONTEND_ORIGIN') || 'https://dailydrops.cloud';
+    const unsubscribeUrl = `https://qimelntuxquptqqynxzv.supabase.co/functions/v1/unsubscribe-newsletter?token=${unsubscribeToken}`;
+    const preferencesUrl = `${frontendOrigin}/settings`;
+    
+    // Add unsubscribe URLs to digest content
+    const digestWithUnsubscribe = {
+      ...digestContent,
+      unsubscribeUrl,
+      preferencesUrl
+    };
+    
     // Use the shared email template
-    const htmlContent = renderTemplate(digestContent);
+    const htmlContent = renderTemplate(digestWithUnsubscribe);
     
     console.log(`    - HTML content length: ${htmlContent.length} characters`);
     console.log('    - HTML content preview (first 200 chars):', htmlContent.substring(0, 200));
@@ -108,6 +122,10 @@ serve(async (req) => {
       to: [userEmail],
       subject: subject,
       html: htmlContent,
+      headers: {
+        'List-Unsubscribe': `<${unsubscribeUrl}>`,
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'
+      }
     };
     console.log('    - Email payload prepared:');
     console.log(`      - from: ${emailPayload.from}`);

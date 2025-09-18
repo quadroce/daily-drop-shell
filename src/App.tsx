@@ -31,6 +31,7 @@ import AdminArticles from "./pages/admin/AdminArticles";
 import AdminManualIngest from "./pages/admin/AdminManualIngest";
 import AdminUsers from "./pages/AdminUsers";
 import ProtectedRoute from "./components/ProtectedRoute";
+import Unsubscribe from "./pages/Unsubscribe";
 import { TopicsIndexPage } from "./pages/topics/TopicsIndexPage";
 import { TopicLandingPage } from "./pages/topics/TopicLandingPage";
 import { TopicArchiveIndexPage } from "./pages/topics/TopicArchiveIndexPage";
@@ -72,6 +73,7 @@ const App = () => (
                   <Route path="/corporate" element={<Corporate />} />
                   <Route path="/sponsor" element={<Sponsor />} />
                   <Route path="/privacy" element={<Privacy />} />
+                  <Route path="/unsubscribe" element={<Unsubscribe />} />
                   <Route path="/onboarding" element={
                     <ProtectedRoute>
                       <Onboarding />
