@@ -8,8 +8,9 @@ import { saveProfile, saveTopics, markOnboardingComplete, OnboardingProfile } fr
 import { fetchTopicsTree } from "@/lib/api/topics";
 import { OnboardingStep1Profile } from "@/components/onboarding/OnboardingStep1Profile";
 import { OnboardingStep2Preferences } from "@/components/onboarding/OnboardingStep2Preferences";
-import { OnboardingStep3Topics } from "@/components/onboarding/OnboardingStep3Topics";
-import { OnboardingStep4Review } from "@/components/onboarding/OnboardingStep4Review";
+import { OnboardingStep3Communication } from "@/components/onboarding/OnboardingStep3Communication";
+import { OnboardingStep4Topics } from "@/components/onboarding/OnboardingStep4Topics";
+import { OnboardingStep5Review } from "@/components/onboarding/OnboardingStep5Review";
 
 interface Topic {
   id: number;
@@ -82,7 +83,7 @@ const OnboardingPage: React.FC = () => {
   };
 
   const handleNext = () => {
-    if (currentStep < 4) {
+    if (currentStep < 5) {
       setCurrentStep(prev => prev + 1);
       
       // Track step completion
@@ -102,6 +103,9 @@ const OnboardingPage: React.FC = () => {
           });
           break;
         case 3:
+          // Communication step completed - tracking is handled by the component
+          break;
+        case 4:
           const l1Count = selectedTopics.filter(id => {
             const topic = topics.find(t => t.id === id);
             return topic?.level === 1;
@@ -178,7 +182,7 @@ const OnboardingPage: React.FC = () => {
     }
   };
 
-  const progressValue = (currentStep / 4) * 100;
+  const progressValue = (currentStep / 5) * 100;
 
   if (!user) {
     navigate('/auth');
@@ -200,7 +204,7 @@ const OnboardingPage: React.FC = () => {
           {/* Progress Bar */}
           <div className="max-w-md mx-auto">
             <div className="flex justify-between text-sm text-muted-foreground mb-2">
-              <span>Step {currentStep} of 4</span>
+              <span>Step {currentStep} of 5</span>
               <span>{Math.round(progressValue)}% complete</span>
             </div>
             <Progress value={progressValue} className="h-2" />
@@ -231,7 +235,14 @@ const OnboardingPage: React.FC = () => {
           )}
           
           {currentStep === 3 && (
-            <OnboardingStep3Topics
+            <OnboardingStep3Communication
+              onNext={handleNext}
+              onBack={handleBack}
+            />
+          )}
+          
+          {currentStep === 4 && (
+            <OnboardingStep4Topics
               selectedTopics={selectedTopics}
               onTopicsChange={setSelectedTopics}
               onNext={handleNext}
@@ -239,8 +250,8 @@ const OnboardingPage: React.FC = () => {
             />
           )}
           
-          {currentStep === 4 && (
-            <OnboardingStep4Review
+          {currentStep === 5 && (
+            <OnboardingStep5Review
               formData={formData}
               selectedTopics={selectedTopics}
               topicLabels={topicLabels}

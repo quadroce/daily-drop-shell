@@ -5,14 +5,14 @@ import { Badge } from "@/components/ui/badge";
 import { BookOpen, AlertCircle } from "lucide-react";
 import { TopicsOnboardingWizard } from "@/components/TopicsOnboardingWizard";
 
-interface OnboardingStep3Props {
+interface OnboardingStep4Props {
   selectedTopics: number[];
   onTopicsChange: (topics: number[]) => void;
   onNext: () => void;
   onBack: () => void;
 }
 
-export const OnboardingStep3Topics: React.FC<OnboardingStep3Props> = ({
+export const OnboardingStep4Topics: React.FC<OnboardingStep4Props> = ({
   selectedTopics,
   onTopicsChange,
   onNext,

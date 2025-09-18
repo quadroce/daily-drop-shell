@@ -4,9 +4,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Bookmark, Heart, History, ExternalLink, Calendar, Eye, Image, Play } from "lucide-react";
+import { Bookmark, Heart, History, ExternalLink, Calendar, Eye, Image, Play, Bell } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getYouTubeThumbnailFromUrl } from "@/lib/youtube";
+import { ChannelToggleList } from "@/components/communication/ChannelToggleList";
 
 const Profile = () => {
   const [activeTab, setActiveTab] = useState("saved");
@@ -405,7 +406,7 @@ const Profile = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="saved" className="flex items-center gap-2">
             <Bookmark className="h-4 w-4" />
             Saved
@@ -413,6 +414,10 @@ const Profile = () => {
           <TabsTrigger value="liked" className="flex items-center gap-2">
             <Heart className="h-4 w-4" />
             Liked
+          </TabsTrigger>
+          <TabsTrigger value="communication" className="flex items-center gap-2">
+            <Bell className="h-4 w-4" />
+            Communication
           </TabsTrigger>
           <TabsTrigger value="history" className="flex items-center gap-2">
             <History className="h-4 w-4" />
@@ -452,6 +457,21 @@ const Profile = () => {
               />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="communication" className="mt-6">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Communication Preferences</CardTitle>
+                <CardDescription>
+                  Manage how you receive content updates and notifications
+                </CardDescription>
+              </CardHeader>
+            </Card>
+            
+            <ChannelToggleList location="profile" />
+          </div>
         </TabsContent>
 
         <TabsContent value="history" className="mt-6">

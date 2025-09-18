@@ -3,10 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle, User, Globe, BookOpen, Youtube } from "lucide-react";
+import { CheckCircle, User, Globe, BookOpen, Youtube, Bell } from "lucide-react";
 import { fetchAvailableLanguages } from "@/lib/api/profile";
 
-interface OnboardingStep4Props {
+interface OnboardingStep5Props {
   formData: {
     first_name: string;
     last_name: string;
@@ -21,7 +21,7 @@ interface OnboardingStep4Props {
   isCompleting: boolean;
 }
 
-export const OnboardingStep4Review: React.FC<OnboardingStep4Props> = ({
+export const OnboardingStep5Review: React.FC<OnboardingStep5Props> = ({
   formData,
   selectedTopics,
   topicLabels,
@@ -108,6 +108,25 @@ export const OnboardingStep4Review: React.FC<OnboardingStep4Props> = ({
                 </Badge>
               ))}
             </div>
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Communication Section */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Bell className="h-4 w-4" />
+            <h3 className="font-medium">Communication</h3>
+          </div>
+          <div className="pl-6">
+            <p>
+              <span className="font-medium">Email Newsletter:</span>{' '}
+              <Badge variant="default">Enabled</Badge>
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              You'll receive daily content digests via email
+            </p>
           </div>
         </div>
 

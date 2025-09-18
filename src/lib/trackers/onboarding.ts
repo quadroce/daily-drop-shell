@@ -32,6 +32,19 @@ export const trackOnboardingCompleted = (totalTopics: number) => {
   track('onboarding_completed', { total_topics: totalTopics });
 };
 
+// Communication Events
+export const trackChannelToggle = (channel: string, state: 'on' | 'off', location: 'onboarding' | 'profile') => {
+  track('channel_toggle', { channel, state, location });
+};
+
+export const trackPremiumChannelCTA = (channel: string, location: 'onboarding' | 'profile') => {
+  track('premium_channel_cta_click', { channel, location });
+};
+
+export const trackOnboardingStepView = (step: string) => {
+  track('onboarding_step_view', { step });
+};
+
 // Auth Events
 export const trackSignupComplete = (method: 'email' | 'google' | 'linkedin') => {
   track('signup_complete', { method });
