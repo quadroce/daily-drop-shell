@@ -7,6 +7,7 @@ import { Seo } from "@/components/Seo";
 import { useIndexNow } from "@/lib/indexnow";
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getYouTubeThumbnailFromUrl, getYouTubeFallbackThumbnail } from "@/lib/youtube";
 
 // Types for our data
 type Topic = {
@@ -100,6 +101,46 @@ const Index = () => {
       case 'society': return <Users className="h-6 w-6" />;
       default: return <Globe className="h-6 w-6" />;
     }
+  };
+
+  // YouTube thumbnail component with fallback
+  const YouTubeThumbnail = ({ drop }: { drop: Drop }) => {
+    const [imageSrc, setImageSrc] = useState<string>('');
+    const [imageError, setImageError] = useState(false);
+
+    useEffect(() => {
+      if (drop.image_url) {
+        setImageSrc(drop.image_url);
+      } else if (drop.type === 'video') {
+        const thumbnail = getYouTubeThumbnailFromUrl(drop.url);
+        if (thumbnail) {
+          setImageSrc(thumbnail);
+        }
+      }
+    }, [drop]);
+
+    const handleImageError = () => {
+      if (!imageError && drop.type === 'video') {
+        const fallbackThumbnail = getYouTubeFallbackThumbnail(drop.url);
+        if (fallbackThumbnail) {
+          setImageSrc(fallbackThumbnail);
+          setImageError(true);
+        }
+      }
+    };
+
+    if (!imageSrc) return null;
+
+    return (
+      <div className="aspect-video bg-muted rounded-t-lg overflow-hidden">
+        <img 
+          src={imageSrc}
+          alt={drop.title}
+          className="w-full h-full object-cover"
+          onError={handleImageError}
+        />
+      </div>
+    );
   };
 
   return (
@@ -225,15 +266,7 @@ const Index = () => {
                   <Card key={drop.id} className="hover:shadow-lg transition-all duration-200 hover:-translate-y-1">
                     <CardContent className="p-0">
                       <a href={drop.url} target="_blank" rel="noopener noreferrer" className="block">
-                        {drop.image_url && (
-                          <div className="aspect-video bg-muted rounded-t-lg overflow-hidden">
-                            <img 
-                              src={drop.image_url} 
-                              alt={drop.title}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        )}
+                        <YouTubeThumbnail drop={drop} />
                         <div className="p-4">
                           <div className="flex items-center gap-2 mb-2">
                             <Badge variant="secondary" className="text-xs">
