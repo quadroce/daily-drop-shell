@@ -123,8 +123,17 @@ const AdminUsers = () => {
       const { data, error } = await supabase.functions.invoke('admin-api/languages');
       if (error) throw error;
       setLanguages(data || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching languages:', error);
+      
+      // Only show toast if it's an authentication error
+      if (error?.errorType === 'no_auth' || error?.errorType === 'invalid_token') {
+        toast({
+          title: "Authentication Required",
+          description: "Please login as an administrator to access this page.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -155,11 +164,29 @@ const AdminUsers = () => {
       setUsers(response.users || []);
       setTotalUsers(response.total || 0);
       setTotalPages(response.totalPages || 1);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching users:', error);
+      
+      // Handle specific error types from admin-api
+      let errorMessage = "Failed to fetch users";
+      let errorTitle = "Error";
+      
+      if (error?.error) {
+        errorMessage = error.error;
+        if (error.errorType === 'no_auth' || error.errorType === 'invalid_token') {
+          errorTitle = "Authentication Required";
+          errorMessage = error.error + " Please login as an administrator.";
+          // Optionally redirect to login
+          // window.location.href = '/auth';
+        } else if (error.errorType === 'insufficient_role') {
+          errorTitle = "Access Denied";
+          errorMessage = error.error;
+        }
+      }
+      
       toast({
-        title: "Error",
-        description: "Failed to fetch users",
+        title: errorTitle,
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -182,11 +209,17 @@ const AdminUsers = () => {
 
       fetchUsers();
       setIsDrawerOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating user:', error);
+      
+      let errorMessage = "Failed to create user";
+      if (error?.error) {
+        errorMessage = error.error;
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to create user",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -208,11 +241,17 @@ const AdminUsers = () => {
       fetchUsers();
       setIsDrawerOpen(false);
       setEditingUser(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating user:', error);
+      
+      let errorMessage = "Failed to update user";
+      if (error?.error) {
+        errorMessage = error.error;
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to update user",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -232,11 +271,17 @@ const AdminUsers = () => {
       });
 
       fetchUsers();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deactivating user:', error);
+      
+      let errorMessage = "Failed to deactivate user";
+      if (error?.error) {
+        errorMessage = error.error;
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to deactivate user",
+        description: errorMessage,
         variant: "destructive",
       });
     }

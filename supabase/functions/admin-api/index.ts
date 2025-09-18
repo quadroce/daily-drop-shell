@@ -17,29 +17,75 @@ interface JWTPayload {
   };
 }
 
-function decodeJWT(token: string): JWTPayload | null {
+interface JWTDecodeResult {
+  success: boolean;
+  payload?: JWTPayload;
+  error?: 'missing' | 'empty' | 'malformed' | 'invalid_structure';
+}
+
+function decodeJWT(token: string): JWTDecodeResult {
+  if (!token) {
+    return { success: false, error: 'missing' };
+  }
+  
+  if (token.trim() === '') {
+    return { success: false, error: 'empty' };
+  }
+  
   try {
     const parts = token.split('.');
-    if (parts.length !== 3) return null;
+    if (parts.length !== 3) {
+      return { success: false, error: 'invalid_structure' };
+    }
     
     const payload = JSON.parse(atob(parts[1]));
-    return payload;
+    return { success: true, payload };
   } catch (error) {
     console.error('JWT decode error:', error);
-    return null;
+    return { success: false, error: 'malformed' };
   }
 }
 
-async function validateAdminRole(authHeader: string | null): Promise<{ valid: boolean; payload?: JWTPayload }> {
+interface AdminValidationResult {
+  valid: boolean;
+  payload?: JWTPayload;
+  error?: 'no_auth' | 'invalid_token' | 'no_profile' | 'insufficient_role' | 'auth_error';
+  errorMessage?: string;
+  userRole?: string;
+}
+
+async function validateAdminRole(authHeader: string | null): Promise<AdminValidationResult> {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return { valid: false };
+    return { 
+      valid: false, 
+      error: 'no_auth',
+      errorMessage: 'No authentication token provided. Please login to continue.'
+    };
   }
 
   const token = authHeader.substring(7);
-  const payload = decodeJWT(token);
+  const jwtResult = decodeJWT(token);
   
-  if (!payload) {
-    return { valid: false };
+  if (!jwtResult.success) {
+    let errorMessage = 'Invalid authentication token.';
+    switch (jwtResult.error) {
+      case 'missing':
+      case 'empty':
+        errorMessage = 'Authentication token is missing. Please login again.';
+        break;
+      case 'malformed':
+        errorMessage = 'Authentication token is corrupted. Please login again.';
+        break;
+      case 'invalid_structure':
+        errorMessage = 'Authentication token has invalid format. Please login again.';
+        break;
+    }
+    
+    return { 
+      valid: false, 
+      error: 'invalid_token',
+      errorMessage 
+    };
   }
 
   // Check role from profiles table instead of JWT metadata
@@ -55,12 +101,16 @@ async function validateAdminRole(authHeader: string | null): Promise<{ valid: bo
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('role')
-      .eq('id', payload.sub)
+      .eq('id', jwtResult.payload!.sub)
       .single();
 
     if (error) {
       console.log('Error fetching user profile:', error);
-      return { valid: false };
+      return { 
+        valid: false, 
+        error: 'no_profile',
+        errorMessage: 'User profile not found. Please contact an administrator.'
+      };
     }
 
     const userRole = profile?.role;
@@ -68,13 +118,22 @@ async function validateAdminRole(authHeader: string | null): Promise<{ valid: bo
     
     if (!isAdmin) {
       console.log(`Access denied: user role '${userRole}' is not admin or superadmin`);
-      return { valid: false };
+      return { 
+        valid: false, 
+        error: 'insufficient_role',
+        errorMessage: `Access denied. Your role '${userRole}' does not have administrative privileges.`,
+        userRole
+      };
     }
 
-    return { valid: true, payload };
+    return { valid: true, payload: jwtResult.payload };
   } catch (error) {
     console.log('Error validating admin role:', error);
-    return { valid: false };
+    return { 
+      valid: false, 
+      error: 'auth_error',
+      errorMessage: 'Authentication service error. Please try again later.'
+    };
   }
 }
 
@@ -919,11 +978,16 @@ serve(async (req) => {
 
   // Validate admin role
   const authHeader = req.headers.get('Authorization');
-  const { valid } = await validateAdminRole(authHeader);
+  const validation = await validateAdminRole(authHeader);
   
-  if (!valid) {
-    return new Response(JSON.stringify({ error: 'Unauthorized: Admin role required' }), {
-      status: 401,
+  if (!validation.valid) {
+    const statusCode = validation.error === 'no_auth' || validation.error === 'invalid_token' ? 401 : 403;
+    return new Response(JSON.stringify({ 
+      error: validation.errorMessage || 'Unauthorized: Admin role required',
+      errorType: validation.error,
+      userRole: validation.userRole
+    }), {
+      status: statusCode,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
