@@ -10,7 +10,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { getYouTubeThumbnailFromUrl, getYouTubeFallbackThumbnail } from "@/lib/youtube";
 import { useTopicsMap } from "@/hooks/useTopicsMap";
 import { ChipLink } from "@/components/ChipLink";
-import Footer from "@/components/Footer";
 
 // Types for our data
 type Topic = {
@@ -362,8 +361,6 @@ const Index = () => {
           </div>
         </section>
       </main>
-
-      <Footer />
     </div>
   );
 };

@@ -16,7 +16,6 @@ const Layout = ({ children }: LayoutProps) => {
         {children}
       </main>
       <Footer />
-      <AlphaRibbon />
       <FeedbackFab />
     </div>
   );
