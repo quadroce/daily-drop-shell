@@ -110,9 +110,9 @@ export const fetchAllUserPreferences = async (): Promise<{
       .from('preferences')
       .select('selected_topic_ids, selected_language_ids')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
-    if (prefsError && prefsError.code !== 'PGRST116') {
+    if (prefsError) {
       console.error('Error fetching preferences:', prefsError);
       throw new Error(`Failed to fetch preferences: ${prefsError.message}`);
     }
@@ -128,39 +128,43 @@ export const fetchAllUserPreferences = async (): Promise<{
       languageCodes = languages?.map(lang => lang.code) || [];
     }
 
-    // Fallback to profile data if no preferences found
-    if (!preferences || (!preferences.selected_topic_ids?.length && !preferences.selected_language_ids?.length)) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('language_prefs')
-        .eq('id', user.id)
-        .single();
-
-      if (profile?.language_prefs?.length > 0) {
-        languageCodes = profile.language_prefs;
-        
-        // Get language IDs for consistency
-        const { data: languages } = await supabase
-          .from('languages')
-          .select('id, code')
-          .in('code', profile.language_prefs);
-        
-        const selectedLanguageIds = languages?.map(lang => lang.id) || [];
-
-        return {
-          selectedTopicIds: [],
-          selectedLanguageIds,
-          languageCodes: profile.language_prefs
-        };
-      }
-
-      return null;
+    // If we have preferences data, return it
+    if (preferences && (preferences.selected_topic_ids?.length > 0 || preferences.selected_language_ids?.length > 0)) {
+      return {
+        selectedTopicIds: preferences.selected_topic_ids || [],
+        selectedLanguageIds: preferences.selected_language_ids || [],
+        languageCodes
+      };
     }
 
+    // Fallback to profile data if no preferences found
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('language_prefs')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (profile?.language_prefs?.length > 0) {
+      // Get language IDs for consistency
+      const { data: languages } = await supabase
+        .from('languages')
+        .select('id, code')
+        .in('code', profile.language_prefs);
+      
+      const selectedLanguageIds = languages?.map(lang => lang.id) || [];
+
+      return {
+        selectedTopicIds: [],
+        selectedLanguageIds,
+        languageCodes: profile.language_prefs
+      };
+    }
+
+    // No preferences found anywhere
     return {
-      selectedTopicIds: preferences.selected_topic_ids || [],
-      selectedLanguageIds: preferences.selected_language_ids || [],
-      languageCodes
+      selectedTopicIds: [],
+      selectedLanguageIds: [],
+      languageCodes: ['en'] // Default to English
     };
 
   } catch (error) {

@@ -32,9 +32,9 @@ const Preferences = () => {
           setInitialTopics(preferences.selectedTopicIds);
           setSelectedTopics(preferences.selectedTopicIds);
           setSelectedLanguages(preferences.languageCodes.length > 0 ? preferences.languageCodes : ['en']);
-        } else if (profile) {
-          // Fallback to profile data if no preferences found
-          setSelectedLanguages(profile.language_prefs || ['en']);
+        } else {
+          // Set default language if no preferences found
+          setSelectedLanguages(['en']);
         }
         
         if (profile) {
@@ -85,6 +85,14 @@ const Preferences = () => {
           .from('profiles')
           .update({ youtube_embed_pref: youtubeEmbedPref })
           .eq('id', user.id);
+      }
+
+      // Refresh preferences to ensure UI is up to date
+      const updatedPreferences = await fetchAllUserPreferences();
+      if (updatedPreferences) {
+        setSelectedTopics(updatedPreferences.selectedTopicIds);
+        setInitialTopics(updatedPreferences.selectedTopicIds);
+        setSelectedLanguages(updatedPreferences.languageCodes);
       }
       
       toast({

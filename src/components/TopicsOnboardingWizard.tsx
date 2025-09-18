@@ -75,6 +75,11 @@ export const TopicsOnboardingWizard: React.FC<TopicsOnboardingWizardProps> = ({
     trackOnboardingStart();
   }, []);
 
+  // Sync selected topics when initialSelectedTopics changes
+  useEffect(() => {
+    setSelectedTopics(new Set(initialSelectedTopics));
+  }, [initialSelectedTopics]);
+
   // Fetch topics data
   useEffect(() => {
     const loadTopics = async () => {
