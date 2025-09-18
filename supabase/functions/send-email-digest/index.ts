@@ -143,11 +143,13 @@ serve(async (req) => {
     console.log(`    - Email data:`, JSON.stringify(emailResponse.data, null, 2));
 
     console.log('16. Inserting delivery log into database...');
+    // Log delivery with dedup_key for idempotency
     const deliveryLogPayload = {
       user_id: userId,
       status: 'sent',
       channel: 'email',
       provider_message_id: emailResponse.data?.id,
+      dedup_key: `email:${userId}:${new Date().toISOString().split('T')[0]}`,
       meta: {
         cadence,
         item_count: itemCount,

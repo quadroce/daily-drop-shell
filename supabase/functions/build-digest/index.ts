@@ -38,10 +38,10 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get user info
+    // Get user info including language preferences
     const { data: user, error: userError } = await supabase
       .from('profiles')
-      .select('email, display_name, first_name, subscription_tier')
+      .select('email, display_name, first_name, subscription_tier, language_prefs')
       .eq('id', userId)
       .single();
 
@@ -80,15 +80,21 @@ serve(async (req) => {
         break;
     }
 
-    // Get relevant content based on user's topics and time window
+    // Get relevant content based on user's topics, languages and time window
     let dropsQuery = supabase
       .from('drops')
-      .select('id, title, url, summary, image_url, published_at, tags')
+      .select('id, title, url, summary, image_url, published_at, tags, lang_code')
       .eq('tag_done', true)
       .order('published_at', { ascending: false });
 
     if (timeWindow) {
       dropsQuery = dropsQuery.gte('published_at', timeWindow);
+    }
+
+    // Filter by language preferences first (up to 3 languages)
+    if (user.language_prefs && user.language_prefs.length > 0) {
+      console.log(`Filtering by user language preferences: ${user.language_prefs.join(', ')}`);
+      dropsQuery = dropsQuery.in('lang_code', user.language_prefs);
     }
 
     // If user has topic preferences, filter by them
@@ -105,7 +111,48 @@ serve(async (req) => {
       }
     }
 
-    const { data: drops, error: dropsError } = await dropsQuery.limit(testMode ? 5 : 10);
+    // Try to get preferred content first
+    const { data: preferredDrops, error: dropsError } = await dropsQuery.limit(testMode ? 5 : 10);
+
+    let drops = preferredDrops;
+    
+    // If we don't have enough items with language filtering, get more without language filter
+    if (!dropsError && drops && drops.length < (testMode ? 3 : 5)) {
+      console.log(`Only found ${drops.length} items with language preferences, getting more without language filter...`);
+      
+      let fallbackQuery = supabase
+        .from('drops')
+        .select('id, title, url, summary, image_url, published_at, tags, lang_code')
+        .eq('tag_done', true)
+        .order('published_at', { ascending: false });
+
+      if (timeWindow) {
+        fallbackQuery = fallbackQuery.gte('published_at', timeWindow);
+      }
+
+      // Still filter by topics if available
+      if (preferences?.selected_topic_ids?.length > 0) {
+        const { data: topics } = await supabase
+          .from('topics')
+          .select('slug')
+          .in('id', preferences.selected_topic_ids);
+
+        const topicSlugs = topics?.map(t => t.slug) || [];
+        if (topicSlugs.length > 0) {
+          fallbackQuery = fallbackQuery.overlaps('tags', topicSlugs);
+        }
+      }
+
+      const { data: fallbackDrops } = await fallbackQuery.limit(testMode ? 5 : 10);
+      
+      if (fallbackDrops) {
+        // Merge and deduplicate
+        const existingIds = new Set(drops.map(d => d.id));
+        const additionalDrops = fallbackDrops.filter(d => !existingIds.has(d.id));
+        drops = [...drops, ...additionalDrops].slice(0, testMode ? 5 : 10);
+        console.log(`Added ${additionalDrops.length} fallback items, total: ${drops.length}`);
+      }
+    }
 
     if (dropsError) {
       console.error('Error fetching drops:', dropsError);
@@ -115,12 +162,25 @@ serve(async (req) => {
       );
     }
 
+    // Graceful degradation: send fewer items rather than skipping entirely
     if (!drops || drops.length === 0) {
-      console.log('No content found for user preferences');
-      return new Response(
-        JSON.stringify({ success: false, error: 'No content found for your preferences' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      console.log('No content found for user preferences, trying without filters...');
+      
+      // Last resort: get any recent content
+      const { data: anyDrops } = await supabase
+        .from('drops')
+        .select('id, title, url, summary, image_url, published_at, tags, lang_code')
+        .eq('tag_done', true)
+        .order('published_at', { ascending: false })
+        .limit(testMode ? 3 : 5);
+      
+      drops = anyDrops || [];
+      console.log(`Found ${drops.length} fallback items`);
+    }
+
+    // If still no content, that's okay - send empty digest with explanation
+    if (drops.length === 0) {
+      console.log('Absolutely no content available, sending empty digest');
     }
 
     // Format content for email template
@@ -137,10 +197,11 @@ serve(async (req) => {
         items: drops.map(drop => ({
           title: drop.title,
           summary: drop.summary || '',
-          url: drop.url,
+          url: `${drop.url}?utm_source=newsletter&utm_medium=email&utm_campaign=daily_drop&utm_content=${cadence}`,
           image_url: drop.image_url,
           published_at: drop.published_at,
           tags: drop.tags || [],
+          lang_code: drop.lang_code,
         })),
       },
       testMode,

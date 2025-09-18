@@ -33,6 +33,9 @@ export type AnalyticsEvent =
   | 'video_complete'
   // Channel Events
   | 'newsletter_subscribed'
+  | 'newsletter_sent'
+  | 'newsletter_click'
+  | 'newsletter_open'
   | 'whatsapp_verified'
   | 'whatsapp_drop_sent'
   // Monetization Events

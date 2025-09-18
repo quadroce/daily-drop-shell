@@ -303,6 +303,7 @@ export type Database = {
       delivery_log: {
         Row: {
           channel: string
+          dedup_key: string | null
           id: number
           meta: Json | null
           provider_message_id: string | null
@@ -312,6 +313,7 @@ export type Database = {
         }
         Insert: {
           channel?: string
+          dedup_key?: string | null
           id?: number
           meta?: Json | null
           provider_message_id?: string | null
@@ -321,6 +323,7 @@ export type Database = {
         }
         Update: {
           channel?: string
+          dedup_key?: string | null
           id?: number
           meta?: Json | null
           provider_message_id?: string | null
