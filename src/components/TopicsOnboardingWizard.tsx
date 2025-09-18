@@ -20,7 +20,7 @@ interface Topic {
 
 interface TopicsOnboardingWizardProps {
   onSave: (topicIds: number[]) => Promise<void>;
-  onSaveAll?: () => Promise<void>;
+  onSaveAll?: (topicIds?: number[]) => Promise<void>;
   initialSelectedTopics?: number[];
 }
 
@@ -468,7 +468,7 @@ export const TopicsOnboardingWizard: React.FC<TopicsOnboardingWizardProps> = ({
               </Button>
             ) : (
               <Button 
-                onClick={onSaveAll || handleSave}
+                onClick={() => onSaveAll ? onSaveAll(Array.from(selectedTopics)) : handleSave()}
                 disabled={saving || selectedTopics.size === 0}
               >
                 {saving ? 'Saving...' : 'Save Preferences'}

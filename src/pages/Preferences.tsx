@@ -59,7 +59,7 @@ const Preferences = () => {
     setSelectedTopics(topicIds);
   };
 
-  const handleSaveAll = async () => {
+  const handleSaveAll = async (topicsFromWizard?: number[]) => {
     if (selectedLanguages.length === 0) {
       toast({
         title: "Error",
@@ -72,10 +72,14 @@ const Preferences = () => {
     try {
       setSaving(true);
       
+      // Use topics from wizard if provided, otherwise use local state
+      const topicsToSave = topicsFromWizard || selectedTopics;
+      console.log('Saving all preferences with topics:', topicsToSave);
+      
       // Save all preferences using the consolidated API
       await saveAllUserPreferences({
         languages: selectedLanguages,
-        topicIds: selectedTopics
+        topicIds: topicsToSave
       });
 
       // Update YouTube preference separately (still in profile)
@@ -110,6 +114,8 @@ const Preferences = () => {
       setSaving(false);
     }
   };
+
+  const handleSaveAllFromButton = () => handleSaveAll();
 
   if (loading) {
     return (
@@ -179,7 +185,7 @@ const Preferences = () => {
       {/* Save Button */}
       <div className="flex justify-center pb-8">
         <Button 
-          onClick={handleSaveAll} 
+          onClick={handleSaveAllFromButton} 
           disabled={saving}
           size="lg"
           className="min-w-[200px]"
