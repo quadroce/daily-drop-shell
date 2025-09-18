@@ -164,8 +164,9 @@ export const ChannelToggleList: React.FC<ChannelToggleListProps> = ({
         setChannelStates(initialStates);
         setChannels(allChannels);
 
-        // Create default newsletter subscription if none exists
-        if (!newsletter) {
+        // Create default newsletter subscription if none exists (but not during onboarding)
+        if (!newsletter && location !== 'onboarding') {
+          console.log('ChannelToggleList: Creating default newsletter subscription');
           await supabase
             .from('newsletter_subscriptions')
             .upsert({
@@ -174,6 +175,8 @@ export const ChannelToggleList: React.FC<ChannelToggleListProps> = ({
               slot: 'morning',
               cadence: 'daily'
             });
+        } else if (location === 'onboarding') {
+          console.log('ChannelToggleList: Skipping auto-creation during onboarding');
         }
 
       } catch (error) {

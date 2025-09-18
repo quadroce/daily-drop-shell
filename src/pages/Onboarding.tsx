@@ -161,9 +161,15 @@ const OnboardingPage: React.FC = () => {
       }
       
       // Save communication preferences
+      console.log('Onboarding: Saving communication preferences:', communicationPrefs);
       if (communicationPrefs.newsletter !== undefined) {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
+          console.log('Onboarding: Creating/updating newsletter subscription:', {
+            user_id: user.id,
+            active: communicationPrefs.newsletter
+          });
+          
           const { error } = await supabase
             .from('newsletter_subscriptions')
             .upsert({
@@ -174,8 +180,10 @@ const OnboardingPage: React.FC = () => {
             });
           
           if (error) {
-            console.error('Error saving newsletter preference:', error);
+            console.error('Onboarding: Error saving newsletter preference:', error);
             throw error;
+          } else {
+            console.log('Onboarding: Newsletter preference saved successfully');
           }
         }
       }
