@@ -8,6 +8,9 @@ import { useIndexNow } from "@/lib/indexnow";
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getYouTubeThumbnailFromUrl, getYouTubeFallbackThumbnail } from "@/lib/youtube";
+import { useTopicsMap } from "@/hooks/useTopicsMap";
+import { ChipLink } from "@/components/ChipLink";
+import Footer from "@/components/Footer";
 
 // Types for our data
 type Topic = {
@@ -26,10 +29,14 @@ type Drop = {
   type: string;
   source_name: string | null;
   published_at: string;
+  l1_topic: { slug: string; label: string } | null;
+  l2_topic: { slug: string; label: string } | null;
+  tags: string[];
 };
 
 const Index = () => {
   const { submitCurrentPage } = useIndexNow();
+  const { getTopicSlug, isLoading: topicsLoading } = useTopicsMap();
   const [topics, setTopics] = useState<Topic[]>([]);
   const [recentDrops, setRecentDrops] = useState<Drop[]>([]);
 
@@ -58,13 +65,15 @@ const Index = () => {
         const { data: dropsData, error: dropsError } = await supabase
           .from('drops')
           .select(`
-            id, title, summary, image_url, url, type, published_at,
-            sources:source_id(name)
+            id, title, summary, image_url, url, type, published_at, tags,
+            sources:source_id(name),
+            l1_topic:l1_topic_id(slug, label),
+            l2_topic:l2_topic_id(slug, label)
           `)
           .eq('tag_done', true)
           .gte('published_at', new Date().toISOString().split('T')[0])
           .order('published_at', { ascending: false })
-          .limit(4);
+          .limit(8);
 
         if (dropsError) throw dropsError;
         
@@ -76,7 +85,10 @@ const Index = () => {
           url: drop.url,
           type: drop.type,
           source_name: drop.sources?.name || 'Unknown Source',
-          published_at: drop.published_at
+          published_at: drop.published_at,
+          l1_topic: drop.l1_topic,
+          l2_topic: drop.l2_topic,
+          tags: drop.tags || []
         })) || [];
         
         setRecentDrops(formattedDrops);
@@ -261,8 +273,8 @@ const Index = () => {
             </h2>
             
             {recentDrops.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
-                {recentDrops.slice(0, 4).map((drop) => (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                {recentDrops.map((drop) => (
                   <Card key={drop.id} className="hover:shadow-lg transition-all duration-200 hover:-translate-y-1">
                     <CardContent className="p-0">
                       <a href={drop.url} target="_blank" rel="noopener noreferrer" className="block">
@@ -277,10 +289,50 @@ const Index = () => {
                             {drop.title}
                           </h3>
                           {drop.summary && (
-                            <p className="text-sm text-muted-foreground line-clamp-2">
+                            <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
                               {drop.summary}
                             </p>
                           )}
+                          
+                          {/* Topic Tags */}
+                          <div className="flex flex-wrap gap-1 mb-3">
+                            {drop.l1_topic && (
+                              <ChipLink 
+                                to={`/topics/${drop.l1_topic.slug}`} 
+                                variant="tag-l1"
+                                className="text-xs"
+                              >
+                                {drop.l1_topic.label}
+                              </ChipLink>
+                            )}
+                            {drop.l2_topic && (
+                              <ChipLink 
+                                to={`/topics/${drop.l2_topic.slug}`} 
+                                variant="tag-l2"
+                                className="text-xs"
+                              >
+                                {drop.l2_topic.label}
+                              </ChipLink>
+                            )}
+                            {drop.tags.slice(0, 2).map((tag) => {
+                              const slug = getTopicSlug(tag);
+                              return slug ? (
+                                <ChipLink 
+                                  key={tag}
+                                  to={`/topics/${slug}`} 
+                                  variant="tag-l3"
+                                  className="text-xs"
+                                >
+                                  {tag}
+                                </ChipLink>
+                              ) : (
+                                <Badge key={tag} variant="tag-l3" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                          
                           <div className="flex items-center justify-between mt-3">
                             <span className="text-xs text-muted-foreground">
                               {new Date(drop.published_at).toLocaleDateString()}
@@ -311,36 +363,7 @@ const Index = () => {
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t bg-muted/30">
-        <div className="container mx-auto px-4 py-12">
-          <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-            <div className="flex flex-col md:flex-row items-center gap-4 md:gap-8 text-sm text-muted-foreground">
-              <span>© {new Date().getFullYear()} DropDaily</span>
-              <span className="hidden md:inline">•</span>
-              <span className="font-mono text-xs bg-muted px-2 py-1 rounded">v2025.09</span>
-            </div>
-            
-            <div className="flex items-center flex-wrap justify-center gap-4 md:gap-6 text-sm text-muted-foreground">
-              <Link to="/topics" className="hover:text-primary transition-colors">
-                Topics
-              </Link>
-              <Link to="/topics/technology/archive" className="hover:text-primary transition-colors">
-                Archive
-              </Link>
-              <Link to="/privacy" className="hover:text-primary transition-colors">
-                Privacy
-              </Link>
-            </div>
-          </div>
-          
-          <div className="text-center mt-6 pt-6 border-t border-muted">
-            <p className="text-xs text-muted-foreground">
-              Daily curated AI and tech news, delivered every morning.
-            </p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 };
