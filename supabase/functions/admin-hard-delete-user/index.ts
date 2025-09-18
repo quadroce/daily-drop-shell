@@ -175,6 +175,19 @@ serve(async (req) => {
         // Don't fail the entire operation for audit log errors
       }
 
+      // Delete all historical audit records for this user to prevent FK constraint violations
+      const { error: auditCleanupError } = await serviceClient
+        .from('admin_audit_log')
+        .delete()
+        .eq('user_id', user_id);
+
+      if (auditCleanupError) {
+        console.error('Error cleaning up audit records:', auditCleanupError);
+        // Continue with deletion even if audit cleanup fails
+      } else {
+        console.log(`Cleaned up historical audit records for user ${user_id}`);
+      }
+
       // Delete from profiles table (this should cascade to other tables with FK constraints)
       const { error: profileError } = await serviceClient
         .from('profiles')
