@@ -2,95 +2,121 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Droplets, Smartphone, Users, Building, TrendingUp, ArrowRight, CheckCircle, Clock, Shield, Target, Zap } from "lucide-react";
+import { ArrowRight, Brain, Building, Palette, TrendingUp, Globe, Heart, Users, ExternalLink } from "lucide-react";
 import { Seo } from "@/components/Seo";
-import { AnswerBox } from "@/components/AnswerBox";
-import { ContentTimestamp } from "@/components/ContentTimestamp";
 import { useIndexNow } from "@/lib/indexnow";
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+
+// Types for our data
+type Topic = {
+  id: number;
+  slug: string;
+  label: string;
+  level: number;
+};
+
+type Drop = {
+  id: number;
+  title: string;
+  summary: string | null;
+  image_url: string | null;
+  url: string;
+  type: string;
+  source_name: string | null;
+  published_at: string;
+};
 
 const Index = () => {
   const { submitCurrentPage } = useIndexNow();
+  const [topics, setTopics] = useState<Topic[]>([]);
+  const [recentDrops, setRecentDrops] = useState<Drop[]>([]);
 
   // Submit to IndexNow for rapid discovery
-  React.useEffect(() => {
+  useEffect(() => {
     submitCurrentPage();
   }, [submitCurrentPage]);
 
-  const faqData = [
-    {
-      question: "What is DailyDrops?",
-      answer: "DailyDrops is a content curation platform that delivers 5-10 hand-selected professional insights daily, free from algorithmic manipulation and designed for busy knowledge workers."
-    },
-    {
-      question: "How does DailyDrops differ from social media feeds?",
-      answer: "Unlike algorithmic feeds designed for engagement, DailyDrops provides curated, high-signal content from trusted sources without ads or manipulation, giving you back control over what you read."
-    },
-    {
-      question: "Who should use DailyDrops?",
-      answer: "DailyDrops is built for knowledge workers, startup founders, product managers, designers, researchers, and professionals who value their time and need quality insights without noise."
-    },
-    {
-      question: "What topics does DailyDrops cover?",
-      answer: "We cover AI & Machine Learning, software engineering, data science, product management, design, startups, and emerging technologies with professional-grade taxonomy and organization."
-    }
-  ];
-  const whyProfessionalsLove = [
-    {
-      icon: <Clock className="h-6 w-6 text-primary" />,
-      title: "Time-saving",
-      description: "No more endless scrolling. One Drop, every day."
-    },
-    {
-      icon: <Shield className="h-6 w-6 text-primary" />,
-      title: "High-signal sources", 
-      description: "Content comes from trusted publishers, research outlets, and verified creators."
-    },
-    {
-      icon: <Target className="h-6 w-6 text-primary" />,
-      title: "Personalized",
-      description: "Your preferences and interactions shape what you see next."
-    },
-    {
-      icon: <Zap className="h-6 w-6 text-primary" />,
-      title: "Independent",
-      description: "Free from opaque algorithms that serve ads instead of value."
-    }
-  ];
+  // Fetch topics and recent drops
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch main topics (level 1)
+        const { data: topicsData, error: topicsError } = await supabase
+          .from('topics')
+          .select('id, slug, label, level')
+          .eq('level', 1)
+          .eq('is_active', true)
+          .order('label')
+          .limit(8);
 
-  const features = [
-    "Daily curated feed (5–10 items)",
-    "Built-in feedback: save, like, dismiss",
-    "Newsletter delivery straight to your inbox",
-    "Premium WhatsApp delivery (twice a day)",
-    "Professional topic taxonomy (AI & ML, Design, Product, Startups, more)",
-    "Public topic pages for SEO and evergreen discovery",
-    "Archive access (90 days Free, unlimited Premium)"
-  ];
+        if (topicsError) throw topicsError;
+        setTopics(topicsData || []);
+
+        // Fetch recent drops from today
+        const { data: dropsData, error: dropsError } = await supabase
+          .from('drops')
+          .select(`
+            id, title, summary, image_url, url, type, published_at,
+            sources:source_id(name)
+          `)
+          .eq('tag_done', true)
+          .gte('published_at', new Date().toISOString().split('T')[0])
+          .order('published_at', { ascending: false })
+          .limit(4);
+
+        if (dropsError) throw dropsError;
+        
+        const formattedDrops = dropsData?.map((drop: any) => ({
+          id: drop.id,
+          title: drop.title,
+          summary: drop.summary,
+          image_url: drop.image_url,
+          url: drop.url,
+          type: drop.type,
+          source_name: drop.sources?.name || 'Unknown Source',
+          published_at: drop.published_at
+        })) || [];
+        
+        setRecentDrops(formattedDrops);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Topic icons mapping
+  const getTopicIcon = (slug: string) => {
+    switch (slug) {
+      case 'technology': return <Brain className="h-6 w-6" />;
+      case 'business': return <Building className="h-6 w-6" />;
+      case 'design': return <Palette className="h-6 w-6" />;
+      case 'finance': return <TrendingUp className="h-6 w-6" />;
+      case 'media': return <Globe className="h-6 w-6" />;
+      case 'science': return <Heart className="h-6 w-6" />;
+      case 'lifestyle': return <Heart className="h-6 w-6" />;
+      case 'society': return <Users className="h-6 w-6" />;
+      default: return <Globe className="h-6 w-6" />;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
       <Seo 
-        title="DailyDrops – Curated AI, Tech & Business News for Professionals"
-        description="Get your Daily Drop: curated AI, tech and business insights tailored for busy professionals. Free and premium plans available."
+        title="Your Daily Dose of AI, Tech & Business Insights - DropDaily"
+        description="Cut through the noise with curated AI news, tech trends, and business intelligence. Daily newsletter with startup insights, design updates, and professional content."
         canonical="https://dailydrops.cloud/"
-        article={{
-          author: "DailyDrops Team",
-          publishedTime: "2025-01-01T00:00:00Z",
-          modifiedTime: new Date().toISOString(),
-          section: "Technology",
-          tags: ["AI", "Technology", "Professional Development", "Content Curation"]
-        }}
-        faq={faqData}
         jsonLd={{
           "@context": "https://schema.org",
           "@type": "WebSite",
           "url": "https://dailydrops.cloud/",
-          "name": "DailyDrops",
-          "description": "Curated AI, tech and business insights tailored for busy professionals.",
+          "name": "DropDaily",
+          "description": "Your daily dose of AI, Tech & Business insights. Cut through the noise with curated content.",
           "publisher": {
             "@type": "Organization",
-            "name": "DailyDrops",
+            "name": "DropDaily",
             "logo": {
               "@type": "ImageObject",
               "url": "https://dailydrops.cloud/logo.png"
@@ -108,26 +134,23 @@ const Index = () => {
       <header className="bg-gradient-to-br from-primary/10 via-background to-accent/10">
         <div className="container mx-auto px-4 py-24">
           <div className="max-w-4xl mx-auto text-center">
-            <Badge className="mb-6 bg-primary/20 text-primary border-primary/30">
-              ✨ Fresh Professional Insights, Every Day
-            </Badge>
             <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-6">
-              DailyDrops – Fresh Professional Insights, Every Day
+              Your daily dose of AI, Tech & Business insights
             </h1>
             <p className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto">
-              Take control of your feed. Get curated AI, tech and business insights without algorithmic manipulation.
+              Cut through the noise. Stay updated in minutes.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button size="lg" className="text-lg px-8" asChild>
-                <Link to="/auth">
-                  Get your first Daily Drop today – free
+                <Link to="/feed">
+                  See Today's Drop
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
               <Button variant="outline" size="lg" className="text-lg px-8" asChild>
-                <Link to="/feed">
-                  Browse Sample Feed
+                <Link to="/newsletter">
+                  Subscribe Free
                 </Link>
               </Button>
             </div>
@@ -136,185 +159,153 @@ const Index = () => {
       </header>
 
       <main>
-        {/* Answer Boxes Section */}
+        {/* SEO Intro Section */}
         <section className="container mx-auto px-4 py-16">
-          <div className="max-w-4xl mx-auto">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-bold text-foreground">Quick Answers</h2>
-              <ContentTimestamp updatedAt={new Date()} />
-            </div>
-            <div className="grid gap-6 md:grid-cols-2">
-              <AnswerBox
-                question="What is DailyDrops?"
-                answer="DailyDrops delivers 5-10 curated professional insights daily without algorithmic manipulation. Built for busy knowledge workers who need quality content without noise, featuring AI, tech, and business content from trusted sources."
-                category="Platform"
-                lastUpdated="2025-09-15"
-              />
-              <AnswerBox
-                question="How is it different from social media?"
-                answer="Unlike engagement-driven algorithms, DailyDrops provides editorial curation from trusted publishers and research outlets. No ads, no manipulation, no endless scroll—just essential insights delivered daily to your inbox."
-                category="Approach"
-                lastUpdated="2025-09-15"
-              />
-            </div>
+          <div className="max-w-4xl mx-auto text-center">
+            <p className="text-lg text-muted-foreground leading-relaxed">
+              Stay ahead with curated <strong>AI news</strong>, <strong>tech trends</strong>, and <strong>business intelligence</strong> delivered through our <strong>daily newsletter</strong>. 
+              Our platform aggregates the most relevant insights from trusted sources, covering everything from cutting-edge artificial intelligence developments 
+              to startup innovations and design breakthroughs. Join thousands of professionals who rely on our <strong>curated insights</strong> to make informed decisions. 
+              Whether you're tracking emerging technologies, monitoring industry shifts, or seeking strategic business perspectives, our expertly selected content 
+              cuts through information overload. Get comprehensive coverage of <strong>startups</strong>, product design evolution, and market analysis 
+              that matters to forward-thinking professionals. Transform how you consume professional content with intelligence-driven curation that respects your time and delivers genuine value.
+            </p>
           </div>
         </section>
 
-        {/* Choose What to Read Section */}
-        <section className="container mx-auto px-4 py-24">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
-              Choose What to Read, When You Want
-            </h2>
-            <div className="prose prose-lg max-w-none text-muted-foreground leading-relaxed">
-              <p>
-                In a digital world dominated by algorithmic feeds designed to manipulate your attention, DailyDrops gives you back control. No hidden agenda, no endless scroll, no manipulation.
-              </p>
-              <p>
-                Every morning, you receive a curated selection of high-signal content: articles, reports, and videos that matter to professionals. You decide what to read, when to read it, and how to act on it.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* What is DailyDrops Section */}
+        {/* Topics Section */}
         <section className="bg-muted/30">
           <div className="container mx-auto px-4 py-24">
-            <div className="max-w-4xl mx-auto">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
-                What is DailyDrops?
+            <div className="max-w-6xl mx-auto">
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-12 text-center">
+                Explore Topics
               </h2>
-              <div className="prose prose-lg max-w-none text-muted-foreground leading-relaxed">
-                <p>
-                  DailyDrops is a content curation platform built for busy professionals who don't have time to sift through noise. Instead of dozens of low-value posts, you get a concise Drop: 5–10 hand-selected pieces, refreshed daily.
-                </p>
-                <p>
-                  Each Drop includes at least one YouTube video, giving you multiple formats to engage with. Content comes from trusted publishers, research outlets, and verified creators.
-                </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {topics.map((topic) => (
+                  <Card key={topic.id} className="hover:shadow-lg transition-all duration-200 hover:-translate-y-1">
+                    <CardContent className="p-6 text-center">
+                      <Link to={`/topics/${topic.slug}`} className="block">
+                        <div className="flex flex-col items-center gap-4">
+                          <div className="p-3 bg-primary/10 rounded-full text-primary">
+                            {getTopicIcon(topic.slug)}
+                          </div>
+                          <h3 className="font-semibold text-foreground hover:text-primary transition-colors">
+                            {topic.label}
+                          </h3>
+                        </div>
+                      </Link>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              
+              <div className="text-center mt-12">
+                <Button variant="outline" asChild>
+                  <Link to="/topics">
+                    View All Topics
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Why Professionals Love It Section */}
+        {/* Daily Preview Section */}
         <section className="container mx-auto px-4 py-24">
           <div className="max-w-6xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-12 text-center">
-              Why Professionals Love It
+              Today's Featured Drops
             </h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {whyProfessionalsLove.map((reason, index) => (
-                <Card key={index} className="hover:bg-card-hover transition-colors">
-                  <CardContent className="p-6">
-                    <div className="flex items-start gap-4">
-                      <div className="p-2 bg-primary/10 rounded-lg flex-shrink-0">
-                        {reason.icon}
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-semibold text-foreground mb-2">{reason.title}</h3>
-                        <p className="text-muted-foreground">{reason.description}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Features at a Glance Section */}
-        <section className="bg-muted/30">
-          <div className="container mx-auto px-4 py-24">
-            <div className="max-w-4xl mx-auto">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-12 text-center">
-                Features at a Glance
-              </h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {features.map((feature, index) => (
-                  <div key={index} className="flex items-center gap-3 bg-background/50 p-4 rounded-lg">
-                    <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />
-                    <span className="text-foreground">{feature}</span>
-                  </div>
+            {recentDrops.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
+                {recentDrops.slice(0, 4).map((drop) => (
+                  <Card key={drop.id} className="hover:shadow-lg transition-all duration-200 hover:-translate-y-1">
+                    <CardContent className="p-0">
+                      <a href={drop.url} target="_blank" rel="noopener noreferrer" className="block">
+                        {drop.image_url && (
+                          <div className="aspect-video bg-muted rounded-t-lg overflow-hidden">
+                            <img 
+                              src={drop.image_url} 
+                              alt={drop.title}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )}
+                        <div className="p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge variant="secondary" className="text-xs">
+                              {drop.type === 'video' ? '📹' : '📄'} {drop.source_name}
+                            </Badge>
+                          </div>
+                          <h3 className="font-semibold text-foreground mb-2 line-clamp-2 hover:text-primary transition-colors">
+                            {drop.title}
+                          </h3>
+                          {drop.summary && (
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              {drop.summary}
+                            </p>
+                          )}
+                          <div className="flex items-center justify-between mt-3">
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(drop.published_at).toLocaleDateString()}
+                            </span>
+                            <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        </div>
+                      </a>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground mb-6">Loading today's featured content...</p>
+              </div>
+            )}
+            
+            <div className="text-center">
+              <Button size="lg" asChild>
+                <Link to="/feed">
+                  Explore the full Drop
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Link>
+              </Button>
             </div>
           </div>
-        </section>
-
-        {/* Who is it for Section */}
-        <section className="container mx-auto px-4 py-24">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
-              Who is it for?
-            </h2>
-            <div className="prose prose-lg max-w-none text-muted-foreground leading-relaxed">
-              <p>
-                DailyDrops is built for knowledge workers, startup founders, product managers, designers, researchers, and anyone who values their time.
-              </p>
-              <p>
-                Whether you are preparing for a client call, scanning industry trends, or simply staying sharp, DailyDrops ensures you get the essentials without distraction.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* Take Control Section */}
-        <section className="bg-muted/30">
-          <div className="container mx-auto px-4 py-24">
-            <div className="max-w-4xl mx-auto">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
-                Take Control of Your Feed
-              </h2>
-              <div className="prose prose-lg max-w-none text-muted-foreground leading-relaxed mb-8">
-                <p>
-                  The most radical act in today's digital landscape is choosing what you read. DailyDrops makes that choice easy and powerful.
-                </p>
-                <p>
-                  Sign up today, set your interests, and start receiving a curated drop of insights every morning.
-                </p>
-              </div>
-              
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button size="lg" className="text-lg px-8" asChild>
-                  <Link to="/auth">
-                    Get your first Daily Drop today – free
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Link>
-                </Button>
-                <Button variant="outline" size="lg" className="text-lg px-8" asChild>
-                  <Link to="/feed">
-                    Browse Sample Feed
-                  </Link>
-                </Button>  
-              </div>
-            </div>
-          </div>  
         </section>
       </main>
 
-      {/* Final CTA Section */}
-      <footer className="container mx-auto px-4 py-24">
-        <div className="max-w-4xl mx-auto">
-          <Card className="bg-primary/5 border-primary/20">
-            <CardContent className="p-12 text-center">
-              <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <CheckCircle className="h-4 w-4 text-success" />
-                  <span>Free forever plan</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <CheckCircle className="h-4 w-4 text-success" />
-                  <span>No credit card required</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <CheckCircle className="h-4 w-4 text-success" />
-                  <span>Cancel anytime</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+      {/* Footer */}
+      <footer className="border-t bg-muted/30">
+        <div className="container mx-auto px-4 py-12">
+          <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+            <div className="flex flex-col md:flex-row items-center gap-4 md:gap-8 text-sm text-muted-foreground">
+              <span>© {new Date().getFullYear()} DropDaily</span>
+              <span className="hidden md:inline">•</span>
+              <span className="font-mono text-xs bg-muted px-2 py-1 rounded">v2025.09</span>
+            </div>
+            
+            <div className="flex items-center flex-wrap justify-center gap-4 md:gap-6 text-sm text-muted-foreground">
+              <Link to="/topics" className="hover:text-primary transition-colors">
+                Topics
+              </Link>
+              <Link to="/topics/technology/archive" className="hover:text-primary transition-colors">
+                Archive
+              </Link>
+              <Link to="/privacy" className="hover:text-primary transition-colors">
+                Privacy
+              </Link>
+            </div>
+          </div>
+          
+          <div className="text-center mt-6 pt-6 border-t border-muted">
+            <p className="text-xs text-muted-foreground">
+              Daily curated AI and tech news, delivered every morning.
+            </p>
+          </div>
         </div>
       </footer>
     </div>
