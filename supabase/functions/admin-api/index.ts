@@ -54,54 +54,30 @@ interface AdminValidationResult {
   userRole?: string;
 }
 
-async function validateAdminRole(authHeader: string | null): Promise<AdminValidationResult> {
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return { 
-      valid: false, 
-      error: 'no_auth',
-      errorMessage: 'No authentication token provided. Please login to continue.'
-    };
-  }
-
-  const token = authHeader.substring(7);
-  const jwtResult = decodeJWT(token);
-  
-  if (!jwtResult.success) {
-    let errorMessage = 'Invalid authentication token.';
-    switch (jwtResult.error) {
-      case 'missing':
-      case 'empty':
-        errorMessage = 'Authentication token is missing. Please login again.';
-        break;
-      case 'malformed':
-        errorMessage = 'Authentication token is corrupted. Please login again.';
-        break;
-      case 'invalid_structure':
-        errorMessage = 'Authentication token has invalid format. Please login again.';
-        break;
-    }
-    
-    return { 
-      valid: false, 
-      error: 'invalid_token',
-      errorMessage 
-    };
-  }
-
-  // Check role from profiles table instead of JWT metadata
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: {
-      headers: {
-        Authorization: authHeader,
-      },
-    },
-  });
+async function validateAdminRole(): Promise<AdminValidationResult> {
+  // Create Supabase client that will automatically use the JWT from the request context
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   try {
+    // Get the current user from the JWT in the request context
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !authData.user) {
+      console.log('Auth error or no user:', authError);
+      return { 
+        valid: false, 
+        error: 'no_auth',
+        errorMessage: 'No authentication token provided. Please login to continue.'
+      };
+    }
+
+    const userId = authData.user.id;
+    
+    // Check role from profiles table
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('role')
-      .eq('id', jwtResult.payload!.sub)
+      .eq('id', userId)
       .single();
 
     if (error) {
@@ -126,7 +102,7 @@ async function validateAdminRole(authHeader: string | null): Promise<AdminValida
       };
     }
 
-    return { valid: true, payload: jwtResult.payload };
+    return { valid: true, payload: { sub: userId } };
   } catch (error) {
     console.log('Error validating admin role:', error);
     return { 
@@ -137,7 +113,7 @@ async function validateAdminRole(authHeader: string | null): Promise<AdminValida
   }
 }
 
-async function createSource(req: Request, authHeader: string) {
+async function createSource(req: Request) {
   const { name, homepage_url, feed_url, official = false } = await req.json();
   
   if (!name || !homepage_url) {
@@ -149,13 +125,7 @@ async function createSource(req: Request, authHeader: string) {
     });
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: {
-      headers: {
-        Authorization: authHeader,
-      },
-    },
-  });
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   const { data, error } = await supabase
     .from('sources')
@@ -182,7 +152,7 @@ async function createSource(req: Request, authHeader: string) {
   });
 }
 
-async function enqueueItem(req: Request, authHeader: string) {
+async function enqueueItem(req: Request) {
   const { source_id, url } = await req.json();
   
   if (!source_id || !url) {
@@ -194,13 +164,7 @@ async function enqueueItem(req: Request, authHeader: string) {
     });
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: {
-      headers: {
-        Authorization: authHeader,
-      },
-    },
-  });
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   // Use upsert to handle ON CONFLICT DO NOTHING behavior
   const { data, error } = await supabase
@@ -235,7 +199,7 @@ async function enqueueItem(req: Request, authHeader: string) {
   });
 }
 
-async function retryQueueItem(req: Request, authHeader: string) {
+async function retryQueueItem(req: Request) {
   const { queue_id } = await req.json();
   
   if (!queue_id) {
@@ -247,13 +211,7 @@ async function retryQueueItem(req: Request, authHeader: string) {
     });
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: {
-      headers: {
-        Authorization: authHeader,
-      },
-    },
-  });
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   // First get the current tries count
   const { data: currentItem, error: fetchError } = await supabase
@@ -299,7 +257,7 @@ async function retryQueueItem(req: Request, authHeader: string) {
   });
 }
 
-async function youtubeReprocess(req: Request, authHeader: string) {
+async function youtubeReprocess(req: Request) {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const youtubeiApiKey = Deno.env.get('YOUTUBE_API_KEY');
@@ -492,15 +450,9 @@ async function youtubeReprocess(req: Request, authHeader: string) {
 }
 
 // Users management functions
-async function getUsers(req: Request, authHeader: string, body?: any): Promise<Response> {
+async function getUsers(req: Request, body?: any): Promise<Response> {
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: {
-        headers: {
-          Authorization: authHeader,
-        },
-      },
-    });
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // Read parameters from body (for POST requests) or URL (for GET requests)
     const params = body || {};
@@ -576,15 +528,9 @@ async function getUsers(req: Request, authHeader: string, body?: any): Promise<R
   }
 }
 
-async function getUserById(req: Request, authHeader: string, userId: string): Promise<Response> {
+async function getUserById(req: Request, userId: string): Promise<Response> {
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: {
-        headers: {
-          Authorization: authHeader,
-        },
-      },
-    });
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     const { data, error } = await supabase
       .from('profiles')
@@ -611,15 +557,9 @@ async function getUserById(req: Request, authHeader: string, userId: string): Pr
   }
 }
 
-async function createUser(req: Request, authHeader: string, payload?: any): Promise<Response> {
+async function createUser(req: Request, payload?: any): Promise<Response> {
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: {
-        headers: {
-          Authorization: authHeader,
-        },
-      },
-    });
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     const body = payload || await req.json();
     const { email, display_name, subscription_tier = 'free', role = 'user' } = body;
@@ -689,15 +629,9 @@ async function createUser(req: Request, authHeader: string, payload?: any): Prom
   }
 }
 
-async function updateUser(req: Request, authHeader: string, userId: string, payload?: any): Promise<Response> {
+async function updateUser(req: Request, userId: string, payload?: any): Promise<Response> {
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: {
-        headers: {
-          Authorization: authHeader,
-        },
-      },
-    });
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // Use provided payload or parse from request body (for backwards compatibility)
     const userData = payload || await req.json();
@@ -887,18 +821,12 @@ async function updateUser(req: Request, authHeader: string, userId: string, payl
   }
 }
 
-async function softDeleteUser(req: Request, authHeader: string, userId: string): Promise<Response> {
+async function softDeleteUser(req: Request, userId: string): Promise<Response> {
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: {
-        headers: {
-          Authorization: authHeader,
-        },
-      },
-    });
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // Get current user for audit logging
-    const { data: authUser } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+    const { data: authUser } = await supabase.auth.getUser();
     const currentUserId = authUser.user?.id;
 
     const { data, error } = await supabase
@@ -932,15 +860,9 @@ async function softDeleteUser(req: Request, authHeader: string, userId: string):
   }
 }
 
-async function getLanguages(req: Request, authHeader: string): Promise<Response> {
+async function getLanguages(req: Request): Promise<Response> {
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: {
-        headers: {
-          Authorization: authHeader,
-        },
-      },
-    });
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     const { data, error } = await supabase
       .from('languages')
@@ -977,8 +899,7 @@ serve(async (req) => {
   }
 
   // Validate admin role
-  const authHeader = req.headers.get('Authorization');
-  const validation = await validateAdminRole(authHeader);
+  const validation = await validateAdminRole();
   
   if (!validation.valid) {
     const statusCode = validation.error === 'no_auth' || validation.error === 'invalid_token' ? 401 : 403;
@@ -1017,16 +938,16 @@ serve(async (req) => {
   try {
     switch (pathname) {
       case '/sources':
-        return await createSource(req, authHeader!);
+        return await createSource(req);
       
       case '/enqueue':
-        return await enqueueItem(req, authHeader!);
+        return await enqueueItem(req);
       
       case '/retry':
-        return await retryQueueItem(req, authHeader!);
+        return await retryQueueItem(req);
       
       case '/youtube-reprocess':
-        return await youtubeReprocess(req, authHeader!);
+        return await youtubeReprocess(req);
       
       case '/users':
         // Distinguish between fetch and create based on request body content
@@ -1034,19 +955,19 @@ serve(async (req) => {
           const body = await req.json().catch(() => ({}));
           if (body.email && body.display_name) {
             // Body contains user data - create user
-            return await createUser(req, authHeader!, body);
+            return await createUser(req, body);
           } else {
             // Body contains search parameters - fetch users
-            return await getUsers(req, authHeader!, body);
+            return await getUsers(req, body);
           }
         } catch (error) {
           console.error('Error parsing JSON body for /users:', error);
-          return await getUsers(req, authHeader!, {});
+          return await getUsers(req, {});
         }
         break;
       
       case '/languages':
-        return await getLanguages(req, authHeader!);
+        return await getLanguages(req);
       
       default:
         // Handle user detail endpoints /users/:id
@@ -1060,20 +981,20 @@ serve(async (req) => {
             
             if (body.action === 'delete') {
               // Delete/deactivate user
-              return await softDeleteUser(req, authHeader!, userId);
+              return await softDeleteUser(req, userId);
             } else if (body.action === 'get') {
               // Get user by ID
-              return await getUserById(req, authHeader!, userId);
+              return await getUserById(req, userId);
             } else if (Object.keys(body).length > 0 && !body.action) {
               // Update user (body contains user data)
-              return await updateUser(req, authHeader!, userId, body);
+              return await updateUser(req, userId, body);
             } else {
               // Default to get user by ID for empty body or unrecognized action
-              return await getUserById(req, authHeader!, userId);
+              return await getUserById(req, userId);
             }
           } catch (error) {
             console.error('Error parsing JSON body for user operation:', error);
-            return await getUserById(req, authHeader!, userId);
+            return await getUserById(req, userId);
           }
         }
         
