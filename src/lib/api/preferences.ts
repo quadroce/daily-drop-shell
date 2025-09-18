@@ -16,11 +16,14 @@ export const saveAllUserPreferences = async (preferences: {
   }
 
   try {
+    // Ensure we have at least one language (default to 'en' if none provided)
+    const languagesToSave = preferences.languages.length > 0 ? preferences.languages : ['en'];
+    
     // Get language IDs from language codes
     const { data: languages, error: langError } = await supabase
       .from('languages')
       .select('id, code')
-      .in('code', preferences.languages);
+      .in('code', languagesToSave);
 
     if (langError) {
       console.error('Error fetching languages:', langError);
@@ -28,12 +31,18 @@ export const saveAllUserPreferences = async (preferences: {
     }
 
     const languageIds = languages?.map(lang => lang.id) || [];
+    
+    console.log('Saving preferences:', {
+      topicIds: preferences.topicIds,
+      languageIds,
+      languageCodes: languagesToSave
+    });
 
     // Update profiles table (for backward compatibility)
     const { error: profileError } = await supabase
       .from('profiles')
       .update({
-        language_prefs: preferences.languages
+        language_prefs: languagesToSave
       })
       .eq('id', user.id);
 
@@ -117,6 +126,8 @@ export const fetchAllUserPreferences = async (): Promise<{
       throw new Error(`Failed to fetch preferences: ${prefsError.message}`);
     }
 
+    console.log('Fetched preferences:', preferences);
+
     // Get language codes from IDs
     let languageCodes: string[] = [];
     if (preferences?.selected_language_ids?.length > 0) {
@@ -128,12 +139,18 @@ export const fetchAllUserPreferences = async (): Promise<{
       languageCodes = languages?.map(lang => lang.code) || [];
     }
 
-    // If we have preferences data, return it
-    if (preferences && (preferences.selected_topic_ids?.length > 0 || preferences.selected_language_ids?.length > 0)) {
+    // If we have a preferences record (regardless of array contents), return it
+    if (preferences) {
+      console.log('Returning existing preferences:', {
+        selectedTopicIds: preferences.selected_topic_ids || [],
+        selectedLanguageIds: preferences.selected_language_ids || [],
+        languageCodes: languageCodes.length > 0 ? languageCodes : ['en']
+      });
+      
       return {
         selectedTopicIds: preferences.selected_topic_ids || [],
         selectedLanguageIds: preferences.selected_language_ids || [],
-        languageCodes
+        languageCodes: languageCodes.length > 0 ? languageCodes : ['en']
       };
     }
 
