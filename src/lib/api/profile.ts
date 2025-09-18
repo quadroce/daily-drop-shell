@@ -104,6 +104,24 @@ export async function saveTopics(topicIds: number[]): Promise<void> {
   if (insertError) {
     throw new Error(`Failed to save topic preferences: ${insertError.message}`);
   }
+
+  // Also update preferences table for Feed compatibility
+  console.log('Saving topics to preferences table for Feed compatibility:', topicIds);
+  const { error: preferencesError } = await supabase
+    .from('preferences')
+    .upsert({
+      user_id: user.id,
+      selected_topic_ids: topicIds,
+      selected_language_ids: [], // Keep existing or default empty
+      updated_at: new Date().toISOString()
+    });
+
+  if (preferencesError) {
+    console.error('Error updating preferences table:', preferencesError);
+    throw new Error(`Failed to update preferences: ${preferencesError.message}`);
+  }
+
+  console.log('Successfully saved topics to both user_topic_preferences and preferences tables');
 }
 
 /**
