@@ -26,11 +26,21 @@ serve(async (req) => {
   }
 
   try {
-    // Initialize Supabase client with service role key
+    // Initialize Supabase clients
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+    // Anonymous client for JWT validation
+    const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
+
+    // Service role client for database operations (bypasses RLS)
+    const serviceClient = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false
@@ -46,24 +56,25 @@ serve(async (req) => {
       });
     }
 
-    // Verify the caller is SuperAdmin
-    const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+    // Verify the caller using anonymous client
+    const { data: { user }, error: userError } = await anonClient.auth.getUser(authHeader.replace('Bearer ', ''));
     if (userError || !user) {
+      console.log('User validation error:', userError);
       return new Response(JSON.stringify({ error: 'Invalid authorization' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Check if caller has superadmin role
-    const { data: callerProfile } = await supabase
+    // Check if caller has superadmin role using service client
+    const { data: callerProfile, error: profileError } = await serviceClient
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single();
 
-    if (!callerProfile || callerProfile.role !== 'superadmin') {
-      console.log(`Access denied: user ${user.id} has role ${callerProfile?.role}, requires superadmin`);
+    if (profileError || !callerProfile || callerProfile.role !== 'superadmin') {
+      console.log(`Access denied: user ${user.id} has role ${callerProfile?.role}, requires superadmin. Error:`, profileError);
       return new Response(JSON.stringify({ error: 'Only SuperAdmin can perform hard deletes' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -81,8 +92,8 @@ serve(async (req) => {
 
     console.log(`Starting hard delete for user ${user_id} by ${user.id}, force=${force}`);
 
-    // Check if user exists and get their profile
-    const { data: targetProfile } = await supabase
+    // Check if user exists and get their profile using service client
+    const { data: targetProfile } = await serviceClient
       .from('profiles')
       .select('email, subscription_tier, role')
       .eq('id', user_id)
@@ -127,7 +138,7 @@ serve(async (req) => {
       ];
 
       for (const table of cleanupTables) {
-        const { error: deleteError } = await supabase
+        const { error: deleteError } = await serviceClient
           .from(table)
           .delete()
           .eq('user_id', user_id);
@@ -141,7 +152,7 @@ serve(async (req) => {
       }
 
       // Delete from profiles table (this should cascade to other tables with FK constraints)
-      const { error: profileError } = await supabase
+      const { error: profileError } = await serviceClient
         .from('profiles')
         .delete()
         .eq('id', user_id);
@@ -152,7 +163,7 @@ serve(async (req) => {
       }
 
       // Finally, delete from auth.users (this is the nuclear option)
-      const { error: authDeleteError } = await supabase.auth.admin.deleteUser(user_id);
+      const { error: authDeleteError } = await serviceClient.auth.admin.deleteUser(user_id);
       
       if (authDeleteError) {
         console.error('Error deleting from auth.users:', authDeleteError);
@@ -160,7 +171,7 @@ serve(async (req) => {
       }
 
       // Log the action for audit trail
-      const { error: auditError } = await supabase
+      const { error: auditError } = await serviceClient
         .from('admin_audit_log')
         .insert({
           user_id: user.id,

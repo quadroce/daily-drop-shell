@@ -110,3 +110,6 @@ verify_jwt = false
 
 [functions.send-email-digest]
 verify_jwt = false
+
+[functions.admin-hard-delete-user]
+verify_jwt = true
