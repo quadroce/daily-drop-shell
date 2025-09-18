@@ -11,7 +11,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertDialog, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog } from "@/components/ui/alert-dialog";
 import { 
   Users, Search, Filter, UserPlus, Edit, Trash2, 
   RefreshCw, ChevronLeft, ChevronRight, Settings,
@@ -672,17 +672,15 @@ const AdminUsers = () => {
                           </Button>
                         )}
                         {currentUserRole === 'superadmin' && (
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setHardDeleteUser(user)}
-                              className="text-destructive hover:text-destructive"
-                              title="Hard Delete (Permanent)"
-                            >
-                              <UserX className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setHardDeleteUser(user)}
+                            className="text-destructive hover:text-destructive"
+                            title="Hard Delete (Permanent)"
+                          >
+                            <UserX className="h-4 w-4" />
+                          </Button>
                         )}
                       </div>
                     </TableCell>
