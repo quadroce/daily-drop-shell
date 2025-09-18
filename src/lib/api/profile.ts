@@ -197,42 +197,68 @@ export async function getCurrentProfile(): Promise<Profile | null> {
 /**
  * Update user preferences (languages and YouTube embed)
  */
-export async function updateUserPreferences(preferences: {
-  language_prefs: string[];
-  youtube_embed_pref: boolean;
-}): Promise<Profile> {
+export const updateUserPreferences = async (preferences: { 
+  language_prefs: string[]; 
+  youtube_embed_pref: boolean; 
+}): Promise<Profile> => {
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) {
-    throw new Error("User not authenticated");
+    throw new Error('User must be authenticated');
   }
 
-  // Validate language preferences (max 3)
-  if (preferences.language_prefs.length > 3) {
-    throw new Error("Maximum 3 languages allowed");
+  // First, get language IDs from language codes
+  const { data: languages, error: langError } = await supabase
+    .from('languages')
+    .select('id, code')
+    .in('code', preferences.language_prefs);
+
+  if (langError) {
+    console.error('Error fetching languages:', langError);
+    throw new Error(`Failed to fetch languages: ${langError.message}`);
   }
 
-  if (preferences.language_prefs.length < 1) {
-    throw new Error("At least 1 language is required");
-  }
+  const languageIds = languages?.map(lang => lang.id) || [];
 
-  const { data, error } = await supabase
+  // Update profiles table for youtube_embed_pref
+  const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .update({
       language_prefs: preferences.language_prefs,
-      youtube_embed_pref: preferences.youtube_embed_pref,
+      youtube_embed_pref: preferences.youtube_embed_pref
     })
     .eq('id', user.id)
-    .select()
+    .select('*')
     .single();
 
-  if (error) {
-    console.error('Error updating preferences:', error);
-    throw new Error(`Failed to update preferences: ${error.message}`);
+  if (profileError) {
+    console.error('Error updating profile:', profileError);
+    throw new Error(`Failed to update profile: ${profileError.message}`);
   }
 
-  return data;
-}
+  // Also update the preferences table for consistency
+  const { error: prefsError } = await supabase
+    .from('preferences')
+    .upsert({
+      user_id: user.id,
+      selected_language_ids: languageIds,
+      updated_at: new Date().toISOString()
+    }, {
+      onConflict: 'user_id',
+      ignoreDuplicates: false
+    });
+
+  if (prefsError) {
+    console.error('Error updating preferences table:', prefsError);
+    // Don't throw here - profile was updated successfully
+  }
+
+  if (!profile) {
+    throw new Error('Profile not found');
+  }
+
+  return profile;
+};
 
 /**
  * Fetch available languages from database

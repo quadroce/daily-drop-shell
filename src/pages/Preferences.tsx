@@ -2,13 +2,15 @@ import React, { useState, useEffect } from "react";
 import { TopicsOnboardingWizard } from "@/components/TopicsOnboardingWizard";
 import { LanguagePreferences } from "@/components/preferences/LanguagePreferences";
 import { YouTubePreferences } from "@/components/preferences/YouTubePreferences";
-import { saveUserTopics, fetchUserPreferences } from "@/lib/api/topics";
-import { getCurrentProfile, updateUserPreferences } from "@/lib/api/profile";
+import { fetchUserPreferences } from "@/lib/api/topics";
+import { getCurrentProfile } from "@/lib/api/profile";
+import { saveAllUserPreferences, fetchAllUserPreferences } from "@/lib/api/preferences";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Settings, Hash } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const Preferences = () => {
   const [initialTopics, setInitialTopics] = useState<number[]>([]);
@@ -22,17 +24,20 @@ const Preferences = () => {
     const loadExistingPreferences = async () => {
       try {
         const [preferences, profile] = await Promise.all([
-          fetchUserPreferences(),
+          fetchAllUserPreferences(),
           getCurrentProfile()
         ]);
         
         if (preferences) {
           setInitialTopics(preferences.selectedTopicIds);
           setSelectedTopics(preferences.selectedTopicIds);
+          setSelectedLanguages(preferences.languageCodes.length > 0 ? preferences.languageCodes : ['en']);
+        } else if (profile) {
+          // Fallback to profile data if no preferences found
+          setSelectedLanguages(profile.language_prefs || ['en']);
         }
         
         if (profile) {
-          setSelectedLanguages(profile.language_prefs || ['en']);
           setYoutubeEmbedPref(profile.youtube_embed_pref);
         }
       } catch (error) {
@@ -67,14 +72,20 @@ const Preferences = () => {
     try {
       setSaving(true);
       
-      // Save language and YouTube preferences
-      await updateUserPreferences({
-        language_prefs: selectedLanguages,
-        youtube_embed_pref: youtubeEmbedPref,
+      // Save all preferences using the consolidated API
+      await saveAllUserPreferences({
+        languages: selectedLanguages,
+        topicIds: selectedTopics
       });
 
-      // Save topics preferences
-      await saveUserTopics(selectedTopics);
+      // Update YouTube preference separately (still in profile)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('profiles')
+          .update({ youtube_embed_pref: youtubeEmbedPref })
+          .eq('id', user.id);
+      }
       
       toast({
         title: "Success",
@@ -83,7 +94,7 @@ const Preferences = () => {
     } catch (error) {
       console.error("Error saving preferences:", error);
       toast({
-        title: "Error",
+        title: "Error", 
         description: "Failed to save preferences. Please try again.",
         variant: "destructive",
       });

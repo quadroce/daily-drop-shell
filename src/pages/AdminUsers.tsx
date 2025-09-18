@@ -11,15 +11,17 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AlertDialog, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { 
   Users, Search, Filter, UserPlus, Edit, Trash2, 
   RefreshCw, ChevronLeft, ChevronRight, Settings,
-  Mail, Shield, Globe, Calendar, Eye, EyeOff
+  Mail, Shield, Globe, Calendar, Eye, EyeOff, UserX
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { requireSession } from "@/lib/auth";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+import { HardDeleteDialog } from "@/components/admin/HardDeleteDialog";
 
 interface User {
   id: string;
@@ -72,6 +74,8 @@ const AdminUsers = () => {
   const [languages, setLanguages] = useState<Language[]>([]);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState<string>("");
+  const [hardDeleteUser, setHardDeleteUser] = useState<User | null>(null);
+  const [isHardDeleting, setIsHardDeleting] = useState(false);
 
   useEffect(() => {
     checkAccess();
@@ -235,6 +239,49 @@ const AdminUsers = () => {
         description: "Failed to deactivate user",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleHardDelete = async (userId: string, force: boolean) => {
+    try {
+      setIsHardDeleting(true);
+      
+      const { data, error } = await supabase.functions.invoke('admin-hard-delete-user', {
+        method: 'DELETE',
+        body: { user_id: userId, force }
+      });
+
+      if (error) {
+        // Handle specific error cases
+        if (error.message?.includes('requires_force')) {
+          toast({
+            title: "Force Required",
+            description: "This sponsor/corporate user requires force deletion. Please check the force option.",
+            variant: "destructive",
+          });
+          return;
+        }
+        throw error;
+      }
+
+      toast({
+        title: "User Deleted",
+        description: data.message || "User has been permanently deleted.",
+      });
+
+      // Remove user from local state
+      setUsers(prev => prev.filter(u => u.id !== userId));
+      setHardDeleteUser(null);
+
+    } catch (error) {
+      console.error('Error hard deleting user:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete user. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsHardDeleting(false);
     }
   };
 
@@ -579,6 +626,19 @@ const AdminUsers = () => {
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         )}
+                        {currentUserRole === 'superadmin' && (
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setHardDeleteUser(user)}
+                              className="text-destructive hover:text-destructive"
+                              title="Hard Delete (Permanent)"
+                            >
+                              <UserX className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -617,6 +677,17 @@ const AdminUsers = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Hard Delete Dialog */}
+      {hardDeleteUser && (
+        <HardDeleteDialog
+          open={!!hardDeleteUser}
+          onOpenChange={(open) => !open && setHardDeleteUser(null)}
+          user={hardDeleteUser}
+          onConfirm={handleHardDelete}
+          isDeleting={isHardDeleting}
+        />
+      )}
     </div>
   );
 };
