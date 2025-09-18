@@ -48,21 +48,85 @@ Deno.serve(async (req) => {
 
     console.log(`Refreshing profile vector for user: ${userId}`);
 
-    // Load recent user feedback (last 90 days) with embeddings
+    // Load recent user feedback (last 90 days)
     const ninetyDaysAgo = new Date();
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
-    const { data: feedbackData, error: feedbackError } = await supabase
+    console.log(`Fetching engagement events for user ${userId} since ${ninetyDaysAgo.toISOString()}`);
+
+    // First, get engagement events
+    const { data: engagementEvents, error: engagementError } = await supabase
       .from('engagement_events')
-      .select(`
-        action,
-        created_at,
-        drops!inner(embedding)
-      `)
+      .select('action, created_at, drop_id')
       .eq('user_id', userId)
       .in('action', ['like', 'save', 'open', 'dismiss', 'dislike'])
-      .gte('created_at', ninetyDaysAgo.toISOString())
-      .not('drops.embedding', 'is', null);
+      .gte('created_at', ninetyDaysAgo.toISOString());
+
+    if (engagementError) {
+      console.error('Error fetching engagement events:', engagementError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch user engagement events' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!engagementEvents || engagementEvents.length === 0) {
+      console.log('No engagement events found for user');
+      return new Response(
+        JSON.stringify({ 
+          error: 'No user engagement found',
+          details: 'Start interacting with content (like, save, open articles) to build your profile'
+        }),
+        { 
+          status: 422, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    console.log(`Found ${engagementEvents.length} engagement events`);
+
+    // Get unique drop IDs
+    const dropIds = [...new Set(engagementEvents.map(e => e.drop_id))];
+    console.log(`Fetching embeddings for ${dropIds.length} unique drops`);
+
+    // Then, get embeddings for those drops
+    const { data: dropsWithEmbeddings, error: dropsError } = await supabase
+      .from('drops')
+      .select('id, embedding')
+      .in('id', dropIds)
+      .not('embedding', 'is', null);
+
+    if (dropsError) {
+      console.error('Error fetching drop embeddings:', dropsError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch content embeddings' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`Found ${dropsWithEmbeddings?.length || 0} drops with embeddings`);
+
+    // Create a map of drop_id to embedding for quick lookup
+    const embeddingMap = new Map();
+    if (dropsWithEmbeddings) {
+      dropsWithEmbeddings.forEach(drop => {
+        embeddingMap.set(drop.id, drop.embedding);
+      });
+    }
+
+    // Combine engagement events with their embeddings
+    const feedbackData = engagementEvents
+      .map(event => {
+        const embedding = embeddingMap.get(event.drop_id);
+        if (!embedding) return null;
+        return {
+          action: event.action,
+          created_at: event.created_at,
+          drops: { embedding }
+        };
+      })
+      .filter(item => item !== null);
 
     if (feedbackError) {
       console.error('Error fetching feedback:', feedbackError);
