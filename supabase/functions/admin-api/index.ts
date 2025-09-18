@@ -70,8 +70,8 @@ async function validateAdminRole(req: Request): Promise<AdminValidationResult> {
     const jwt = authHeader.replace('Bearer ', '');
     console.log('JWT extracted from header, length:', jwt.length);
 
-    // Create Supabase client with the JWT directly
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    // Create anon client to validate JWT
+    const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: {
         headers: {
           Authorization: `Bearer ${jwt}`
@@ -79,8 +79,8 @@ async function validateAdminRole(req: Request): Promise<AdminValidationResult> {
       }
     });
 
-    // Get the current user
-    const { data: authData, error: authError } = await supabase.auth.getUser();
+    // Get the current user using anon client
+    const { data: authData, error: authError } = await anonClient.auth.getUser();
     
     if (authError || !authData.user) {
       console.log('Auth error or no user:', authError);
@@ -94,8 +94,12 @@ async function validateAdminRole(req: Request): Promise<AdminValidationResult> {
     const userId = authData.user.id;
     console.log('Authenticated user ID:', userId);
     
-    // Check role from profiles table
-    const { data: profile, error } = await supabase
+    // Create service role client to bypass RLS
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    
+    // Check role from profiles table using service role client
+    const { data: profile, error } = await serviceClient
       .from('profiles')
       .select('role')
       .eq('id', userId)
@@ -148,7 +152,8 @@ async function createSource(req: Request) {
     });
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   const { data, error } = await supabase
     .from('sources')
@@ -187,7 +192,8 @@ async function enqueueItem(req: Request) {
     });
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   // Use upsert to handle ON CONFLICT DO NOTHING behavior
   const { data, error } = await supabase
@@ -234,7 +240,8 @@ async function retryQueueItem(req: Request) {
     });
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   // First get the current tries count
   const { data: currentItem, error: fetchError } = await supabase
@@ -475,7 +482,11 @@ async function youtubeReprocess(req: Request) {
 // Users management functions
 async function getUsers(req: Request, body?: any): Promise<Response> {
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Use service role key to bypass RLS policies
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    console.log('Getting users with service role client');
 
     // Read parameters from body (for POST requests) or URL (for GET requests)
     const params = body || {};
@@ -553,7 +564,8 @@ async function getUsers(req: Request, body?: any): Promise<Response> {
 
 async function getUserById(req: Request, userId: string): Promise<Response> {
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const { data, error } = await supabase
       .from('profiles')
@@ -582,7 +594,8 @@ async function getUserById(req: Request, userId: string): Promise<Response> {
 
 async function createUser(req: Request, payload?: any): Promise<Response> {
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const body = payload || await req.json();
     const { email, display_name, subscription_tier = 'free', role = 'user' } = body;
@@ -654,7 +667,8 @@ async function createUser(req: Request, payload?: any): Promise<Response> {
 
 async function updateUser(req: Request, userId: string, payload?: any): Promise<Response> {
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Use provided payload or parse from request body (for backwards compatibility)
     const userData = payload || await req.json();
@@ -846,7 +860,8 @@ async function updateUser(req: Request, userId: string, payload?: any): Promise<
 
 async function softDeleteUser(req: Request, userId: string): Promise<Response> {
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Get current user for audit logging
     const { data: authUser } = await supabase.auth.getUser();
@@ -885,7 +900,8 @@ async function softDeleteUser(req: Request, userId: string): Promise<Response> {
 
 async function getLanguages(req: Request): Promise<Response> {
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const { data, error } = await supabase
       .from('languages')
