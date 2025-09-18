@@ -155,6 +155,7 @@ serve(async (req) => {
         item_count: itemCount,
         test_mode: testMode,
         email_sent: userEmail,
+        drop_ids: digestContent.dropIds || [] // Track which specific drops were sent for debugging/analytics
       },
     };
     console.log('    - Delivery log payload:', JSON.stringify(deliveryLogPayload, null, 2));

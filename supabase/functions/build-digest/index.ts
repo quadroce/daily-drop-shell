@@ -155,47 +155,55 @@ serve(async (req) => {
       // Try to get preferred content first
       const { data: preferredDrops, error: dropsError } = await dropsQuery.limit(testMode ? 5 : 10);
       drops = preferredDrops || [];
-      
       dropIds = drops.map(d => d.id);
       
       // If we don't have enough items with language filtering, get more without language filter
       if (drops && drops.length < (testMode ? 3 : 5)) {
-      console.log(`Only found ${drops.length} items with language preferences, getting more without language filter...`);
-      
-      let fallbackQuery = supabase
-        .from('drops')
-        .select('id, title, url, summary, image_url, published_at, tags, lang_code')
-        .eq('tag_done', true)
-        .order('published_at', { ascending: false });
+        console.log(`Only found ${drops.length} items with language preferences, getting more without language filter...`);
+        
+        let fallbackQuery = supabase
+          .from('drops')
+          .select('id, title, url, summary, image_url, published_at, tags, lang_code, type')
+          .eq('tag_done', true)
+          .order('published_at', { ascending: false });
 
-      if (timeWindow) {
-        fallbackQuery = fallbackQuery.gte('published_at', timeWindow);
-      }
+        if (timeWindow) {
+          fallbackQuery = fallbackQuery.gte('published_at', timeWindow);
+        }
 
-      // Still filter by topics if available
-      if (preferences?.selected_topic_ids?.length > 0) {
-        const { data: topics } = await supabase
-          .from('topics')
-          .select('slug')
-          .in('id', preferences.selected_topic_ids);
+        // Still filter by topics if available
+        if (preferences?.selected_topic_ids?.length > 0) {
+          const { data: topics } = await supabase
+            .from('topics')
+            .select('slug')
+            .in('id', preferences.selected_topic_ids);
 
-        const topicSlugs = topics?.map(t => t.slug) || [];
-        if (topicSlugs.length > 0) {
-          fallbackQuery = fallbackQuery.overlaps('tags', topicSlugs);
+          const topicSlugs = topics?.map(t => t.slug) || [];
+          if (topicSlugs.length > 0) {
+            fallbackQuery = fallbackQuery.overlaps('tags', topicSlugs);
+          }
+        }
+
+        const { data: fallbackDrops } = await fallbackQuery.limit(testMode ? 5 : 10);
+        
+        if (fallbackDrops) {
+          // Merge and deduplicate
+          const existingIds = new Set(drops.map(d => d.id));
+          const additionalDrops = fallbackDrops.filter(d => !existingIds.has(d.id));
+          drops = [...drops, ...additionalDrops].slice(0, testMode ? 5 : 10);
+          dropIds = drops.map(d => d.id);
+          console.log(`Added ${additionalDrops.length} fallback items, total: ${drops.length}`);
         }
       }
-
-      const { data: fallbackDrops } = await fallbackQuery.limit(testMode ? 5 : 10);
       
-      if (fallbackDrops) {
-        // Merge and deduplicate
-        const existingIds = new Set(drops.map(d => d.id));
-        const additionalDrops = fallbackDrops.filter(d => !existingIds.has(d.id));
-        drops = [...drops, ...additionalDrops].slice(0, testMode ? 5 : 10);
-        console.log(`Added ${additionalDrops.length} fallback items, total: ${drops.length}`);
+      if (dropsError) {
+        console.error('Error fetching drops:', dropsError);
+        return new Response(
+          JSON.stringify({ success: false, error: 'Failed to fetch content' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
     }
-
 
     // Graceful degradation: send fewer items rather than skipping entirely
     if (!drops || drops.length === 0) {
@@ -204,12 +212,13 @@ serve(async (req) => {
       // Last resort: get any recent content
       const { data: anyDrops } = await supabase
         .from('drops')
-        .select('id, title, url, summary, image_url, published_at, tags, lang_code')
+        .select('id, title, url, summary, image_url, published_at, tags, lang_code, type')
         .eq('tag_done', true)
         .order('published_at', { ascending: false })
         .limit(testMode ? 3 : 5);
       
       drops = anyDrops || [];
+      dropIds = drops.map(d => d.id);
       console.log(`Found ${drops.length} fallback items`);
     }
 

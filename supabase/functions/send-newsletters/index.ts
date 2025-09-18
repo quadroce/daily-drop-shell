@@ -269,7 +269,11 @@ async function sendNewsletterWithRetry(
       const sendResponse = await supabase.functions.invoke('send-email-digest', {
         body: {
           userId: user.id,
-          digestContent: buildResponse.data.digestContent,
+          digestContent: {
+            ...buildResponse.data.digestContent,
+            dropIds: buildResponse.data.dropIds, // Pass through drop IDs for analytics tracking
+            algorithmSource: buildResponse.data.algorithmSource // Pass through algorithm source for debugging
+          },
           testMode: false
         }
       });
