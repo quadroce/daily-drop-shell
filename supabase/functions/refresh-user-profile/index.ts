@@ -128,14 +128,6 @@ Deno.serve(async (req) => {
       })
       .filter(item => item !== null);
 
-    if (feedbackError) {
-      console.error('Error fetching feedback:', feedbackError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch user feedback' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     if (!feedbackData || feedbackData.length === 0) {
       console.log('No feedback with embeddings found for user');
       
