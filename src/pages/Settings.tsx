@@ -6,8 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { AlertCircle, User, CreditCard, Bell, Phone, Mail, Lock, Smartphone, Check } from "lucide-react";
+import { AlertCircle, User, CreditCard, Bell, Phone, Mail, Lock, Smartphone, Check, MessageSquare } from "lucide-react";
 import { getNewsletterSubscription, updateNewsletterSubscription } from "@/lib/api/newsletter";
+import { getOnboardingReminderStatus, pauseOnboardingReminders } from "@/lib/api/onboarding";
 import { toast } from "@/hooks/use-toast";
 import { getCurrentProfile } from "@/lib/api/profile";
 
@@ -15,6 +16,9 @@ const Settings = () => {
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(false);
   const [whatsappNumber, setWhatsappNumber] = useState("");
+  const [onboardingRemindersPaused, setOnboardingRemindersPaused] = useState(false);
+  const [onboardingAttempts, setOnboardingAttempts] = useState(0);
+  const [lastReminderSent, setLastReminderSent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -25,6 +29,14 @@ const Settings = () => {
         const newsletterSub = await getNewsletterSubscription();
         if (newsletterSub !== null) {
           setEmailNotifications(newsletterSub.active);
+        }
+
+        // Load onboarding reminder status
+        const reminderStatus = await getOnboardingReminderStatus();
+        if (reminderStatus) {
+          setOnboardingRemindersPaused(reminderStatus.paused);
+          setOnboardingAttempts(reminderStatus.attempt_count);
+          setLastReminderSent(reminderStatus.last_sent_at);
         }
       } catch (error) {
         console.error("Error loading settings:", error);
@@ -55,6 +67,27 @@ const Settings = () => {
       toast({
         title: "Error",
         description: "Failed to update newsletter subscription.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleOnboardingReminderToggle = async (paused: boolean) => {
+    try {
+      setSaving(true);
+      await pauseOnboardingReminders(paused);
+      setOnboardingRemindersPaused(paused);
+      toast({
+        title: "Success",
+        description: `Onboarding reminders ${paused ? 'paused' : 'resumed'} successfully.`,
+      });
+    } catch (error) {
+      console.error("Error updating onboarding reminder settings:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update onboarding reminder settings.",
         variant: "destructive",
       });
     } finally {
@@ -224,6 +257,56 @@ const Settings = () => {
                   onCheckedChange={setPushNotifications}
                 />
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Onboarding Reminders */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Onboarding Reminders
+            </CardTitle>
+            <CardDescription>
+              Manage automated reminders to complete your onboarding
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <Label htmlFor="onboarding-reminders" className="text-base font-medium">
+                  Pause Onboarding Reminders
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Stop receiving emails about completing your onboarding
+                </p>
+              </div>
+              <Switch
+                id="onboarding-reminders"
+                checked={onboardingRemindersPaused}
+                onCheckedChange={handleOnboardingReminderToggle}
+                disabled={saving || loading}
+              />
+            </div>
+            
+            {(onboardingAttempts > 0 || lastReminderSent) && (
+              <div className="p-3 bg-muted/30 rounded-lg">
+                <h4 className="text-sm font-medium mb-2">Reminder Status</h4>
+                <div className="space-y-1 text-sm text-muted-foreground">
+                  <p>• Reminders sent: {onboardingAttempts} / 10</p>
+                  {lastReminderSent && (
+                    <p>• Last sent: {new Date(lastReminderSent).toLocaleDateString()}</p>
+                  )}
+                  <p>• Frequency: Every 15 days</p>
+                </div>
+              </div>
+            )}
+
+            <div className="p-3 bg-accent/20 rounded-lg border border-accent/20">
+              <p className="text-sm text-accent-foreground">
+                💡 Complete your onboarding to start receiving personalized Daily Drops and stop these reminders automatically.
+              </p>
             </div>
           </CardContent>
         </Card>

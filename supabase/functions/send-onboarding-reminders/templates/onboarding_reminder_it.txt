@@ -1,0 +1,22 @@
+DailyDrop - Completa la tua registrazione
+
+Ciao {{first_name}},
+
+Hai creato un account DailyDrop ma la registrazione è ancora in sospeso.
+
+Completala ora (richiede ~2 minuti) per iniziare a ricevere il tuo Daily Drop curato con le insights più rilevanti su AI, Tech e Business.
+
+Cosa ottieni:
+✓ 5–10 contenuti di alta qualità al giorno (articoli e video)
+✓ Sempre almeno 1 video YouTube in evidenza
+✓ Argomenti personalizzati sui tuoi interessi
+
+👉 Completa la registrazione: {{frontend_origin}}/onboarding?utm_source=reminder&utm_medium=email&utm_campaign=onboarding_n{{attempt}}
+
+Non perdere l'opportunità di rimanere aggiornato nel mondo in rapida evoluzione dell'AI e della tecnologia!
+
+Cordiali saluti,
+Il team DailyDrop
+
+---
+Non vuoi ricevere questi promemoria? Metti in pausa i promemoria: {{pause_link}}

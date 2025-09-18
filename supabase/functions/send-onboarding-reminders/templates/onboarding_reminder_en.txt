@@ -1,0 +1,22 @@
+DailyDrop - Complete Your Onboarding
+
+Hi {{first_name}},
+
+You created a DailyDrop account but your onboarding is still pending.
+
+Complete it now (it takes ~2 minutes) to start receiving your curated Daily Drop with the most relevant AI, Tech & Business insights.
+
+What you get:
+✓ 5–10 high-signal items/day (articles & videos)
+✓ Always at least 1 YouTube highlight
+✓ Topics tailored to your interests
+
+👉 Finish onboarding: {{frontend_origin}}/onboarding?utm_source=reminder&utm_medium=email&utm_campaign=onboarding_n{{attempt}}
+
+Don't miss out on staying ahead in the fast-moving world of AI and technology!
+
+Best regards,
+The DailyDrop Team
+
+---
+Don't want to receive these reminders? Pause onboarding reminders: {{pause_link}}

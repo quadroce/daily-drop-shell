@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete Your DailyDrop Onboarding</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 40px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2563eb;
+            margin-bottom: 10px;
+        }
+        h1 {
+            color: #1f2937;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        .highlight {
+            background-color: #f3f4f6;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background-color: #2563eb;
+            color: white !important;
+            padding: 14px 28px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            margin: 20px 0;
+        }
+        .benefits {
+            margin: 25px 0;
+        }
+        .benefit {
+            margin: 10px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+        .benefit:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #16a34a;
+            font-weight: bold;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            font-size: 14px;
+            color: #6b7280;
+            text-align: center;
+        }
+        .unsubscribe {
+            font-size: 12px;
+            color: #9ca3af;
+            margin-top: 20px;
+        }
+        .unsubscribe a {
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">DailyDrop</div>
+            <p>Your daily AI, Tech & Business insights</p>
+        </div>
+
+        <h1>Hi {{first_name}},</h1>
+
+        <p>You created a DailyDrop account but your onboarding is still pending.</p>
+        
+        <p><strong>Complete it now</strong> (it takes ~2 minutes) to start receiving your curated Daily Drop with the most relevant AI, Tech & Business insights.</p>
+
+        <div class="highlight">
+            <h3>What you get:</h3>
+            <div class="benefits">
+                <div class="benefit">5–10 high-signal items/day (articles & videos)</div>
+                <div class="benefit">Always at least 1 YouTube highlight</div>
+                <div class="benefit">Topics tailored to your interests</div>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{{frontend_origin}}/onboarding?utm_source=reminder&utm_medium=email&utm_campaign=onboarding_n{{attempt}}" class="cta-button">
+                👉 Finish onboarding
+            </a>
+        </div>
+
+        <p>Don't miss out on staying ahead in the fast-moving world of AI and technology!</p>
+
+        <div class="footer">
+            <p>Best regards,<br>The DailyDrop Team</p>
+            
+            <div class="unsubscribe">
+                <p>Don't want to receive these reminders? <a href="{{pause_link}}">Pause onboarding reminders</a></p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

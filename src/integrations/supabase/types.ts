@@ -686,6 +686,33 @@ export type Database = {
           },
         ]
       }
+      onboarding_reminders: {
+        Row: {
+          attempt_count: number
+          created_at: string
+          last_sent_at: string | null
+          paused: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempt_count?: number
+          created_at?: string
+          last_sent_at?: string | null
+          paused?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempt_count?: number
+          created_at?: string
+          last_sent_at?: string | null
+          paused?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       preferences: {
         Row: {
           selected_language_ids: number[]
@@ -1412,6 +1439,10 @@ export type Database = {
           _resource_id?: string
           _resource_type: string
         }
+        Returns: undefined
+      }
+      pause_onboarding_reminders: {
+        Args: { p_paused: boolean }
         Returns: undefined
       }
       public_profile_feed: {
