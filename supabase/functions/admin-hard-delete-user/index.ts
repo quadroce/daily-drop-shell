@@ -152,26 +152,8 @@ serve(async (req) => {
         }
       }
 
-      // Delete from profiles table (this should cascade to other tables with FK constraints)
-      const { error: profileError } = await serviceClient
-        .from('profiles')
-        .delete()
-        .eq('id', user_id);
-
-      if (profileError) {
-        console.error('Error deleting profile:', profileError);
-        throw profileError;
-      }
-
-      // Finally, delete from auth.users (this is the nuclear option)
-      const { error: authDeleteError } = await serviceClient.auth.admin.deleteUser(user_id);
-      
-      if (authDeleteError) {
-        console.error('Error deleting from auth.users:', authDeleteError);
-        throw authDeleteError;
-      }
-
-      // Log the action for audit trail
+      // Log the action for audit trail BEFORE deleting the profile
+      // This prevents foreign key constraint violations
       const { error: auditError } = await serviceClient
         .from('admin_audit_log')
         .insert({
@@ -191,6 +173,25 @@ serve(async (req) => {
       if (auditError) {
         console.error('Error logging audit action:', auditError);
         // Don't fail the entire operation for audit log errors
+      }
+
+      // Delete from profiles table (this should cascade to other tables with FK constraints)
+      const { error: profileError } = await serviceClient
+        .from('profiles')
+        .delete()
+        .eq('id', user_id);
+
+      if (profileError) {
+        console.error('Error deleting profile:', profileError);
+        throw profileError;
+      }
+
+      // Finally, delete from auth.users (this is the nuclear option)
+      const { error: authDeleteError } = await serviceClient.auth.admin.deleteUser(user_id);
+      
+      if (authDeleteError) {
+        console.error('Error deleting from auth.users:', authDeleteError);
+        throw authDeleteError;
       }
 
       console.log(`Successfully hard deleted user ${user_id}`);
