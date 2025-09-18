@@ -98,3 +98,15 @@ verify_jwt = false
 
 [functions.embed-drops]
 verify_jwt = false
+
+[functions.send-newsletters]
+verify_jwt = false
+
+[functions.send-welcome-newsletter]
+verify_jwt = true
+
+[functions.build-digest]
+verify_jwt = false
+
+[functions.send-email-digest]
+verify_jwt = false
