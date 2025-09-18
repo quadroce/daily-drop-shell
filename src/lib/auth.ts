@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { updateSessionPersistence } from "@/lib/auth-persistence";
 
 /**
  * Ensures user has a valid session before proceeding with authenticated actions

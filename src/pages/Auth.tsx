@@ -6,12 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Mail, Lock, User, AlertCircle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Loader2, Mail, Lock, User, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import EmailVerification from "@/components/EmailVerification";
 import { SocialAuthButtons } from "@/components/SocialAuthButtons";
+import CookieConsent from "@/components/CookieConsent";
+import { updateSessionPersistence } from "@/lib/auth-persistence";
 import { track } from "@/lib/analytics";
 import { Seo } from "@/components/Seo";
 
@@ -25,6 +28,9 @@ const Auth = () => {
   const [resetEmail, setResetEmail] = useState("");
   const [error, setError] = useState("");
   const [showVerification, setShowVerification] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -43,6 +49,12 @@ const Auth = () => {
     }
   }, [user, navigate]);
 
+  // Initialize remember me from stored preference
+  useEffect(() => {
+    const storedRememberMe = localStorage.getItem('auth-remember-me') === 'true';
+    setRememberMe(storedRememberMe);
+  }, []);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -57,6 +69,13 @@ const Auth = () => {
       if (error) {
         setError(error.message);
       } else {
+        // Store remember me preference if enabled
+        if (rememberMe) {
+          updateSessionPersistence(true);
+        } else {
+          updateSessionPersistence(false);
+        }
+        
         // Track successful login
         const provider = user?.app_metadata?.provider;
         if (provider === 'google' || provider === 'linkedin') {
@@ -296,20 +315,61 @@ const Auth = () => {
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="login-password"
-                        type="password"
-                        className="pl-10"
+                        type={showLoginPassword ? "text" : "password"}
+                        className="pl-10 pr-10"
                         value={loginPassword}
                         onChange={(e) => setLoginPassword(e.target.value)}
                         disabled={isLoading}
                         required
                       />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-1 top-1 h-8 w-8"
+                        onClick={() => setShowLoginPassword(!showLoginPassword)}
+                      >
+                        {showLoginPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </Button>
                     </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="remember-me" 
+                      checked={rememberMe}
+                      onCheckedChange={(checked) => setRememberMe(!!checked)}
+                    />
+                    <Label htmlFor="remember-me" className="text-sm text-muted-foreground">
+                      Remember me
+                    </Label>
                   </div>
                   
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Sign in
                   </Button>
+                  
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground">
+                      Don't have an account?{" "}
+                      <Button
+                        variant="link"
+                        className="p-0 h-auto text-sm font-medium text-accent-foreground hover:text-accent-foreground/80"
+                        onClick={() => {
+                          const tabs = document.querySelector('[role="tablist"]');
+                          const registerTab = tabs?.querySelector('[value="register"]') as HTMLElement;
+                          registerTab?.click();
+                        }}
+                      >
+                        Create one here
+                      </Button>
+                    </p>
+                  </div>
                 </form>
               </CardContent>
             </Card>
@@ -384,14 +444,27 @@ const Auth = () => {
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="register-password"
-                        type="password"
-                        className="pl-10"
+                        type={showRegisterPassword ? "text" : "password"}
+                        className="pl-10 pr-10"
                         value={registerPassword}
                         onChange={(e) => setRegisterPassword(e.target.value)}
                         disabled={isLoading}
                         required
                         minLength={6}
                       />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-1 top-1 h-8 w-8"
+                        onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+                      >
+                        {showRegisterPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </Button>
                     </div>
                   </div>
                   
@@ -446,6 +519,7 @@ const Auth = () => {
           </TabsContent>
         </Tabs>
       </div>
+      <CookieConsent />
     </div>
     </>
   );

@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getYouTubeThumbnailFromUrl, getYouTubeFallbackThumbnail } from "@/lib/youtube";
 import { useTopicsMap } from "@/hooks/useTopicsMap";
 import { ChipLink } from "@/components/ChipLink";
+import { useAuth } from "@/hooks/useAuth";
 
 // Types for our data
 type Topic = {
@@ -36,8 +37,17 @@ type Drop = {
 const Index = () => {
   const { submitCurrentPage } = useIndexNow();
   const { getTopicSlug, isLoading: topicsLoading } = useTopicsMap();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [topics, setTopics] = useState<Topic[]>([]);
   const [recentDrops, setRecentDrops] = useState<Drop[]>([]);
+
+  // Redirect authenticated users to feed
+  useEffect(() => {
+    if (user) {
+      navigate("/feed");
+    }
+  }, [user, navigate]);
 
   // Submit to IndexNow for rapid discovery
   useEffect(() => {
@@ -195,8 +205,8 @@ const Index = () => {
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button size="lg" className="text-lg px-8" asChild>
-                <Link to="/feed">
-                  See Today's Drop
+                <Link to="/auth">
+                  Get Started Free
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
@@ -352,8 +362,8 @@ const Index = () => {
             
             <div className="text-center">
               <Button size="lg" asChild>
-                <Link to="/feed">
-                  Explore the full Drop
+                <Link to="/auth">
+                  Join to see more content
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
