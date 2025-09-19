@@ -279,17 +279,27 @@ async function sendNewsletterWithRetry(
         throw new Error(`Send email failed: ${sendResponse.data.error}`);
       }
 
-      // Update delivery log with dedup_key
+      // Update delivery log with dedup_key using UPSERT for idempotency
       const { error: logError } = await supabase
         .from('delivery_log')
-        .update({ dedup_key: dedupKey })
-        .eq('user_id', user.user_id)
-        .eq('channel', 'email')
-        .order('sent_at', { ascending: false })
-        .limit(1);
+        .upsert({
+          user_id: user.user_id,
+          channel: 'email',
+          status: 'sent',
+          dedup_key: dedupKey,
+          sent_at: new Date().toISOString(),
+          meta: {
+            cadence,
+            subscription_tier: user.subscription_tier,
+            newsletter_automation: true
+          }
+        }, {
+          onConflict: 'dedup_key',
+          ignoreDuplicates: true
+        });
 
       if (logError) {
-        console.error(`⚠️ Warning: Failed to update delivery log with dedup_key:`, logError);
+        console.warn(`⚠️ Info: Delivery log conflict (expected for duplicate prevention):`, logError.message);
       }
 
       // Track GA4 event (simplified - actual implementation would need proper analytics setup)

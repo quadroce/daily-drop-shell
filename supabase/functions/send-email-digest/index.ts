@@ -178,17 +178,21 @@ serve(async (req) => {
     };
     console.log('    - Delivery log payload:', JSON.stringify(deliveryLogPayload, null, 2));
 
-    // Log delivery
+    // Log delivery with UPSERT to handle duplicates gracefully
     const { data: logData, error: logError } = await supabase
       .from('delivery_log')
-      .insert(deliveryLogPayload);
+      .upsert(deliveryLogPayload, {
+        onConflict: 'dedup_key',
+        ignoreDuplicates: false
+      })
+      .select();
       
     if (logError) {
-      console.error('17. ERROR: Failed to insert delivery log:');
+      console.error('17. ERROR: Failed to upsert delivery log:');
       console.error('    - Log error:', JSON.stringify(logError, null, 2));
       console.error('    - But email was sent successfully, continuing...');
     } else {
-      console.log('17. Delivery log inserted successfully:', JSON.stringify(logData, null, 2));
+      console.log('17. Delivery log upserted successfully:', JSON.stringify(logData, null, 2));
     }
 
     console.log(`18. SUCCESS: Email sent successfully to ${userEmail}, message ID: ${emailResponse.data?.id}`);
