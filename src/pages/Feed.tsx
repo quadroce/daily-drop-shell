@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { usePreferences } from "@/contexts/PreferencesContext";
+import { fetchAllUserPreferences } from "@/lib/api/preferences";
 import {
   getYouTubeFallbackThumbnail,
   getYouTubeThumbnailFromUrl,
@@ -386,6 +387,9 @@ const Feed = () => {
 
   // Get user session for feed loading
   const [user, setUser] = useState<any>(null);
+  // Database preferences state
+  const [dbPreferences, setDbPreferences] = useState<{ selectedTopicIds: number[]; selectedLanguageIds: number[] } | null>(null);
+  const [preferencesLoading, setPreferencesLoading] = useState(true);
 
   // Initialize infinite feed hook
   const {
@@ -404,7 +408,7 @@ const Feed = () => {
     l2: null,
   });
 
-  // Load user session
+  // Load user session and preferences
   useEffect(() => {
     const loadUser = async () => {
       try {
@@ -414,9 +418,21 @@ const Feed = () => {
           return;
         }
         setUser(session.user);
+
+        // Load user preferences from database
+        try {
+          const preferences = await fetchAllUserPreferences();
+          setDbPreferences(preferences);
+        } catch (prefError) {
+          console.error("❌ Error loading preferences:", prefError);
+          setDbPreferences(null);
+        } finally {
+          setPreferencesLoading(false);
+        }
       } catch (err) {
         console.error("❌ Error loading user session:", err);
         navigate("/auth");
+        setPreferencesLoading(false);
       }
     };
 
@@ -431,11 +447,11 @@ const Feed = () => {
     }
   }, [items, initializeStates]);
 
-  // Show no preferences state
-  if (
-    !isFallbackActive &&
-    (!fallbackPrefs || Object.keys(fallbackPrefs).length === 0)
-  ) {
+  // Show no preferences state - check both database preferences and fallback preferences
+  const hasDbPreferences = dbPreferences && dbPreferences.selectedTopicIds && dbPreferences.selectedTopicIds.length > 0;
+  const hasFallbackPreferences = isFallbackActive && fallbackPrefs && fallbackPrefs.selectedTopicIds && fallbackPrefs.selectedTopicIds.length > 0;
+  
+  if (!preferencesLoading && !hasDbPreferences && !hasFallbackPreferences) {
     return (
       <div className="container mx-auto px-4 py-8">
         <Card className="border-warning/50 bg-warning/5">
