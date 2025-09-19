@@ -35,43 +35,31 @@ serve(async (req) => {
     
     console.log(`📅 Today is ${todayStr}, day of week: ${dayOfWeek}, isMonday: ${isMonday}`);
 
-    // Query users eligible for newsletters
-    console.log('👥 Querying eligible users...');
+    // Use get_newsletter_targets database function for robust user selection
+    console.log('👥 Querying newsletter targets...');
     const { data: users, error: usersError } = await supabase
-      .from('profiles')
-      .select(`
-        id,
-        email,
-        subscription_tier,
-        language_prefs,
-        display_name,
-        first_name,
-        newsletter_subscriptions!inner(active, cadence, slot)
-      `)
-      .eq('onboarding_completed', true)
-      .eq('is_active', true)
-      .eq('newsletter_subscriptions.active', true)
-      .in('subscription_tier', ['premium', 'free']);
+      .rpc('get_newsletter_targets');
 
     if (usersError) {
-      console.error('❌ Error querying users:', usersError);
-      throw new Error(`Failed to query users: ${usersError.message}`);
+      console.error('❌ Error querying newsletter targets:', usersError);
+      throw new Error(`Failed to query newsletter targets: ${usersError.message}`);
     }
 
-    console.log(`📊 Found ${users?.length || 0} total users with active newsletter subscriptions`);
+    console.log(`📊 Found ${users?.length || 0} total newsletter targets`);
 
     // Filter users based on tier and day
-    const eligibleUsers = users?.filter(user => {
+    const eligibleUsers = users?.filter((user: any) => {
       const tier = user.subscription_tier;
+      const cadence = user.cadence;
       
       // Premium users get daily newsletters
-      if (tier === 'premium') {
-        return true;
+      if (tier === 'premium' || tier === 'corporate' || tier === 'sponsor') {
+        return cadence === 'daily';
       }
       
-      // Free users only get newsletters on Monday
+      // Free users only get weekly newsletters on Monday
       if (tier === 'free' && isMonday) {
-        return true;
+        return cadence === 'weekly';
       }
       
       return false;
@@ -207,9 +195,9 @@ async function processBatch(users: any[], supabase: any, todayStr: string): Prom
         continue;
       }
 
-      // Determine cadence based on tier
-      const cadence = user.subscription_tier === 'premium' ? 'daily' : 'weekly';
-      const slot = user.newsletter_subscriptions[0]?.slot || 'morning';
+      // Use cadence from newsletter targets query
+      const cadence = user.cadence;
+      const slot = 'morning'; // Default slot
 
       // Send newsletter with retry logic
       const success = await sendNewsletterWithRetry(user, cadence, slot, supabase, dedupKey);
