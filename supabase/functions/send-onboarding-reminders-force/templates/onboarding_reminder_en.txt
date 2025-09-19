@@ -1,0 +1,23 @@
+🚀 Complete Your DailyDrop Setup
+
+Hi {{first_name}}, you're almost there!
+
+This is reminder #{{attempt}} - we noticed you haven't finished setting up your DailyDrop account yet.
+
+Why complete your setup?
+• 🎯 Get personalized AI & tech content recommendations
+• 📧 Choose your preferred newsletter frequency  
+• 🌐 Select your favorite topics and languages
+• ⚡ Access premium features and advanced filters
+
+It only takes 2 minutes to complete your onboarding and start receiving curated content that matches your interests.
+
+👉 Complete Setup Now: {{frontend_origin}}/onboarding?utm_source=reminder&utm_medium=email&utm_campaign=onboarding_n{{attempt}}
+
+Having trouble? Reply to this email and our team will help you get started.
+
+---
+DailyDrop - Your AI & Tech News Curator
+
+Don't want to receive these reminders? Pause onboarding reminders:
+{{pause_link}}

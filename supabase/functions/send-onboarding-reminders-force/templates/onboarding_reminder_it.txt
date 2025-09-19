@@ -1,0 +1,23 @@
+🚀 Completa la Configurazione DailyDrop
+
+Ciao {{first_name}}, ci sei quasi!
+
+Questo è il promemoria #{{attempt}} - abbiamo notato che non hai ancora completato la configurazione del tuo account DailyDrop.
+
+Perché completare la configurazione?
+• 🎯 Ricevi raccomandazioni personalizzate su AI e tecnologia
+• 📧 Scegli la frequenza preferita per la newsletter
+• 🌐 Seleziona i tuoi argomenti e lingue preferiti
+• ⚡ Accedi a funzionalità premium e filtri avanzati
+
+Bastano solo 2 minuti per completare l'onboarding e iniziare a ricevere contenuti curati che rispecchiano i tuoi interessi.
+
+👉 Completa Configurazione: {{frontend_origin}}/onboarding?utm_source=reminder&utm_medium=email&utm_campaign=onboarding_n{{attempt}}
+
+Hai problemi? Rispondi a questa email e il nostro team ti aiuterà.
+
+---
+DailyDrop - Il Tuo Curatore di Notizie AI & Tech
+
+Non vuoi ricevere questi promemoria? Metti in pausa i promemoria onboarding:
+{{pause_link}}
