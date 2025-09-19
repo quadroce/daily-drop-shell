@@ -119,3 +119,6 @@ verify_jwt = false
 
 [functions.unsubscribe-newsletter]
 verify_jwt = false
+
+[functions.source-health-monitor]
+verify_jwt = true

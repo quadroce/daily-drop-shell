@@ -91,7 +91,84 @@ function parseFeed(xmlContent: string): RSSItem[] {
   }
 }
 
-// Fetch and process a single RSS feed
+// Update source health status
+async function updateSourceHealth(sourceId: number, isSuccess: boolean, errorType?: string) {
+  const healthData = isSuccess ? {
+    consecutive_errors: 0,
+    last_success_at: new Date().toISOString(),
+    is_paused: false,
+    paused_until: null,
+    updated_at: new Date().toISOString()
+  } : {
+    consecutive_errors: 1, // Will be incremented by PostgreSQL trigger if needed
+  };
+
+  if (!isSuccess && errorType) {
+    healthData.error_type = errorType;
+    healthData.last_error_at = new Date().toISOString();
+    healthData.updated_at = new Date().toISOString();
+  }
+
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/source_health`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+        'apikey': SERVICE_ROLE_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates',
+      },
+      body: JSON.stringify({
+        source_id: sourceId,
+        ...healthData
+      }),
+    });
+
+    if (response.status === 409) {
+      // Update existing record
+      await fetch(`${SUPABASE_URL}/rest/v1/source_health?source_id=eq.${sourceId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+          'apikey': SERVICE_ROLE_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(isSuccess ? healthData : {
+          consecutive_errors: 'consecutive_errors + 1',
+          error_type: errorType,
+          last_error_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          // Pause source if too many consecutive errors
+          is_paused: 'consecutive_errors >= 10',
+          paused_until: 'CASE WHEN consecutive_errors >= 10 THEN now() + interval \'2 hours\' ELSE paused_until END'
+        }),
+      });
+    }
+  } catch (error) {
+    console.warn(`Failed to update source health for ${sourceId}:`, error.message);
+  }
+}
+
+// Get intelligent delay based on error type
+function getRetryDelay(errorStatus: number, attempt: number = 1): number {
+  const baseDelay = 1000; // 1 second base
+  
+  switch (errorStatus) {
+    case 429: // Too Many Requests
+      return Math.min(60000, baseDelay * Math.pow(2, attempt)); // 1s, 2s, 4s, 8s, 16s, 32s, 60s max
+    case 403: // Forbidden - longer delay
+      return Math.min(300000, baseDelay * 10 * attempt); // 10s, 20s, 30s, up to 5 minutes
+    case 500:
+    case 502:
+    case 503:
+    case 504: // Server errors
+      return Math.min(30000, baseDelay * 3 * attempt); // 3s, 6s, 9s, up to 30s
+    default:
+      return baseDelay * attempt; // 1s, 2s, 3s...
+  }
+}
+
+// Fetch and process a single RSS feed with intelligent retry
 async function processFeed(source: Source): Promise<FeedResult> {
   const result: FeedResult = {
     sourceId: source.id,
@@ -100,79 +177,121 @@ async function processFeed(source: Source): Promise<FeedResult> {
     errors: []
   };
 
-  try {
-    console.log(`Fetching RSS feed for source ${source.id}: ${source.feed_url}`);
-    
-    const response = await fetch(source.feed_url, {
-      headers: {
-        'User-Agent': 'DailyDropsBot/1.0',
-      },
-      redirect: 'follow',
-    });
+  let attempt = 1;
+  const maxRetries = 3;
 
-    if (!response.ok) {
-      result.errors.push(`Failed to fetch feed: ${response.status} ${response.statusText}`);
-      return result;
-    }
-
-    const xmlContent = await response.text();
-    const items = parseFeed(xmlContent);
-    
-    console.log(`Parsed ${items.length} items from ${source.name}`);
-
-    // Enqueue each item
-    const enqueuePromises = items.map(async (item) => {
-      if (!item.link) return null;
+  while (attempt <= maxRetries) {
+    try {
+      console.log(`Fetching RSS feed for source ${source.id} (attempt ${attempt}/${maxRetries}): ${source.feed_url}`);
       
-      // Validate URL format to prevent malformed URLs from entering the queue
-      try {
-        new URL(item.link);
-      } catch (urlError) {
-        console.warn(`Skipping malformed URL: ${item.link}`);
-        result.errors.push(`Malformed URL: ${item.link}`);
-        return null;
-      }
-      
-      const queueData = {
-        url: item.link,
-        source_id: source.id,
-        status: 'pending',
-        lang: null // Will be determined later
-      };
+      const response = await fetch(source.feed_url, {
+        headers: {
+          'User-Agent': 'DailyDropsBot/1.0',
+        },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(30000), // 30 second timeout
+      });
 
-      try {
-        const enqueueResponse = await fetch(`${SUPABASE_URL}/rest/v1/ingestion_queue`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-            'apikey': SERVICE_ROLE_KEY,
-            'Content-Type': 'application/json',
-            'Prefer': 'resolution=ignore-duplicates',
-          },
-          body: JSON.stringify(queueData),
-        });
+      if (!response.ok) {
+        const errorMsg = `Failed to fetch feed: ${response.status} ${response.statusText}`;
+        
+        // Check if we should retry based on status code
+        const shouldRetry = attempt < maxRetries && (
+          response.status === 429 || // Rate limited
+          response.status >= 500 ||  // Server errors
+          response.status === 503    // Service unavailable
+        );
 
-        if (enqueueResponse.ok) {
-          result.items++;
-          return true;
-        } else if (enqueueResponse.status === 409) {
-          // Conflict - item already exists, which is fine
-          return false;
+        if (shouldRetry) {
+          const delay = getRetryDelay(response.status, attempt);
+          console.log(`Will retry source ${source.id} after ${delay}ms (status: ${response.status})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          attempt++;
+          continue;
         } else {
-          const errorText = await enqueueResponse.text();
-          result.errors.push(`Failed to enqueue ${item.link}: ${errorText}`);
+          // Permanent failure or max retries reached
+          result.errors.push(errorMsg);
+          await updateSourceHealth(source.id, false, `${response.status}`);
+          return result;
+        }
+      }
+
+      const xmlContent = await response.text();
+      const items = parseFeed(xmlContent);
+      
+      console.log(`Parsed ${items.length} items from ${source.name}`);
+
+      // Enqueue each item with better error handling
+      const enqueuePromises = items.map(async (item) => {
+        if (!item.link) return null;
+        
+        // Validate URL format to prevent malformed URLs from entering the queue
+        try {
+          new URL(item.link);
+        } catch (urlError) {
+          console.warn(`Skipping malformed URL: ${item.link}`);
+          result.errors.push(`Malformed URL: ${item.link}`);
+          return null;
+        }
+        
+        const queueData = {
+          url: item.link,
+          source_id: source.id,
+          status: 'pending',
+          lang: null // Will be determined later
+        };
+
+        try {
+          const enqueueResponse = await fetch(`${SUPABASE_URL}/rest/v1/ingestion_queue`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+              'apikey': SERVICE_ROLE_KEY,
+              'Content-Type': 'application/json',
+              'Prefer': 'resolution=ignore-duplicates',
+            },
+            body: JSON.stringify(queueData),
+          });
+
+          if (enqueueResponse.ok) {
+            result.items++;
+            return true;
+          } else if (enqueueResponse.status === 409) {
+            // Conflict - item already exists, which is fine
+            return false;
+          } else {
+            const errorText = await enqueueResponse.text();
+            result.errors.push(`Failed to enqueue ${item.link}: ${errorText}`);
+            return false;
+          }
+        } catch (error) {
+          result.errors.push(`Error enqueuing ${item.link}: ${error.message}`);
           return false;
         }
-      } catch (error) {
-        result.errors.push(`Error enqueuing ${item.link}: ${error.message}`);
-        return false;
-      }
-    });
+      });
 
-    await Promise.all(enqueuePromises);
-    
-  } catch (error) {
-    result.errors.push(`Error processing feed: ${error.message}`);
+      await Promise.all(enqueuePromises);
+      
+      // Mark source as healthy on success
+      await updateSourceHealth(source.id, true);
+      break; // Success, exit retry loop
+      
+    } catch (error) {
+      const isTimeout = error.name === 'TimeoutError' || error.message.includes('timeout');
+      const errorMsg = `Error processing feed: ${error.message}`;
+      
+      if (attempt < maxRetries && (isTimeout || error.message.includes('network'))) {
+        console.log(`Will retry source ${source.id} after network error (attempt ${attempt}/${maxRetries})`);
+        const delay = getRetryDelay(500, attempt); // Treat as server error
+        await new Promise(resolve => setTimeout(resolve, delay));
+        attempt++;
+        continue;
+      } else {
+        result.errors.push(errorMsg);
+        await updateSourceHealth(source.id, false, isTimeout ? 'timeout' : 'network_error');
+        break;
+      }
+    }
   }
 
   return result;
@@ -196,8 +315,12 @@ serve(async (req) => {
     
     console.log(`Fetching RSS feeds (offset: ${offsetParam}, limit: ${limitParam})${sourceIdParam ? ` for source ${sourceIdParam}` : ' for active sources'}`);
 
-    // Build query for active sources with feed_url and pagination
-    let sourcesQuery = `${SUPABASE_URL}/rest/v1/sources?status=eq.active&feed_url=not.is.null&select=id,name,feed_url&order=id.asc`;
+    // Build query for active sources, excluding paused ones
+    let sourcesQuery = `${SUPABASE_URL}/rest/v1/sources?status=eq.active&feed_url=not.is.null&select=id,name,feed_url`;
+    
+    // Left join with source_health to exclude paused sources
+    sourcesQuery += `&or=(source_health.is_paused.is.null,source_health.is_paused.eq.false,and(source_health.is_paused.eq.true,source_health.paused_until.lt.${new Date().toISOString()}))`;
+    sourcesQuery += '&order=id.asc';
     
     if (sourceIdParam) {
       sourcesQuery += `&id=eq.${sourceIdParam}`;

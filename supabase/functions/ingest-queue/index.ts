@@ -140,9 +140,12 @@ async function processQueueItems(limit = 20): Promise<ProcessResult> {
           return { success: false, id: item.id, error: 'Invalid URL format' };
         }
         
-        // Add random delay to prevent rate limiting (100-500ms)
-        const delay = 100 + Math.random() * 400;
-        await new Promise(resolve => setTimeout(resolve, delay));
+        // Add intelligent delay based on recent failures
+        const delay = await getIntelligentDelay(item.source_id, item.tries);
+        if (delay > 0) {
+          console.log(`Applying ${delay}ms delay for source ${item.source_id} (attempt ${item.tries + 1})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
         
         // 2. Set status to 'processing' and increment tries
         await updateQueueItem(item.id, {
@@ -299,6 +302,54 @@ async function processQueueItems(limit = 20): Promise<ProcessResult> {
 
   console.log('Processing complete:', result);
   return result;
+}
+
+// Get intelligent delay based on source health and error history
+async function getIntelligentDelay(sourceId: number | null, currentTries: number): Promise<number> {
+  if (!sourceId) return 100 + Math.random() * 400; // Random delay for items without source
+  
+  try {
+    const healthResponse = await fetch(
+      `${SUPABASE_URL}/rest/v1/source_health?source_id=eq.${sourceId}&select=consecutive_errors,error_type,last_error_at`,
+      {
+        headers: {
+          'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+          'apikey': SERVICE_ROLE_KEY,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (healthResponse.ok) {
+      const healthData = await healthResponse.json();
+      if (healthData.length > 0) {
+        const health = healthData[0];
+        const baseDelay = 500;
+        
+        // Increase delay based on consecutive errors
+        const errorMultiplier = Math.min(health.consecutive_errors, 10);
+        
+        // Additional delay for specific error types
+        let typeMultiplier = 1;
+        if (health.error_type === '429') {
+          typeMultiplier = 3; // Extra delay for rate limiting
+        } else if (health.error_type === '403') {
+          typeMultiplier = 5; // Even more delay for forbidden
+        }
+        
+        // Exponential backoff based on current tries
+        const retryMultiplier = Math.pow(1.5, currentTries);
+        
+        const totalDelay = baseDelay * errorMultiplier * typeMultiplier * retryMultiplier;
+        return Math.min(30000, totalDelay); // Max 30 seconds
+      }
+    }
+  } catch (error) {
+    console.warn(`Failed to get source health for ${sourceId}:`, error.message);
+  }
+  
+  // Fallback to basic random delay
+  return 100 + Math.random() * 400;
 }
 
 serve(async (req) => {

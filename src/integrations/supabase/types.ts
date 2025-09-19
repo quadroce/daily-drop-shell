@@ -814,6 +814,42 @@ export type Database = {
         }
         Relationships: []
       }
+      source_health: {
+        Row: {
+          consecutive_errors: number | null
+          created_at: string | null
+          error_type: string | null
+          is_paused: boolean | null
+          last_error_at: string | null
+          last_success_at: string | null
+          paused_until: string | null
+          source_id: number
+          updated_at: string | null
+        }
+        Insert: {
+          consecutive_errors?: number | null
+          created_at?: string | null
+          error_type?: string | null
+          is_paused?: boolean | null
+          last_error_at?: string | null
+          last_success_at?: string | null
+          paused_until?: string | null
+          source_id: number
+          updated_at?: string | null
+        }
+        Update: {
+          consecutive_errors?: number | null
+          created_at?: string | null
+          error_type?: string | null
+          is_paused?: boolean | null
+          last_error_at?: string | null
+          last_success_at?: string | null
+          paused_until?: string | null
+          source_id?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       sources: {
         Row: {
           created_at: string
