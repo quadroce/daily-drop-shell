@@ -1517,6 +1517,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      trigger_onboarding_reminders_test: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       update_user_profile: {
         Args: { _display_name?: string; _username?: string }
         Returns: {
