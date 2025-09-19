@@ -315,12 +315,8 @@ serve(async (req) => {
     
     console.log(`Fetching RSS feeds (offset: ${offsetParam}, limit: ${limitParam})${sourceIdParam ? ` for source ${sourceIdParam}` : ' for active sources'}`);
 
-    // Build query for active sources, excluding paused ones
-    let sourcesQuery = `${SUPABASE_URL}/rest/v1/sources?status=eq.active&feed_url=not.is.null&select=id,name,feed_url`;
-    
-    // Left join with source_health to exclude paused sources
-    sourcesQuery += `&or=(source_health.is_paused.is.null,source_health.is_paused.eq.false,and(source_health.is_paused.eq.true,source_health.paused_until.lt.${new Date().toISOString()}))`;
-    sourcesQuery += '&order=id.asc';
+    // Build query for active sources
+    let sourcesQuery = `${SUPABASE_URL}/rest/v1/sources?status=eq.active&feed_url=not.is.null&select=id,name,feed_url&order=id.asc`;
     
     if (sourceIdParam) {
       sourcesQuery += `&id=eq.${sourceIdParam}`;
