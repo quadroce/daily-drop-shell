@@ -1,4 +1,4 @@
-import { createHmac } from "https://deno.land/std@0.190.0/crypto/mod.ts";
+import { createHmac } from "https://deno.land/std@0.190.0/crypto/hmac.ts";
 
 export interface UnsubscribeToken {
   userId: string;
