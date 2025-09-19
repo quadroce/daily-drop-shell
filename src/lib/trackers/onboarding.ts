@@ -72,3 +72,47 @@ export const trackUpgradeClick = (source?: string, plan?: string) => {
     plan: plan || 'premium' 
   });
 };
+
+// Enhanced onboarding analytics
+export const trackOnboardingRecovery = (step: number, hasProfileData: boolean, hasTopics: boolean) => {
+  track('onboarding_recovery', {
+    step,
+    has_profile_data: hasProfileData,
+    has_topics: hasTopics
+  });
+};
+
+export const trackOnboardingStepSaved = (step: number, autoSave: boolean, dataKeys: string[]) => {
+  track('onboarding_step_saved', {
+    step,
+    auto_save: autoSave,
+    data_keys: dataKeys
+  });
+};
+
+export const trackOnboardingError = (step: number, errorType: string, errorMessage: string) => {
+  track('onboarding_error', {
+    step,
+    error_type: errorType,
+    error_message: errorMessage
+  });
+};
+
+export const trackOnboardingRetry = (step: number, attemptNumber: number) => {
+  track('onboarding_retry', {
+    step,
+    attempt_number: attemptNumber
+  });
+};
+
+export const trackOnboardingAbandonment = (step: number, reason: string, sessionDuration?: number) => {
+  track('onboarding_abandonment', {
+    step,
+    reason,
+    session_duration_seconds: sessionDuration
+  });
+};
+
+export const trackOnboardingStateClear = () => {
+  track('onboarding_state_cleared', {});
+};

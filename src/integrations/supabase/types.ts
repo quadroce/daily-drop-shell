@@ -644,6 +644,36 @@ export type Database = {
           },
         ]
       }
+      onboarding_abandonment_events: {
+        Row: {
+          created_at: string
+          id: number
+          reason: string | null
+          session_duration_seconds: number | null
+          step: number
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          reason?: string | null
+          session_duration_seconds?: number | null
+          step: number
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          reason?: string | null
+          session_duration_seconds?: number | null
+          step?: number
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       onboarding_reminders: {
         Row: {
           attempt_count: number
@@ -666,6 +696,36 @@ export type Database = {
           created_at?: string
           last_sent_at?: string | null
           paused?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      onboarding_state: {
+        Row: {
+          communication_prefs: Json | null
+          created_at: string
+          current_step: number
+          profile_data: Json | null
+          selected_topics: number[] | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          communication_prefs?: Json | null
+          created_at?: string
+          current_step?: number
+          profile_data?: Json | null
+          selected_topics?: number[] | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          communication_prefs?: Json | null
+          created_at?: string
+          current_step?: number
+          profile_data?: Json | null
+          selected_topics?: number[] | null
           updated_at?: string
           user_id?: string
         }

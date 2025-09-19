@@ -8,11 +8,11 @@ import { fetchAvailableLanguages } from "@/lib/api/profile";
 
 interface OnboardingStep5Props {
   formData: {
-    first_name: string;
-    last_name: string;
-    company_role: string;
-    language_prefs: string[];
-    youtube_embed_pref: boolean;
+    first_name?: string;
+    last_name?: string;
+    company_role?: string;
+    language_prefs?: string[];
+    youtube_embed_pref?: boolean;
   };
   selectedTopics: number[];
   topicLabels: { [key: number]: string };
@@ -97,12 +97,12 @@ export const OnboardingStep5Review: React.FC<OnboardingStep5Props> = ({
             <Globe className="h-4 w-4" />
             <h3 className="font-medium">Languages</h3>
             <Badge variant="outline">
-              {formData.language_prefs.length}/3
+              {(formData.language_prefs || []).length}/3
             </Badge>
           </div>
           <div className="pl-6">
             <div className="flex flex-wrap gap-2">
-              {getLanguageLabels(formData.language_prefs).map((label, index) => (
+              {getLanguageLabels(formData.language_prefs || []).map((label, index) => (
                 <Badge key={index} variant="secondary">
                   {label}
                 </Badge>
@@ -141,11 +141,11 @@ export const OnboardingStep5Review: React.FC<OnboardingStep5Props> = ({
           <div className="pl-6">
             <p>
               <span className="font-medium">Inline YouTube embeds:</span>{' '}
-              <Badge variant={formData.youtube_embed_pref ? "default" : "outline"}>
-                {formData.youtube_embed_pref ? "Enabled" : "Disabled"}
+              <Badge variant={formData.youtube_embed_pref ?? true ? "default" : "outline"}>
+                {formData.youtube_embed_pref ?? true ? "Enabled" : "Disabled"}
               </Badge>
             </p>
-            {formData.youtube_embed_pref && (
+            {(formData.youtube_embed_pref ?? true) && (
               <p className="text-sm text-muted-foreground mt-1">
                 Premium feature - requires subscription for full access
               </p>

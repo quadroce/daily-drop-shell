@@ -7,9 +7,9 @@ import { User, Building } from "lucide-react";
 
 interface OnboardingStep1Props {
   formData: {
-    first_name: string;
-    last_name: string;
-    company_role: string;
+    first_name?: string;
+    last_name?: string;
+    company_role?: string;
   };
   onChange: (field: string, value: string) => void;
   onNext: () => void;
@@ -47,7 +47,7 @@ export const OnboardingStep1Profile: React.FC<OnboardingStep1Props> = ({
                 id="first_name"
                 type="text"
                 placeholder="John"
-                value={formData.first_name}
+                value={formData.first_name || ''}
                 onChange={(e) => onChange('first_name', e.target.value)}
               />
             </div>
@@ -58,7 +58,7 @@ export const OnboardingStep1Profile: React.FC<OnboardingStep1Props> = ({
                 id="last_name"
                 type="text"
                 placeholder="Doe"
-                value={formData.last_name}
+                value={formData.last_name || ''}
                 onChange={(e) => onChange('last_name', e.target.value)}
               />
             </div>
@@ -73,7 +73,7 @@ export const OnboardingStep1Profile: React.FC<OnboardingStep1Props> = ({
                 type="text"
                 placeholder="e.g. Product Manager, Software Engineer, Founder"
                 className="pl-10"
-                value={formData.company_role}
+                value={formData.company_role || ''}
                 onChange={(e) => onChange('company_role', e.target.value)}
               />
             </div>
