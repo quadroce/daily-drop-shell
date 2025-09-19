@@ -175,7 +175,7 @@ async function processBatch(users: any[], supabase: any, todayStr: string): Prom
     
     try {
       // Check for existing delivery today (idempotency)
-      const dedupKey = `newsletter:${user.id}:${todayStr}`;
+      const dedupKey = `newsletter:${user.user_id}:${todayStr}`;
       
       const { data: existingDelivery, error: checkError } = await supabase
         .from('delivery_log')
@@ -186,7 +186,7 @@ async function processBatch(users: any[], supabase: any, todayStr: string): Prom
       if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows found
         console.error(`❌ Error checking existing delivery for ${user.email}:`, checkError);
         result.failed++;
-        result.errors.push({ userId: user.id, error: checkError.message });
+        result.errors.push({ userId: user.user_id, error: checkError.message });
         continue;
       }
 
@@ -207,14 +207,14 @@ async function processBatch(users: any[], supabase: any, todayStr: string): Prom
         console.log(`✅ Newsletter sent successfully to ${user.email}`);
       } else {
         result.failed++;
-        result.errors.push({ userId: user.id, error: 'All retry attempts failed' });
+        result.errors.push({ userId: user.user_id, error: 'All retry attempts failed' });
       }
 
     } catch (error) {
       result.failed++;
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       console.error(`❌ Error processing user ${user.email}:`, errorMsg);
-      result.errors.push({ userId: user.id, error: errorMsg });
+      result.errors.push({ userId: user.user_id, error: errorMsg });
     }
   }
 
@@ -238,7 +238,7 @@ async function sendNewsletterWithRetry(
       // Call build-digest function
       const buildResponse = await supabase.functions.invoke('build-digest', {
         body: {
-          userId: user.id,
+          userId: user.user_id,
           cadence,
           slot,
           testMode: false
@@ -256,7 +256,7 @@ async function sendNewsletterWithRetry(
       // Call send-email-digest function
       const sendResponse = await supabase.functions.invoke('send-email-digest', {
         body: {
-          userId: user.id,
+          userId: user.user_id,
           digestContent: {
             ...buildResponse.data.digestContent,
             dropIds: buildResponse.data.dropIds, // Pass through drop IDs for analytics tracking
@@ -278,7 +278,7 @@ async function sendNewsletterWithRetry(
       const { error: logError } = await supabase
         .from('delivery_log')
         .update({ dedup_key: dedupKey })
-        .eq('user_id', user.id)
+        .eq('user_id', user.user_id)
         .eq('channel', 'email')
         .order('sent_at', { ascending: false })
         .limit(1);
@@ -309,7 +309,7 @@ async function sendNewsletterWithRetry(
   await supabase
     .from('delivery_log')
     .insert({
-      user_id: user.id,
+      user_id: user.user_id,
       channel: 'newsletter',
       status: 'error',
       error_msg: lastError?.message || 'All retry attempts failed',
