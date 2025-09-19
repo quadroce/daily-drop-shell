@@ -35,11 +35,15 @@ export const NewsletterTestPanel = () => {
   const [loading, setLoading] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [searchEmail, setSearchEmail] = useState("");
+  const [manualSendLoading, setManualSendLoading] = useState(false);
+  const [lastNewsletterSent, setLastNewsletterSent] = useState<string | null>(null);
+  const [loadingLastSent, setLoadingLastSent] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchUsers();
     fetchSubscriptions();
+    fetchLastNewsletterSent();
   }, []);
 
   // Add refresh function for after creating subscriptions
@@ -91,6 +95,64 @@ export const NewsletterTestPanel = () => {
     } catch (error) {
       console.error('Error fetching subscriptions:', error);
       setSubscriptions([]);
+    }
+  };
+
+  const fetchLastNewsletterSent = async () => {
+    try {
+      setLoadingLastSent(true);
+      const { data, error } = await supabase
+        .from('delivery_log')
+        .select('sent_at')
+        .not('dedup_key', 'ilike', '%test%') // Exclude test newsletters
+        .eq('status', 'delivered')
+        .order('sent_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching last newsletter:', error);
+        return;
+      }
+      
+      setLastNewsletterSent(data?.sent_at || null);
+    } catch (error) {
+      console.error('Error fetching last newsletter:', error);
+      setLastNewsletterSent(null);
+    } finally {
+      setLoadingLastSent(false);
+    }
+  };
+
+  const sendNewsletterManually = async () => {
+    setManualSendLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-newsletters', {
+        body: { manual: true }
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast({
+          title: "Newsletter inviata con successo",
+          description: `Newsletter inviata a ${data.processed || 0} utenti`,
+        });
+        
+        // Refresh last sent data
+        fetchLastNewsletterSent();
+      } else {
+        throw new Error(data?.error || 'Failed to send newsletter');
+      }
+    } catch (error) {
+      console.error('Error sending manual newsletter:', error);
+      toast({
+        title: "Errore",
+        description: error instanceof Error ? error.message : 'Errore nell\'invio della newsletter',
+        variant: "destructive",
+      });
+    } finally {
+      setManualSendLoading(false);
     }
   };
 
@@ -331,6 +393,47 @@ export const NewsletterTestPanel = () => {
             </>
           )}
         </Button>
+
+        {/* Manual Newsletter Send Section */}
+        <div className="space-y-4 pt-6 border-t">
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+            <Button 
+              onClick={sendNewsletterManually} 
+              disabled={manualSendLoading}
+              variant="outline"
+              size="lg"
+              className="flex-shrink-0"
+            >
+              {manualSendLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Invio in corso...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Send Newsletter Manually
+                </>
+              )}
+            </Button>
+            
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Clock className="h-4 w-4" />
+              <span>
+                Ultima newsletter: {' '}
+                {loadingLastSent ? (
+                  <Loader2 className="h-3 w-3 animate-spin inline" />
+                ) : lastNewsletterSent ? (
+                  <span className="font-medium text-foreground">
+                    {new Date(lastNewsletterSent).toLocaleString('it-IT')}
+                  </span>
+                ) : (
+                  <span className="italic">Mai inviata</span>
+                )}
+              </span>
+            </div>
+          </div>
+        </div>
 
         <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
           <div className="flex items-start gap-2">
