@@ -46,7 +46,10 @@ async function fetchPage({
     p_l2: l2 ?? null
   });
   
-  if (error) throw error;
+  if (error) {
+    console.error('RPC Error:', error);
+    throw error;
+  }
 
   const items = (data ?? []) as FeedItem[];
   const last = items.at(-1);
