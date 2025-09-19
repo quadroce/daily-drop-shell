@@ -30,7 +30,7 @@ const handler = async (req: Request): Promise<Response> => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Query users who need onboarding reminders
+    // Query users who need onboarding reminders using JOIN for better reliability
     const { data: usersToRemind, error: queryError } = await supabase
       .from('profiles')
       .select(`
@@ -38,15 +38,11 @@ const handler = async (req: Request): Promise<Response> => {
         email,
         first_name,
         language_prefs,
-        created_at,
-        onboarding_reminders (
-          attempt_count,
-          last_sent_at,
-          paused
-        )
+        created_at
       `)
       .eq('onboarding_completed', false)
-      .eq('is_active', true);
+      .eq('is_active', true)
+      .not('email', 'is', null);
 
     if (queryError) {
       console.error('❌ Error querying users:', queryError);
@@ -66,6 +62,25 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
+    // Get reminder data separately for all users
+    const userIds = usersToRemind.map(user => user.id);
+    const { data: reminderData, error: reminderError } = await supabase
+      .from('onboarding_reminders')
+      .select('user_id, attempt_count, last_sent_at, paused')
+      .in('user_id', userIds);
+
+    if (reminderError) {
+      console.error('❌ Error querying reminder data:', reminderError);
+      // Continue without reminder data - treat as first attempt
+      console.log('📝 Continuing without reminder data - treating as first attempts');
+    }
+
+    // Create a lookup map for reminder data
+    const reminderMap = new Map();
+    (reminderData || []).forEach(reminder => {
+      reminderMap.set(reminder.user_id, reminder);
+    });
+
     // Filter users who need reminders (24h first, then 30-day interval, <10 attempts, not paused)
     const now = new Date();
     const oneDayAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
@@ -73,36 +88,58 @@ const handler = async (req: Request): Promise<Response> => {
 
     const eligibleUsers: UserToRemind[] = usersToRemind
       .filter(user => {
-        const reminder = user.onboarding_reminders?.[0];
+        const reminder = reminderMap.get(user.id);
         const userRegistered = new Date(user.created_at);
         
+        console.log(`🔍 Checking user ${user.email}:`, {
+          registered: userRegistered.toISOString(),
+          reminder: reminder ? {
+            attempts: reminder.attempt_count,
+            lastSent: reminder.last_sent_at,
+            paused: reminder.paused
+          } : 'no_reminder_record'
+        });
+        
         // Skip if paused
-        if (reminder?.paused) return false;
+        if (reminder?.paused) {
+          console.log(`⏸️ Skipping paused user: ${user.email}`);
+          return false;
+        }
         
         // Skip if already reached max attempts
         const attempts = reminder?.attempt_count || 0;
-        if (attempts >= 10) return false;
+        if (attempts >= 10) {
+          console.log(`🛑 Max attempts reached for user: ${user.email} (${attempts}/10)`);
+          return false;
+        }
         
         // First reminder: 24 hours after registration
         if (attempts === 0) {
-          return userRegistered <= oneDayAgo;
+          const eligible = userRegistered <= oneDayAgo;
+          console.log(`📅 First reminder check for ${user.email}: ${eligible ? 'ELIGIBLE' : 'TOO_EARLY'} (registered ${Math.round((now.getTime() - userRegistered.getTime()) / (1000 * 60 * 60))}h ago)`);
+          return eligible;
         }
         
         // Subsequent reminders: every 30 days from last sent
         if (reminder?.last_sent_at) {
           const lastSent = new Date(reminder.last_sent_at);
-          return lastSent <= thirtyDaysAgo;
+          const eligible = lastSent <= thirtyDaysAgo;
+          console.log(`📅 Subsequent reminder check for ${user.email}: ${eligible ? 'ELIGIBLE' : 'TOO_EARLY'} (last sent ${Math.round((now.getTime() - lastSent.getTime()) / (1000 * 60 * 60 * 24))} days ago)`);
+          return eligible;
         }
         
         return true;
       })
-      .map(user => ({
-        user_id: user.id,
-        email: user.email,
-        first_name: user.first_name,
-        preferred_lang: user.language_prefs?.[0] || 'en',
-        current_attempts: user.onboarding_reminders?.[0]?.attempt_count || 0
-      }));
+      .map(user => {
+        const reminder = reminderMap.get(user.id);
+        return {
+          user_id: user.id,
+          email: user.email,
+          first_name: user.first_name,
+          preferred_lang: user.language_prefs?.[0] || 'en',
+          current_attempts: reminder?.attempt_count || 0
+        };
+      });
 
     console.log(`✅ ${eligibleUsers.length} users eligible for reminders`);
 
