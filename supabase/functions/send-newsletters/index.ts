@@ -46,6 +46,11 @@ serve(async (req) => {
     }
 
     console.log(`📊 Found ${users?.length || 0} total newsletter targets`);
+    
+    // Debug: Log first user structure
+    if (users && users.length > 0) {
+      console.log('🔍 First user structure:', JSON.stringify(users[0], null, 2));
+    }
 
     // Filter users based on tier and day
     const eligibleUsers = users?.filter((user: any) => {
