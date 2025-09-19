@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.56.1';
-import { sendOnboardingReminderEmail } from './mailer.ts';
+import { sendOnboardingReminderEmail } from '../send-onboarding-reminders/mailer.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,7 +22,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    console.log('🚀 Starting onboarding reminders process...');
+    console.log('🚀 Starting FORCE onboarding reminders process...');
 
     // Initialize Supabase client with service role
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -30,8 +30,14 @@ const handler = async (req: Request): Promise<Response> => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Parse request body for filters
+    const body = await req.json().catch(() => ({}));
+    const { userIds, skipTimingChecks = true, maxAttempts = 15 } = body;
+
+    console.log('📋 Force send options:', { userIds, skipTimingChecks, maxAttempts });
+
     // Query users who need onboarding reminders
-    const { data: usersToRemind, error: queryError } = await supabase
+    let query = supabase
       .from('profiles')
       .select(`
         id,
@@ -48,6 +54,13 @@ const handler = async (req: Request): Promise<Response> => {
       .eq('onboarding_completed', false)
       .eq('is_active', true);
 
+    // Filter by specific user IDs if provided
+    if (userIds && Array.isArray(userIds) && userIds.length > 0) {
+      query = query.in('id', userIds);
+    }
+
+    const { data: usersToRemind, error: queryError } = await query;
+
     if (queryError) {
       console.error('❌ Error querying users:', queryError);
       throw queryError;
@@ -59,40 +72,25 @@ const handler = async (req: Request): Promise<Response> => {
       return new Response(JSON.stringify({ 
         success: true, 
         sent: 0, 
-        message: 'No users need reminders at this time' 
+        message: 'No users found for force reminders' 
       }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Filter users who need reminders (24h first, then 30-day interval, <10 attempts, not paused)
     const now = new Date();
-    const oneDayAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
-    const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
 
     const eligibleUsers: UserToRemind[] = usersToRemind
       .filter(user => {
         const reminder = user.onboarding_reminders?.[0];
-        const userRegistered = new Date(user.created_at);
         
-        // Skip if paused
-        if (reminder?.paused) return false;
+        // Skip if paused (unless force override)
+        if (reminder?.paused && !skipTimingChecks) return false;
         
-        // Skip if already reached max attempts
+        // Skip if exceeded max attempts for force send
         const attempts = reminder?.attempt_count || 0;
-        if (attempts >= 10) return false;
-        
-        // First reminder: 24 hours after registration
-        if (attempts === 0) {
-          return userRegistered <= oneDayAgo;
-        }
-        
-        // Subsequent reminders: every 30 days from last sent
-        if (reminder?.last_sent_at) {
-          const lastSent = new Date(reminder.last_sent_at);
-          return lastSent <= thirtyDaysAgo;
-        }
+        if (attempts >= maxAttempts) return false;
         
         return true;
       })
@@ -104,14 +102,13 @@ const handler = async (req: Request): Promise<Response> => {
         current_attempts: user.onboarding_reminders?.[0]?.attempt_count || 0
       }));
 
-    console.log(`✅ ${eligibleUsers.length} users eligible for reminders`);
+    console.log(`✅ ${eligibleUsers.length} users eligible for FORCE reminders`);
 
     let successCount = 0;
     let errorCount = 0;
-    const processedUsers = new Set<string>(); // Prevent duplicates
+    const processedUsers = new Set<string>();
 
     for (const user of eligibleUsers) {
-      // Skip if already processed (idempotency)
       if (processedUsers.has(user.user_id)) {
         console.log(`⏭️ Skipping duplicate user: ${user.user_id}`);
         continue;
@@ -120,7 +117,7 @@ const handler = async (req: Request): Promise<Response> => {
       processedUsers.add(user.user_id);
 
       try {
-        console.log(`📧 Sending reminder to: ${user.email} (attempt ${user.current_attempts + 1})`);
+        console.log(`📧 FORCE sending reminder to: ${user.email} (attempt ${user.current_attempts + 1})`);
         
         // Send email
         const emailResult = await sendOnboardingReminderEmail({
@@ -141,20 +138,21 @@ const handler = async (req: Request): Promise<Response> => {
               updated_at: now.toISOString()
             });
 
-          // Log delivery for analytics
+          // Log delivery for analytics with force marker
           const { error: deliveryError } = await supabase
             .from('delivery_log')
             .upsert({
               user_id: user.user_id,
               channel: 'email',
               status: 'sent',
-              dedup_key: `onboarding_reminder_${user.user_id}_${user.current_attempts + 1}_${now.getTime()}`,
+              dedup_key: `onboarding_reminder_force_${user.user_id}_${user.current_attempts + 1}_${now.getTime()}`,
               sent_at: now.toISOString(),
               meta: {
                 reminder_type: 'onboarding',
                 attempt_number: user.current_attempts + 1,
                 user_email: user.email,
-                trigger: 'automated'
+                trigger: 'admin_force_send',
+                force_send: true
               }
             }, {
               onConflict: 'dedup_key',
@@ -169,7 +167,7 @@ const handler = async (req: Request): Promise<Response> => {
             console.error(`❌ Failed to update reminder record for ${user.email}:`, upsertError);
             errorCount++;
           } else {
-            console.log(`✅ Successfully sent and recorded reminder for ${user.email}`);
+            console.log(`✅ Successfully FORCE sent and recorded reminder for ${user.email}`);
             successCount++;
           }
         } else {
@@ -187,10 +185,11 @@ const handler = async (req: Request): Promise<Response> => {
       total_eligible: eligibleUsers.length,
       sent: successCount,
       errors: errorCount,
-      message: `Processed ${eligibleUsers.length} users: ${successCount} sent, ${errorCount} errors`
+      force_send: true,
+      message: `FORCE processed ${eligibleUsers.length} users: ${successCount} sent, ${errorCount} errors`
     };
 
-    console.log('📊 Final results:', result);
+    console.log('📊 Final FORCE results:', result);
 
     return new Response(JSON.stringify(result), {
       status: 200,
@@ -198,11 +197,12 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
   } catch (error) {
-    console.error('💥 Fatal error in onboarding reminders:', error);
+    console.error('💥 Fatal error in FORCE onboarding reminders:', error);
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message || 'Unknown error occurred' 
+        error: error.message || 'Unknown error occurred',
+        force_send: true
       }),
       {
         status: 500,

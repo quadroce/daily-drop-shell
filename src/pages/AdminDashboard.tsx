@@ -75,12 +75,20 @@ interface CronExecution {
   error_message: string;
 }
 
+interface OnboardingStats {
+  pending_users: number;
+  reminders_sent_today: number;
+  total_reminders_sent: number;
+  completion_rate: number;
+}
+
 const AdminDashboard = () => {
   const [logs, setLogs] = useState<IngestionLog[]>([]);
   const [cronJobs, setCronJobs] = useState<CronJob[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [ingestionHealth, setIngestionHealth] = useState<IngestionHealth | null>(null);
   const [cronExecutions, setCronExecutions] = useState<CronExecution[]>([]);
+  const [onboardingStats, setOnboardingStats] = useState<OnboardingStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [debugResults, setDebugResults] = useState<any>(null);
@@ -151,11 +159,28 @@ const AdminDashboard = () => {
         .order('executed_at', { ascending: false })
         .limit(10);
 
+      // Fetch onboarding stats
+      const [pendingUsersRes, remindersToday, totalReminders, completedUsers] = await Promise.all([
+        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('onboarding_completed', false).eq('is_active', true),
+        supabase.from('delivery_log').select('*', { count: 'exact', head: true }).eq('channel', 'email').contains('meta', { reminder_type: 'onboarding' }).gte('sent_at', new Date().toISOString().split('T')[0]),
+        supabase.from('delivery_log').select('*', { count: 'exact', head: true }).eq('channel', 'email').contains('meta', { reminder_type: 'onboarding' }),
+        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('onboarding_completed', true)
+      ]);
+
+      const totalUsers = (pendingUsersRes.count || 0) + (completedUsers.count || 0);
+      const completionRate = totalUsers > 0 ? ((completedUsers.count || 0) / totalUsers) * 100 : 0;
+
       // Update state with fetched data
       setLogs(logsData || []);
       setCronJobs(cronData || []);
       setIngestionHealth(healthData?.[0] || null);
       setCronExecutions(cronExecutionsData || []);
+      setOnboardingStats({
+        pending_users: pendingUsersRes.count || 0,
+        reminders_sent_today: remindersToday.count || 0,
+        total_reminders_sent: totalReminders.count || 0,
+        completion_rate: Math.round(completionRate)
+      });
 
       // Fetch stats with correct queries
       const [totalDropsRes, taggedDropsRes, queueRes] = await Promise.all([
@@ -435,6 +460,62 @@ const AdminDashboard = () => {
     }
   };
 
+  const sendOnboardingReminders = async () => {
+    setRunning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-onboarding-reminders', {
+        body: { trigger: 'manual_admin' }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Onboarding Reminders Sent",
+        description: `Processed ${data.total_eligible || 0} users: ${data.sent || 0} sent, ${data.errors || 0} errors`,
+      });
+
+      // Refresh data after sending
+      setTimeout(fetchData, 2000);
+    } catch (error) {
+      console.error('Error sending onboarding reminders:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send onboarding reminders.",
+        variant: "destructive",
+      });
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const forceOnboardingReminders = async () => {
+    setRunning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-onboarding-reminders-force', {
+        body: { skipTimingChecks: true, maxAttempts: 15 }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Force Onboarding Reminders Sent",
+        description: `FORCE processed ${data.total_eligible || 0} users: ${data.sent || 0} sent, ${data.errors || 0} errors`,
+      });
+
+      // Refresh data after sending
+      setTimeout(fetchData, 2000);
+    } catch (error) {
+      console.error('Error force sending onboarding reminders:', error);
+      toast({
+        title: "Error",
+        description: "Failed to force send onboarding reminders.",
+        variant: "destructive",
+      });
+    } finally {
+      setRunning(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     if (!dateString) return 'Never';
     const date = new Date(dateString);
@@ -568,6 +649,7 @@ const AdminDashboard = () => {
           <TabsTrigger value="debug">Debug Console</TabsTrigger>
           <TabsTrigger value="content">Content & Tagging</TabsTrigger>
           <TabsTrigger value="youtube">YouTube</TabsTrigger>
+          <TabsTrigger value="onboarding">User Onboarding</TabsTrigger>
           <TabsTrigger value="system">System Tools</TabsTrigger>
           <TabsTrigger value="sitemaps">Sitemaps & SEO</TabsTrigger>
           <TabsTrigger value="logs">Logs & History</TabsTrigger>
@@ -826,6 +908,103 @@ const AdminDashboard = () => {
                 <p className="text-xs text-muted-foreground">
                   Reprocess YouTube videos with missing or incorrect metadata
                 </p>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* User Onboarding */}
+        <TabsContent value="onboarding">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  Onboarding Reminders
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="p-4 bg-muted rounded-lg text-center">
+                    <div className="text-2xl font-bold text-orange-600">{onboardingStats?.pending_users || 0}</div>
+                    <div className="text-sm text-muted-foreground">Pending Users</div>
+                  </div>
+                  <div className="p-4 bg-muted rounded-lg text-center">
+                    <div className="text-2xl font-bold text-green-600">{onboardingStats?.completion_rate || 0}%</div>
+                    <div className="text-sm text-muted-foreground">Completion Rate</div>
+                  </div>
+                </div>
+
+                <Separator />
+                
+                <Button 
+                  onClick={sendOnboardingReminders} 
+                  disabled={running}
+                  className="w-full"
+                  variant="outline"
+                >
+                  {running ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Play className="h-4 w-4 mr-2" />
+                  )}
+                  Send Onboarding Reminders
+                </Button>
+                
+                <Button 
+                  onClick={forceOnboardingReminders} 
+                  disabled={running}
+                  className="w-full"
+                  variant="destructive"
+                >
+                  {running ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Zap className="h-4 w-4 mr-2" />
+                  )}
+                  Force Send Reminders (Admin)
+                </Button>
+
+                <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">
+                  <div>• Normal: Respects 24h first, then 30-day intervals</div>
+                  <div>• Force: Bypasses timing restrictions for testing</div>
+                  <div>• Automated daily execution at 09:00 UTC</div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Globe className="h-5 w-5" />
+                  Onboarding Analytics
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-center">
+                      <div className="text-lg font-semibold">{onboardingStats?.reminders_sent_today || 0}</div>
+                      <div className="text-xs text-muted-foreground">Sent Today</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg font-semibold">{onboardingStats?.total_reminders_sent || 0}</div>
+                      <div className="text-xs text-muted-foreground">Total Sent</div>
+                    </div>
+                  </div>
+                  
+                  <Separator />
+                  
+                  <div className="text-sm text-muted-foreground">
+                    <div className="font-medium mb-2">Reminder Schedule:</div>
+                    <div className="space-y-1">
+                      <div>• 1st reminder: 24 hours after signup</div>
+                      <div>• Subsequent: Every 30 days</div>
+                      <div>• Max attempts: 10 per user</div>
+                      <div>• Daily automated check: 09:00 UTC</div>
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>
