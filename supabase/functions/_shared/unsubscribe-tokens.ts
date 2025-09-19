@@ -1,5 +1,3 @@
-import { createHmac } from "https://deno.land/std@0.190.0/crypto/hmac.ts";
-
 export interface UnsubscribeToken {
   userId: string;
   email: string;
@@ -7,25 +5,35 @@ export interface UnsubscribeToken {
   timestamp: number;
 }
 
-// Utility functions for token management
-export function generateUnsubscribeToken(userId: string, email: string, cadence: string): string {
+// Utility functions for token management using Web Crypto API
+export async function generateUnsubscribeToken(userId: string, email: string, cadence: string): Promise<string> {
   const secretKey = Deno.env.get('UNSUBSCRIBE_SECRET') || 'fallback-secret-key';
   const timestamp = Date.now();
   
   const payload = JSON.stringify({ userId, email, cadence, timestamp });
   const encoder = new TextEncoder();
-  const key = encoder.encode(secretKey);
-  const data = encoder.encode(payload);
+  
+  // Import the secret key
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secretKey),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
   
   // Create HMAC signature
-  const signature = createHmac("sha256", key).update(data).toString();
+  const signatureBuffer = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
+  const signature = Array.from(new Uint8Array(signatureBuffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
   
   // Combine payload and signature
   const token = btoa(payload) + '.' + signature;
   return token;
 }
 
-export function verifyUnsubscribeToken(token: string): UnsubscribeToken | null {
+export async function verifyUnsubscribeToken(token: string): Promise<UnsubscribeToken | null> {
   try {
     const secretKey = Deno.env.get('UNSUBSCRIBE_SECRET') || 'fallback-secret-key';
     const [encodedPayload, signature] = token.split('.');
@@ -36,11 +44,22 @@ export function verifyUnsubscribeToken(token: string): UnsubscribeToken | null {
     
     const payload = atob(encodedPayload);
     const encoder = new TextEncoder();
-    const key = encoder.encode(secretKey);
-    const data = encoder.encode(payload);
+    
+    // Import the secret key
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(secretKey),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
     
     // Verify signature
-    const expectedSignature = createHmac("sha256", key).update(data).toString();
+    const expectedSignatureBuffer = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
+    const expectedSignature = Array.from(new Uint8Array(expectedSignatureBuffer))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+    
     if (signature !== expectedSignature) {
       return null;
     }

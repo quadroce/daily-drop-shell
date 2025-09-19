@@ -98,7 +98,7 @@ serve(async (req) => {
     console.log(`    - Processing ${itemCount} items for HTML generation`);
     
     // Generate unsubscribe token
-    const unsubscribeToken = generateUnsubscribeToken(userId, userEmail, cadence);
+    const unsubscribeToken = await generateUnsubscribeToken(userId, userEmail, cadence);
     const frontendOrigin = Deno.env.get('FRONTEND_ORIGIN') || 'https://dailydrops.cloud';
     const unsubscribeUrl = `https://qimelntuxquptqqynxzv.supabase.co/functions/v1/unsubscribe-newsletter?token=${unsubscribeToken}`;
     const preferencesUrl = `${frontendOrigin}/settings`;
