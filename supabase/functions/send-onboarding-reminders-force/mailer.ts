@@ -189,7 +189,7 @@ function interpolateTemplate(template: string, data: {
 export async function sendOnboardingReminderEmail(emailData: EmailData): Promise<EmailResult> {
   try {
     const frontendOrigin = Deno.env.get('FRONTEND_ORIGIN') || 'https://dailydrops.cloud';
-    const fromEmail = Deno.env.get('FROM_EMAIL') || 'hello@dailydrops.cloud';
+    const fromEmail = Deno.env.get('FROM_EMAIL') || 'DailyDrop <onboarding@newsletter.dailydrops.cloud>';
     
     // Prepare template variables
     const templateData = {
@@ -234,8 +234,22 @@ export async function sendOnboardingReminderEmail(emailData: EmailData): Promise
       }
     });
 
-    console.log(`✅ Email sent successfully to ${emailData.email}:`, emailResponse);
+    console.log(`✅ Email response for ${emailData.email}:`, {
+      success: !emailResponse.error,
+      messageId: emailResponse.data?.id,
+      error: emailResponse.error
+    });
 
+    // Check if Resend returned an error
+    if (emailResponse.error) {
+      console.error(`❌ Resend API error for ${emailData.email}:`, emailResponse.error);
+      return {
+        success: false,
+        error: `Resend error: ${emailResponse.error.message || JSON.stringify(emailResponse.error)}`
+      };
+    }
+
+    // Only return success if no error from Resend
     return {
       success: true,
       messageId: emailResponse.data?.id
