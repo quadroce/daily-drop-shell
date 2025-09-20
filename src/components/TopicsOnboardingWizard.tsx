@@ -23,6 +23,7 @@ interface TopicsOnboardingWizardProps {
   onSave: (topicIds: number[]) => Promise<void>;
   onSaveAll?: (topicIds?: number[]) => Promise<void>;
   initialSelectedTopics?: number[];
+  shouldNavigateAfterSave?: boolean;
 }
 
 // Fallback seed data
@@ -62,7 +63,8 @@ const SEED_TOPICS: Topic[] = [
 export const TopicsOnboardingWizard: React.FC<TopicsOnboardingWizardProps> = ({
   onSave,
   onSaveAll,
-  initialSelectedTopics = []
+  initialSelectedTopics = [],
+  shouldNavigateAfterSave = false
 }) => {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
@@ -201,8 +203,33 @@ export const TopicsOnboardingWizard: React.FC<TopicsOnboardingWizardProps> = ({
       
       await onSave(topicIds);
       
-      // Redirect to feed after successful save
-      navigate('/feed', { replace: true });
+      // Redirect to feed after successful save if needed
+      if (shouldNavigateAfterSave) {
+        navigate('/feed', { replace: true });
+      }
+    } catch (error) {
+      console.error('Failed to save preferences:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveAll = async () => {
+    if (!onSaveAll) return;
+    
+    setSaving(true);
+    try {
+      const topicIds = Array.from(selectedTopics);
+      
+      // Track preferences completion
+      trackPreferencesCompleted(topicIds.length);
+      
+      await onSaveAll(topicIds);
+      
+      // Redirect to feed after successful save if needed
+      if (shouldNavigateAfterSave) {
+        navigate('/feed', { replace: true });
+      }
     } catch (error) {
       console.error('Failed to save preferences:', error);
     } finally {
@@ -473,7 +500,7 @@ export const TopicsOnboardingWizard: React.FC<TopicsOnboardingWizardProps> = ({
               </Button>
             ) : (
               <Button 
-                onClick={() => onSaveAll ? onSaveAll(Array.from(selectedTopics)) : handleSave()}
+                onClick={() => onSaveAll ? handleSaveAll() : handleSave()}
                 disabled={saving || selectedTopics.size === 0}
               >
                 {saving ? 'Saving...' : 'Save Preferences'}
