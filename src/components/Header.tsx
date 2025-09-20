@@ -218,7 +218,7 @@ const Header = () => {
             : (
               <div className="hidden md:flex items-center space-x-2">
                 <Button asChild variant="ghost">
-                  <Link to="/auth">Sign In</Link>
+                  <Link to="/auth">Sign In - Register</Link>
                 </Button>
               </div>
             )}
