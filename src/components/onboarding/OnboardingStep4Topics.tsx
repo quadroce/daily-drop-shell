@@ -55,6 +55,7 @@ export const OnboardingStep4Topics: React.FC<OnboardingStep4Props> = ({
       <TopicsOnboardingWizard
         onSave={handleSaveTopics}
         initialSelectedTopics={selectedTopics}
+        onTopicsChange={onTopicsChange}
       />
 
       <Card>

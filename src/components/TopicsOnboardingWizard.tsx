@@ -24,6 +24,7 @@ interface TopicsOnboardingWizardProps {
   onSaveAll?: (topicIds?: number[]) => Promise<void>;
   initialSelectedTopics?: number[];
   shouldNavigateAfterSave?: boolean;
+  onTopicsChange?: (topicIds: number[]) => void; // Add callback for real-time sync
 }
 
 // Fallback seed data
@@ -64,7 +65,8 @@ export const TopicsOnboardingWizard: React.FC<TopicsOnboardingWizardProps> = ({
   onSave,
   onSaveAll,
   initialSelectedTopics = [],
-  shouldNavigateAfterSave = false
+  shouldNavigateAfterSave = false,
+  onTopicsChange
 }) => {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
@@ -176,6 +178,11 @@ export const TopicsOnboardingWizard: React.FC<TopicsOnboardingWizardProps> = ({
       newSelected.add(topicId);
     }
     setSelectedTopics(newSelected);
+    
+    // Notify parent of changes for real-time sync
+    if (onTopicsChange) {
+      onTopicsChange(Array.from(newSelected));
+    }
   };
 
   const removeTopic = (topicId: number) => {
