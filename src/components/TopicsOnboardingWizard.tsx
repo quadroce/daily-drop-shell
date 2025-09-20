@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +64,7 @@ export const TopicsOnboardingWizard: React.FC<TopicsOnboardingWizardProps> = ({
   onSaveAll,
   initialSelectedTopics = []
 }) => {
+  const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [selectedTopics, setSelectedTopics] = useState<Set<number>>(new Set(initialSelectedTopics));
@@ -198,6 +200,9 @@ export const TopicsOnboardingWizard: React.FC<TopicsOnboardingWizardProps> = ({
       trackPreferencesCompleted(topicIds.length);
       
       await onSave(topicIds);
+      
+      // Redirect to feed after successful save
+      navigate('/feed', { replace: true });
     } catch (error) {
       console.error('Failed to save preferences:', error);
     } finally {
