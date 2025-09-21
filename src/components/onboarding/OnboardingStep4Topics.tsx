@@ -60,15 +60,9 @@ export const OnboardingStep4Topics: React.FC<OnboardingStep4Props> = ({
 
       <Card>
         <CardContent className="pt-6">
-          <div className="flex justify-between">
+          <div className="flex justify-start">
             <Button type="button" variant="outline" onClick={onBack}>
               Back
-            </Button>
-            <Button 
-              onClick={onNext}
-              disabled={!hasMinTopics}
-            >
-              Continue
             </Button>
           </div>
         </CardContent>

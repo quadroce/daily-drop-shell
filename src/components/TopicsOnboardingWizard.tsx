@@ -194,10 +194,8 @@ export const TopicsOnboardingWizard: React.FC<TopicsOnboardingWizardProps> = ({
   const getTopicById = (id: number) => topics.find(t => t.id === id);
 
   const canProceedToNext = () => {
-    if (currentStep === 1) {
-      return Array.from(selectedTopics).some(id => macroTopics.some(m => m.id === id));
-    }
-    return true;
+    // Always require at least 1 topic selected to proceed
+    return selectedTopics.size > 0;
   };
 
   const handleSave = async () => {
