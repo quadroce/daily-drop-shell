@@ -8,8 +8,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Share2, Copy, ExternalLink, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { requireSession } from "@/lib/auth";
 import { trackShare, generateShareMessage, getShareUrls } from "@/lib/trackers/sharing";
+import { useNavigate } from "react-router-dom";
 
 interface ShareButtonProps {
   dropId: string;
@@ -22,27 +24,48 @@ interface ShareButtonProps {
 export const ShareButton = ({ dropId, title, url, disabled, className }: ShareButtonProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   // Pre-filled share message with clickable dailydrops.cloud link
   const shareMessage = generateShareMessage(url);
   const shareUrls = getShareUrls(title, url, shareMessage);
 
+  const checkAuthAndProceed = async (action: () => void) => {
+    try {
+      await requireSession();
+      action();
+    } catch (error) {
+      if (error.message === "NO_SESSION") {
+        toast({
+          title: "Accedi per condividere",
+          description: "Devi essere registrato per condividere contenuti.",
+          action: (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => navigate('/auth')}
+            >
+              Registrati
+            </Button>
+          ),
+        });
+      }
+    }
+  };
+
   const logShare = async (channel: 'linkedin' | 'reddit' | 'whatsapp' | 'copylink' | 'native') => {
-    if (isLoading) return;
+    if (isLoading || !user) return;
     
     setIsLoading(true);
     try {
-      // Get current session
-      const { data: { session } } = await supabase.auth.getSession();
-      const userId = session?.user?.id || null;
-
-      // Use the tracking utility
+      // Use the tracking utility with authenticated user
       await trackShare({
         dropId,
         title,
         url,
         channel,
-        userId
+        userId: user.id
       });
     } catch (error) {
       console.error('Error in logShare:', error);
@@ -52,7 +75,7 @@ export const ShareButton = ({ dropId, title, url, disabled, className }: ShareBu
   };
 
   const handleNativeShare = async () => {
-    if (!navigator.share) return false;
+    if (!navigator.share || !user) return false;
     
     try {
       await navigator.share({
@@ -69,46 +92,59 @@ export const ShareButton = ({ dropId, title, url, disabled, className }: ShareBu
   };
 
   const handleLinkedInShare = () => {
-    window.open(shareUrls.linkedin, '_blank', 'width=600,height=400');
-    logShare('linkedin');
+    checkAuthAndProceed(() => {
+      window.open(shareUrls.linkedin, '_blank', 'width=600,height=400');
+      logShare('linkedin');
+    });
   };
 
   const handleRedditShare = () => {
-    window.open(shareUrls.reddit, '_blank', 'width=600,height=400');
-    logShare('reddit');
+    checkAuthAndProceed(() => {
+      window.open(shareUrls.reddit, '_blank', 'width=600,height=400');
+      logShare('reddit');
+    });
   };
 
   const handleWhatsAppShare = () => {
-    window.open(shareUrls.whatsapp, '_blank');
-    logShare('whatsapp');
+    checkAuthAndProceed(() => {
+      window.open(shareUrls.whatsapp, '_blank');
+      logShare('whatsapp');
+    });
   };
 
   const handleCopyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(shareMessage);
-      toast({
-        title: "Link copied!",
-        description: "Share message copied to clipboard",
-      });
-      logShare('copylink');
-    } catch (error) {
-      // Fallback for older browsers
-      const textArea = document.createElement('textarea');
-      textArea.value = shareMessage;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-      
-      toast({
-        title: "Link copied!",
-        description: "Share message copied to clipboard",
-      });
-      logShare('copylink');
-    }
+    checkAuthAndProceed(async () => {
+      try {
+        await navigator.clipboard.writeText(shareMessage);
+        toast({
+          title: "Link copiato!",
+          description: "Messaggio di condivisione copiato negli appunti",
+        });
+        logShare('copylink');
+      } catch (error) {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = shareMessage;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        toast({
+          title: "Link copiato!",
+          description: "Messaggio di condivisione copiato negli appunti",
+        });
+        logShare('copylink');
+      }
+    });
   };
 
   const handleShareClick = async () => {
+    if (!user) {
+      checkAuthAndProceed(() => {});
+      return;
+    }
+    
     // Try native share first on mobile
     if (navigator.share && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
       const success = await handleNativeShare();
