@@ -37,6 +37,7 @@ import { TopicLandingPage } from "./pages/topics/TopicLandingPage";
 import { TopicArchiveIndexPage } from "./pages/topics/TopicArchiveIndexPage";
 import { TopicDailyArchivePage } from "./pages/topics/TopicDailyArchivePage";
 import { SitemapPage } from "./pages/SitemapPage";
+import Personalization from "./pages/Personalization";
 
 const queryClient = new QueryClient();
 
@@ -77,6 +78,7 @@ const App = () => (
                   <Route path="/corporate" element={<Corporate />} />
                   <Route path="/sponsor" element={<Sponsor />} />
                   <Route path="/privacy" element={<Privacy />} />
+                  <Route path="/personalization" element={<Personalization />} />
                   <Route path="/unsubscribe" element={<Unsubscribe />} />
                   <Route path="/onboarding" element={
                     <ProtectedRoute>

@@ -25,6 +25,9 @@ const Footer = () => {
             <Link to="/topics/technology/archive" className="hover:text-primary transition-colors">
               Archive
             </Link>
+            <Link to="/personalization" className="hover:text-primary transition-colors">
+              How Personalization Works
+            </Link>
             <Link to="/privacy" className="hover:text-primary transition-colors">
               Privacy
             </Link>
