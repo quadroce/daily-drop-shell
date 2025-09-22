@@ -49,8 +49,17 @@ const getImageUrl = (drop: any) => {
 
 // DropCard component extracted outside Feed to fix React hooks error #310
 const DropCard = (
-  { drop, isSponsored = false, updateEngagement, track, getTopicSlug, topicsLoading, getState, isLoading }: { 
-    drop: any; 
+  {
+    drop,
+    isSponsored = false,
+    updateEngagement,
+    track,
+    getTopicSlug,
+    topicsLoading,
+    getState,
+    isLoading,
+  }: {
+    drop: any;
     isSponsored?: boolean;
     updateEngagement: (dropId: string, action: string) => Promise<boolean>;
     track: (event: string, params: any) => void;
@@ -139,7 +148,7 @@ const DropCard = (
                     size="icon"
                     className="shrink-0 h-6 w-6"
                     onClick={() => {
-                      // Track content click  
+                      // Track content click
                       track("content_click", {
                         drop_id: drop.id,
                         content_id: drop.id,
@@ -238,8 +247,8 @@ const DropCard = (
                       variant="ghost"
                       size="icon"
                       className={`h-6 w-6 ${
-                        engagementState.isLiked 
-                          ? "bg-success/20 text-success hover:bg-success/30" 
+                        engagementState.isLiked
+                          ? "bg-success/20 text-success hover:bg-success/30"
                           : "hover:bg-success/10 hover:text-success"
                       }`}
                       disabled={loadingState}
@@ -256,7 +265,11 @@ const DropCard = (
                         }
                       }}
                     >
-                      <Heart className={`h-3 w-3 ${engagementState.isLiked ? "fill-current" : ""}`} />
+                      <Heart
+                        className={`h-3 w-3 ${
+                          engagementState.isLiked ? "fill-current" : ""
+                        }`}
+                      />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -272,14 +285,17 @@ const DropCard = (
                         variant="ghost"
                         size="icon"
                         className={`h-6 w-6 ${
-                          engagementState.isSaved 
-                            ? "bg-success/20 text-success hover:bg-success/30" 
+                          engagementState.isSaved
+                            ? "bg-success/20 text-success hover:bg-success/30"
                             : "hover:bg-success/10 hover:text-success"
                         }`}
                         disabled={loadingState}
                         aria-pressed={engagementState.isSaved}
                         onClick={async () => {
-                          const success = await updateEngagement(dropId, "save");
+                          const success = await updateEngagement(
+                            dropId,
+                            "save",
+                          );
                           if (success) {
                             track("save_item", {
                               drop_id: drop.id,
@@ -290,7 +306,11 @@ const DropCard = (
                           }
                         }}
                       >
-                        <Bookmark className={`h-3 w-3 ${engagementState.isSaved ? "fill-current" : ""}`} />
+                        <Bookmark
+                          className={`h-3 w-3 ${
+                            engagementState.isSaved ? "fill-current" : ""
+                          }`}
+                        />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -299,7 +319,7 @@ const DropCard = (
                   </Tooltip>
                 )}
 
-                <ShareButton 
+                <ShareButton
                   dropId={dropId}
                   title={drop.title}
                   url={drop.url}
@@ -313,14 +333,17 @@ const DropCard = (
                       variant="ghost"
                       size="icon"
                       className={`h-6 w-6 ${
-                        engagementState.isDismissed 
-                          ? "bg-destructive/20 text-destructive hover:bg-destructive/30" 
+                        engagementState.isDismissed
+                          ? "bg-destructive/20 text-destructive hover:bg-destructive/30"
                           : "hover:bg-destructive/10 hover:text-destructive"
                       }`}
                       disabled={loadingState}
                       aria-pressed={engagementState.isDismissed}
                       onClick={async () => {
-                        const success = await updateEngagement(dropId, "dismiss");
+                        const success = await updateEngagement(
+                          dropId,
+                          "dismiss",
+                        );
                         if (success) {
                           track("dismiss_item", {
                             drop_id: drop.id,
@@ -345,15 +368,19 @@ const DropCard = (
                       variant="ghost"
                       size="icon"
                       className={`h-6 w-6 ${
-                        engagementState.isDisliked 
-                          ? "bg-muted text-muted-foreground" 
+                        engagementState.isDisliked
+                          ? "bg-muted text-muted-foreground"
                           : "hover:bg-muted"
                       }`}
                       disabled={loadingState}
                       aria-pressed={engagementState.isDisliked}
                       onClick={() => updateEngagement(dropId, "dislike")}
                     >
-                      <ThumbsDown className={`h-3 w-3 ${engagementState.isDisliked ? "fill-current" : ""}`} />
+                      <ThumbsDown
+                        className={`h-3 w-3 ${
+                          engagementState.isDisliked ? "fill-current" : ""
+                        }`}
+                      />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -448,7 +475,12 @@ const Feed = () => {
   const { fallbackPrefs, isFallbackActive } = usePreferences();
   const { getTopicSlug, isLoading: topicsLoading } = useTopicsMap();
   const { isPremium } = useUserProfile();
-  const { updateEngagement, initializeStates, getState, isLoading: isEngagementLoading } = useEngagementState();
+  const {
+    updateEngagement,
+    initializeStates,
+    getState,
+    isLoading: isEngagementLoading,
+  } = useEngagementState();
   const [drops, setDrops] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasPreferences, setHasPreferences] = useState<boolean | null>(null);
@@ -726,11 +758,10 @@ const Feed = () => {
   // Initialize engagement states when drops are loaded
   useEffect(() => {
     if (drops.length > 0) {
-      const dropIds = drops.map(drop => drop.id.toString());
+      const dropIds = drops.map((drop) => drop.id.toString());
       initializeStates(dropIds);
     }
   }, [drops, initializeStates]);
-
 
   /* const sponsoredContent = {
     id: "sponsored-1",
@@ -835,7 +866,6 @@ const Feed = () => {
           {/* Constraint helper */}
           <div className="mt-4 p-3 bg-muted/50 rounded-lg">
             <p className="text-sm text-muted-foreground">
-              ≥1 YouTube per Drop • ≤2 per source • ≤1 sponsored
               {isFallbackActive && (
                 <span className="ml-2 px-2 py-1 bg-warning/20 text-warning text-xs rounded">
                   Using temporary preferences
@@ -876,25 +906,28 @@ const Feed = () => {
                       <FullWidthVideoCard
                         key={drop.id}
                         item={drop}
-                         onSave={(id) => updateEngagement(id.toString(), "save")}
-                         onLike={(id) => updateEngagement(id.toString(), "like")}
-                         onDismiss={(id) => updateEngagement(id.toString(), "dismiss")}
-                       />
-                     );
-                   }
+                        onSave={(id) => updateEngagement(id.toString(), "save")}
+                        onLike={(id) => updateEngagement(id.toString(), "like")}
+                        onDismiss={(id) =>
+                          updateEngagement(id.toString(), "dismiss")}
+                      />
+                    );
+                  }
 
-                   // Otherwise render regular card (including subsequent YouTube videos for premium users)
-                   console.log(`[Feed] Rendering DropCard for drop ${index}`);
-                   return <DropCard 
-                     key={drop.id} 
-                     drop={drop} 
-                     updateEngagement={updateEngagement}
-                     track={track}
-                     getTopicSlug={getTopicSlug}
-                     topicsLoading={topicsLoading}
-                     getState={getState}
-                     isLoading={isEngagementLoading}
-                   />;
+                  // Otherwise render regular card (including subsequent YouTube videos for premium users)
+                  console.log(`[Feed] Rendering DropCard for drop ${index}`);
+                  return (
+                    <DropCard
+                      key={drop.id}
+                      drop={drop}
+                      updateEngagement={updateEngagement}
+                      track={track}
+                      getTopicSlug={getTopicSlug}
+                      topicsLoading={topicsLoading}
+                      getState={getState}
+                      isLoading={isEngagementLoading}
+                    />
+                  );
                 })}
 
                 {/* End of feed message */}
