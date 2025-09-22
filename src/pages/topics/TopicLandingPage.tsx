@@ -85,15 +85,18 @@ export const TopicLandingPage = () => {
   if (!topicData) return null;
 
   const { topic, children } = topicData;
-  const canonical = `${window.location.origin}/topics/${slug}`;
+  
+  // Use production domain for consistent sharing
+  const baseUrl = 'https://dailydrops.cloud';
+  const canonical = `${baseUrl}/topics/${slug}`;
   const description = topic.intro 
     ? `${topic.intro.slice(0, 150)}${topic.intro.length > 150 ? '...' : ''}`
     : `Explore ${topic.label} - Level ${topic.level} topic with articles, subtopics and latest content`;
   
-  // Determine og:image for social sharing
+  // Determine og:image for social sharing - use a reliable hosted image as fallback
   const ogImage = articles && articles.length > 0 && articles[0].imageUrl
     ? articles[0].imageUrl
-    : `${window.location.origin}/topic-default.png`;
+    : 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&h=630&fit=crop';
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -107,7 +110,7 @@ export const TopicLandingPage = () => {
         "@type": "ListItem",
         "position": index + 1,
         "name": item.label,
-        "item": item.to ? `${window.location.origin}${item.to}` : canonical
+        "item": item.to ? `${baseUrl}${item.to}` : canonical
       })) || []
     }
   };
@@ -119,6 +122,7 @@ export const TopicLandingPage = () => {
         description={description}
         canonical={canonical}
         ogImage={ogImage}
+        ogType="article"
         jsonLd={jsonLd}
       />
       

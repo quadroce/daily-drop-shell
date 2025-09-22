@@ -89,9 +89,16 @@ export const Seo = ({
 
     setOrUpdateMeta('og:title', title);
     setOrUpdateMeta('og:type', ogType);
+    setOrUpdateMeta('og:site_name', 'DailyDrops');
+    setOrUpdateMeta('og:locale', 'en_US');
     if (description) setOrUpdateMeta('og:description', description);
     if (canonical) setOrUpdateMeta('og:url', canonical);
-    if (ogImage) setOrUpdateMeta('og:image', ogImage);
+    if (ogImage) {
+      setOrUpdateMeta('og:image', ogImage);
+      setOrUpdateMeta('og:image:width', '1200');
+      setOrUpdateMeta('og:image:height', '630');
+      setOrUpdateMeta('og:image:type', 'image/jpeg');
+    }
 
     // Add Twitter Card meta tags
     const setOrUpdateTwitterMeta = (name: string, content: string) => {
