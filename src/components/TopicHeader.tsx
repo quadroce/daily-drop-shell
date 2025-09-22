@@ -28,48 +28,55 @@ export const TopicHeader = ({
   const currentUrl = `https://dailydrops.cloud/topics/${topicSlug}`;
 
   return (
-    <header className="mb-8">
-      <h1 className="text-4xl font-bold text-foreground mb-4">{topicTitle}</h1>
+    <header className="mb-6 sm:mb-8">
+      <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-3 sm:mb-4">{topicTitle}</h1>
       
       {topicIntro && (
-        <div className="prose prose-lg max-w-none text-muted-foreground leading-relaxed mb-6">
-          <p>{topicIntro}</p>
+        <div className="prose prose-sm sm:prose-lg max-w-none text-muted-foreground leading-relaxed mb-4 sm:mb-6">
+          <p className="text-sm sm:text-base">{topicIntro}</p>
         </div>
       )}
 
       {/* CTAs Row */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6">
-        <div className="flex items-center gap-3">
-          <FollowTopicButton
-            topicId={topicId}
-            topicSlug={topicSlug}
-            variant="default"
-          />
+      <div className="flex flex-col gap-4 mb-6">
+        {/* Primary Actions Row */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
+            <FollowTopicButton
+              topicId={topicId}
+              topicSlug={topicSlug}
+              variant="default"
+            />
+            
+            <RssButton
+              topicSlug={topicSlug}
+              topicName={topicTitle}
+              variant="outline"
+            />
+            
+            <Button variant="outline" asChild size="sm" className="flex-shrink-0">
+              <Link to={`/topics/${topicSlug}/archive`}>View Archive</Link>
+            </Button>
+          </div>
           
-          <RssButton
-            topicSlug={topicSlug}
-            topicName={topicTitle}
-            variant="outline"
-          />
-          
-          <Button variant="outline" asChild>
-            <Link to={`/topics/${topicSlug}/archive`}>View Archive</Link>
-          </Button>
-          
+          {!session && (
+            <SignupCta
+              topicSlug={topicSlug}
+              variant="outline"
+              className="sm:ml-auto w-full sm:w-auto"
+              size="sm"
+            />
+          )}
+        </div>
+        
+        {/* Share Buttons Row - Mobile: Full width, Desktop: Inline */}
+        <div className="flex items-center justify-start">
           <ShareButtons
             url={currentUrl}
             title={topicTitle}
             topicName={topicTitle}
           />
         </div>
-        
-        {!session && (
-          <SignupCta
-            topicSlug={topicSlug}
-            variant="outline"
-            className="sm:ml-auto"
-          />
-        )}
       </div>
 
       {showPreview && !session && (

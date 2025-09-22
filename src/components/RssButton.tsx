@@ -35,10 +35,11 @@ export const RssButton = ({
       onClick={handleRssClick}
       variant={variant}
       size={size}
-      className="gap-2"
+      className="gap-1.5 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"
     >
-      <Rss className="h-4 w-4" />
-      RSS Feed
+      <Rss className="h-3 w-3 sm:h-4 sm:w-4" />
+      <span className="hidden xs:inline">RSS Feed</span>
+      <span className="xs:hidden">RSS</span>
     </Button>
   );
 };

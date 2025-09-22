@@ -53,38 +53,43 @@ export const ShareButtons = ({
   };
 
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
-      <span className="text-sm text-muted-foreground mr-1">Share:</span>
+    <div className={`flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 ${className}`}>
+      <span className="text-xs sm:text-sm text-muted-foreground">Share:</span>
       
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => handleShare('linkedin')}
-        className="text-blue-600 hover:text-blue-700 border-blue-200 hover:bg-blue-50 gap-1"
-      >
-        <ExternalLink className="h-3 w-3" />
-        LinkedIn
-      </Button>
-      
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => handleShare('reddit')}
-        className="text-orange-600 hover:text-orange-700 border-orange-200 hover:bg-orange-50 gap-1"
-      >
-        <ExternalLink className="h-3 w-3" />
-        Reddit
-      </Button>
-      
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => handleShare('whatsapp')}
-        className="text-green-600 hover:text-green-700 border-green-200 hover:bg-green-50 gap-1"
-      >
-        <MessageSquare className="h-4 w-4" />
-        WhatsApp
-      </Button>
+      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleShare('linkedin')}
+          className="text-blue-600 hover:text-blue-700 border-blue-200 hover:bg-blue-50 gap-1 text-xs sm:text-sm px-2 sm:px-3"
+        >
+          <ExternalLink className="h-3 w-3" />
+          <span className="hidden xs:inline">LinkedIn</span>
+          <span className="xs:hidden">LI</span>
+        </Button>
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleShare('reddit')}
+          className="text-orange-600 hover:text-orange-700 border-orange-200 hover:bg-orange-50 gap-1 text-xs sm:text-sm px-2 sm:px-3"
+        >
+          <ExternalLink className="h-3 w-3" />
+          <span className="hidden xs:inline">Reddit</span>
+          <span className="xs:hidden">RD</span>
+        </Button>
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleShare('whatsapp')}
+          className="text-green-600 hover:text-green-700 border-green-200 hover:bg-green-50 gap-1 text-xs sm:text-sm px-2 sm:px-3"
+        >
+          <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4" />
+          <span className="hidden xs:inline">WhatsApp</span>
+          <span className="xs:hidden">WA</span>
+        </Button>
+      </div>
     </div>
   );
 };
