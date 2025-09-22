@@ -232,18 +232,15 @@ export const TopicLandingPage = () => {
             )}
           </>
         ) : (
-          // For L3: Show Subtopics first, then Articles (original order)
+          // For L3: Show Subtopics first, then Articles
           <>
             {/* Children Topics */}
-            {children.length > 0 ? (
+            {children.length > 0 && (
               <section className="mb-12">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-2xl font-semibold text-foreground">
                     Related Topics
                   </h2>
-                  <Button variant="outline" asChild>
-                    <Link to={`/topics/${slug}/archive`}>View Archive</Link>
-                  </Button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {children.map(child => (
@@ -257,33 +254,6 @@ export const TopicLandingPage = () => {
                   ))}
                 </div>
               </section>
-            ) : (
-              <section className="mb-12">
-                <div className="bg-muted/30 rounded-2xl p-8 text-center">
-                  <h2 className="text-xl font-semibold text-foreground mb-4">
-                    Specialized Topic
-                  </h2>
-                  <div className="text-muted-foreground mb-6">
-                    {topic.intro ? (
-                      <div className="prose prose-sm max-w-none mx-auto text-muted-foreground">
-                        <p>{topic.intro}</p>
-                      </div>
-                    ) : (
-                      <p>
-                        This is a focused topic area. Content and discussions here dive deep into specific aspects of the subject.
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex justify-center gap-4">
-                    <Button asChild>
-                      <Link to={`/topics/${slug}/archive`}>View Archive</Link>
-                    </Button>
-                    <Button variant="outline" asChild>
-                      <Link to="/topics">Browse All Topics</Link>
-                    </Button>
-                  </div>
-                </div>
-              </section>
             )}
 
             {/* Topic Articles */}
@@ -292,9 +262,6 @@ export const TopicLandingPage = () => {
                 <h2 className="text-2xl font-semibold text-foreground">
                   Latest from {topic.label}
                 </h2>
-                <Button variant="outline" asChild>
-                  <Link to={`/topics/${slug}/archive`}>View Archive</Link>
-                </Button>
               </div>
               
               {articlesLoading ? (

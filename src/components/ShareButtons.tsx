@@ -57,30 +57,30 @@ export const ShareButtons = ({
       <span className="text-sm text-muted-foreground mr-1">Share:</span>
       
       <Button
-        variant="ghost"
+        variant="outline"
         size="sm"
         onClick={() => handleShare('linkedin')}
-        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 gap-1"
+        className="text-blue-600 hover:text-blue-700 border-blue-200 hover:bg-blue-50 gap-1"
       >
         <ExternalLink className="h-3 w-3" />
         LinkedIn
       </Button>
       
       <Button
-        variant="ghost"
+        variant="outline"
         size="sm"
         onClick={() => handleShare('reddit')}
-        className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 gap-1"
+        className="text-orange-600 hover:text-orange-700 border-orange-200 hover:bg-orange-50 gap-1"
       >
         <ExternalLink className="h-3 w-3" />
         Reddit
       </Button>
       
       <Button
-        variant="ghost"
+        variant="outline"
         size="sm"
         onClick={() => handleShare('whatsapp')}
-        className="text-green-600 hover:text-green-700 hover:bg-green-50 gap-1"
+        className="text-green-600 hover:text-green-700 border-green-200 hover:bg-green-50 gap-1"
       >
         <MessageSquare className="h-4 w-4" />
         WhatsApp

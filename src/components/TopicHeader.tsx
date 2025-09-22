@@ -3,6 +3,8 @@ import { FollowTopicButton } from "@/components/FollowTopicButton";
 import { RssButton } from "@/components/RssButton";
 import { ShareButtons } from "@/components/ShareButtons";
 import { SignupCta } from "@/components/SignupCta";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 
 interface TopicHeaderProps {
   topicId: number;
@@ -49,6 +51,10 @@ export const TopicHeader = ({
             topicName={topicTitle}
             variant="outline"
           />
+          
+          <Button variant="outline" asChild>
+            <Link to={`/topics/${topicSlug}/archive`}>View Archive</Link>
+          </Button>
           
           <ShareButtons
             url={currentUrl}
