@@ -69,31 +69,6 @@ export const saveAllUserPreferences = async (preferences: {
       throw new Error(`Failed to update preferences: ${prefsError.message}`);
     }
 
-    // Clear user_topic_preferences (legacy table) and repopulate
-    await supabase
-      .from('user_topic_preferences')
-      .delete()
-      .eq('user_id', user.id);
-
-    // Insert new topic preferences
-    if (preferences.topicIds.length > 0) {
-      const topicPrefs = preferences.topicIds.map((topicId, index) => ({
-        user_id: user.id,
-        topic_id: topicId,
-        level: 1, // Default level
-        priority: index + 1
-      }));
-
-      const { error: topicError } = await supabase
-        .from('user_topic_preferences')
-        .insert(topicPrefs);
-
-      if (topicError) {
-        console.error('Error inserting topic preferences:', topicError);
-        // Don't throw - main preferences were saved
-      }
-    }
-
     console.log('Successfully saved all user preferences');
 
   } catch (error) {

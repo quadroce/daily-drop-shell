@@ -1475,6 +1475,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      is_user_following_topic: {
+        Args: { _topic_id: number; _user_id: string }
+        Returns: boolean
+      }
       ivfflat_bit_support: {
         Args: { "": unknown }
         Returns: unknown
@@ -1503,6 +1507,10 @@ export type Database = {
           _resource_type: string
         }
         Returns: undefined
+      }
+      migrate_user_topic_preferences: {
+        Args: Record<PropertyKey, never>
+        Returns: number
       }
       pause_onboarding_reminders: {
         Args: { p_paused: boolean }

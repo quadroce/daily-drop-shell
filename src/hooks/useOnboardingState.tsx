@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 
+const SAVED_TOPICS_KEY = 'dailydrops_saved_topics';
+
 type OnboardingData = {
   current_step: number;
   selected_topics: number[];
@@ -48,9 +50,21 @@ export function useOnboardingState() {
       const { data: userRes } = await supabase.auth.getUser();
       const user = userRes?.user;
       if (!user) {
-        setState((p) => ({ ...p, loaded: true }));
+        // Load saved topics from localStorage for non-logged users
+        try {
+          const savedTopics = JSON.parse(localStorage.getItem(SAVED_TOPICS_KEY) || '[]');
+          setState((p) => ({ 
+            ...p, 
+            selected_topics: savedTopics,
+            loaded: true 
+          }));
+        } catch (error) {
+          console.error('Error loading saved topics:', error);
+          setState((p) => ({ ...p, loaded: true }));
+        }
         return;
       }
+      
       const { data, error } = await supabase
         .from("onboarding_state")
         .select("current_step,selected_topics,profile_data,communication_prefs")
@@ -69,13 +83,48 @@ export function useOnboardingState() {
           dirty: false,
         };
         
+        // Merge with localStorage topics if any
+        try {
+          const savedTopics = JSON.parse(localStorage.getItem(SAVED_TOPICS_KEY) || '[]');
+          if (savedTopics.length > 0) {
+            const mergedTopics = [...new Set([...newState.selected_topics, ...savedTopics])];
+            newState.selected_topics = mergedTopics;
+            newState.dirty = true; // Mark as dirty to save the merged topics
+            
+            // Clear localStorage since we're logged in now
+            localStorage.removeItem(SAVED_TOPICS_KEY);
+          }
+        } catch (error) {
+          console.error('Error merging saved topics:', error);
+        }
+        
         lastSnapshotRef.current = newState;
         lastSavedHashRef.current = jsonHash(newState);
 
         setState(newState);
       } else {
-        // nessuno stato salvato → loaded true ma dirty false
-        setState((p) => ({ ...p, loaded: true, dirty: false }));
+        // No saved state - check for localStorage topics
+        try {
+          const savedTopics = JSON.parse(localStorage.getItem(SAVED_TOPICS_KEY) || '[]');
+          const newState: State = {
+            current_step: 1,
+            selected_topics: savedTopics,
+            profile_data: {},
+            communication_prefs: {},
+            loaded: true,
+            dirty: savedTopics.length > 0, // Mark dirty if we have topics to save
+          };
+          
+          setState(newState);
+          
+          // Clear localStorage since we'll save to DB
+          if (savedTopics.length > 0) {
+            localStorage.removeItem(SAVED_TOPICS_KEY);
+          }
+        } catch (error) {
+          console.error('Error loading saved topics:', error);
+          setState((p) => ({ ...p, loaded: true, dirty: false }));
+        }
       }
       mountedRef.current = true;
     })();
@@ -177,6 +226,31 @@ export function useOnboardingState() {
         communication_prefs: state.communication_prefs,
       });
       lastSavedHashRef.current = currentHash;
+    }
+
+    // Transfer selected topics to preferences table
+    if (state.selected_topics.length > 0) {
+      try {
+        // Get existing preferences or create new one
+        const { data: existingPrefs } = await supabase
+          .from('preferences')
+          .select('selected_language_ids')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        await supabase
+          .from('preferences')
+          .upsert({
+            user_id: userId,
+            selected_topic_ids: state.selected_topics,
+            selected_language_ids: existingPrefs?.selected_language_ids || [],
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'user_id'
+          });
+      } catch (error) {
+        console.error('Error saving topics to preferences:', error);
+      }
     }
 
     // flag profilo + redirect

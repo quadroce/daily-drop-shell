@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Heart, HeartOff } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -15,6 +15,8 @@ interface FollowTopicButtonProps {
   size?: "sm" | "default" | "lg";
 }
 
+const SAVED_TOPICS_KEY = 'dailydrops_saved_topics';
+
 export const FollowTopicButton = ({ 
   topicId, 
   topicSlug,
@@ -30,26 +32,98 @@ export const FollowTopicButton = ({
   const { toast } = useToast();
   const { track } = useAnalytics();
 
+  // Check if user is following this topic on mount
+  useEffect(() => {
+    const checkFollowingStatus = async () => {
+      if (session?.user) {
+        // Logged in user - check preferences
+        try {
+          const { data } = await supabase
+            .from('preferences')
+            .select('selected_topic_ids')
+            .eq('user_id', session.user.id)
+            .maybeSingle();
+          
+          const isFollowingTopic = data?.selected_topic_ids?.includes(topicId) || false;
+          setIsFollowing(isFollowingTopic);
+        } catch (error) {
+          console.error('Error checking follow status:', error);
+        }
+      } else {
+        // Non-logged user - check localStorage
+        try {
+          const savedTopics = JSON.parse(localStorage.getItem(SAVED_TOPICS_KEY) || '[]');
+          setIsFollowing(savedTopics.includes(topicId));
+        } catch (error) {
+          console.error('Error reading saved topics:', error);
+        }
+      }
+    };
+
+    checkFollowingStatus();
+  }, [session?.user, topicId]);
+
   const handleFollow = async () => {
     if (!session) {
-      // Redirect to auth with current page as redirect
-      const currentPath = location.pathname + location.search;
-      navigate(`/auth?redirect=${encodeURIComponent(currentPath)}`);
+      // Save topic to localStorage for non-logged users
+      try {
+        const savedTopics = JSON.parse(localStorage.getItem(SAVED_TOPICS_KEY) || '[]');
+        const updatedTopics = isFollowing 
+          ? savedTopics.filter((id: number) => id !== topicId)
+          : [...savedTopics, topicId];
+        
+        localStorage.setItem(SAVED_TOPICS_KEY, JSON.stringify(updatedTopics));
+        setIsFollowing(!isFollowing);
+        
+        toast({
+          title: isFollowing ? "Topic saved" : "Following topic",
+          description: isFollowing 
+            ? "Topic removed from your saved list."
+            : "Sign up to save this topic to your feed!"
+        });
+        
+        track(isFollowing ? 'unfollow_topic_clicked' : 'follow_topic_clicked', { 
+          topic_slug: topicSlug, 
+          topic_id: topicId.toString() 
+        });
+        
+        // Redirect to auth after a short delay
+        setTimeout(() => {
+          const currentPath = location.pathname + location.search;
+          navigate(`/auth?redirect=${encodeURIComponent(currentPath)}`);
+        }, 1500);
+      } catch (error) {
+        console.error('Error saving topic locally:', error);
+      }
       return;
     }
 
     setIsPending(true);
     
     try {
+      // Get current preferences
+      const { data: currentPrefs } = await supabase
+        .from('preferences')
+        .select('selected_topic_ids, selected_language_ids')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+
+      const currentTopicIds = currentPrefs?.selected_topic_ids || [];
+      const currentLanguageIds = currentPrefs?.selected_language_ids || [];
+
       if (!isFollowing) {
-        // Follow the topic
+        // Follow the topic - add to array
+        const updatedTopicIds = [...currentTopicIds, topicId];
+        
         const { error } = await supabase
-          .from('user_topic_preferences')
+          .from('preferences')
           .upsert({
             user_id: session.user.id,
-            topic_id: topicId,
-            level: 1, // Assuming level 1 for now, could be dynamic
-            priority: 1
+            selected_topic_ids: updatedTopicIds,
+            selected_language_ids: currentLanguageIds,
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'user_id'
           });
 
         if (error) throw error;
@@ -65,12 +139,19 @@ export const FollowTopicButton = ({
           topic_id: topicId.toString() 
         });
       } else {
-        // Unfollow the topic
+        // Unfollow the topic - remove from array
+        const updatedTopicIds = currentTopicIds.filter((id: number) => id !== topicId);
+        
         const { error } = await supabase
-          .from('user_topic_preferences')
-          .delete()
-          .eq('user_id', session.user.id)
-          .eq('topic_id', topicId);
+          .from('preferences')
+          .upsert({
+            user_id: session.user.id,
+            selected_topic_ids: updatedTopicIds,
+            selected_language_ids: currentLanguageIds,
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'user_id'
+          });
 
         if (error) throw error;
 
@@ -108,12 +189,12 @@ export const FollowTopicButton = ({
       {isFollowing ? (
         <>
           <HeartOff className="h-4 w-4" />
-          {isPending ? "Unfollowing..." : "Following"}
+          {isPending ? "Unfollowing..." : session ? "Following" : "Saved"}
         </>
       ) : (
         <>
           <Heart className="h-4 w-4" />
-          {isPending ? "Following..." : "Follow Topic"}
+          {isPending ? "Following..." : session ? "Follow Topic" : "Follow Topic"}
         </>
       )}
     </Button>
