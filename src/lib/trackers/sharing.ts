@@ -49,7 +49,7 @@ export const trackShare = async ({ dropId, title, url, channel, userId }: ShareT
  * Generate pre-filled share message with clickable dailydrops.cloud link
  */
 export const generateShareMessage = (url: string): string => {
-  return `I discovered this article ${url} using dailydrops.cloud – Register to find new contents for professionals.`;
+  return `I discovered this article using dailydrops.cloud – Register to find new contents for professionals. ${url}`;
 };
 
 /**
@@ -58,7 +58,10 @@ export const generateShareMessage = (url: string): string => {
 export const getShareUrls = (title: string, url: string, message: string) => {
   const encodedTitle = encodeURIComponent(title);
   const encodedUrl = encodeURIComponent(url);
-  const encodedMessage = encodeURIComponent(message);
+  
+  // Create message with clickable dailydrops.cloud link
+  const shareText = `I discovered this article using https://dailydrops.cloud – Register to find new contents for professionals. ${url}`;
+  const encodedMessage = encodeURIComponent(shareText);
 
   return {
     linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}&title=${encodedTitle}&summary=${encodedMessage}`,
