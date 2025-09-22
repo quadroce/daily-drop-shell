@@ -27,10 +27,6 @@ const Personalization = () => {
     {
       question: "Does personalization change over time?",
       answer: "Yes! The system adapts based on your engagement level, from cold start (relying on selected topics) to mature profiles with highly personalized recommendations."
-    },
-    {
-      question: "Is my data safe?",
-      answer: "Your data is protected with Supabase enterprise encryption, Row Level Security, EU compliance, and we only store mathematical embeddings - never personal content or text."
     }
   ];
 
@@ -72,7 +68,7 @@ const Personalization = () => {
         </div>
 
         {/* Visual Indicators */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
           <Card className="text-center">
             <CardHeader>
               <Target className="h-8 w-8 text-primary mx-auto mb-2" />
@@ -92,17 +88,6 @@ const Personalization = () => {
             <CardContent>
               <p className="text-sm text-muted-foreground">
                 Every interaction improves your recommendations over time
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="text-center">
-            <CardHeader>
-              <Shield className="h-8 w-8 text-primary mx-auto mb-2" />
-              <CardTitle className="text-lg">Privacy First</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Your data is secure with enterprise-grade protection
               </p>
             </CardContent>
           </Card>
@@ -323,49 +308,6 @@ const Personalization = () => {
               </AccordionContent>
             </AccordionItem>
 
-            <AccordionItem value="item-6" className="border rounded-lg px-4">
-              <AccordionTrigger className="text-left">
-                <div className="flex items-center gap-3">
-                  <Shield className="h-5 w-5 text-primary" />
-                  <span className="font-semibold">Is my data safe?</span>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="pt-4 pb-6">
-                <div className="space-y-4">
-                  <p className="text-muted-foreground leading-relaxed">
-                    Your privacy and data security are our top priorities:
-                  </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Card className="bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm text-green-700 dark:text-green-300">Security Measures</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-2 text-sm">
-                        <p>✅ Supabase enterprise encryption</p>
-                        <p>✅ Row Level Security (RLS)</p>
-                        <p>✅ EU data protection compliance</p>
-                        <p>✅ No personal content exposed</p>
-                      </CardContent>
-                    </Card>
-                    <Card className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm text-blue-700 dark:text-blue-300">What We Store</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-2 text-sm">
-                        <p>• Mathematical embeddings only</p>
-                        <p>• Interaction timestamps</p>
-                        <p>• Topic preferences</p>
-                        <p>• No personal content or text</p>
-                      </CardContent>
-                    </Card>
-                  </div>
-                  <p className="text-sm text-muted-foreground bg-muted/30 p-3 rounded-lg">
-                    <strong>Important:</strong> We never store the actual content you read or your personal information 
-                    in our personalization system. Only anonymized mathematical representations are used.
-                  </p>
-                </div>
-              </AccordionContent>
-            </AccordionItem>
           </Accordion>
         </div>
 
