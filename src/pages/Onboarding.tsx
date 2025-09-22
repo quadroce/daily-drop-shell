@@ -178,8 +178,36 @@ const OnboardingPage: React.FC = () => {
         title: "Welcome to DailyDrops! 🎉",
         description: "Your account has been set up successfully.",
       });
+      
+      // Fallback redirect in case completeOnboarding doesn't navigate
+      setTimeout(() => {
+        navigate('/feed', { replace: true });
+      }, 1000);
+      
     } catch (error) {
       console.error('Error completing onboarding:', error);
+      
+      // Try to mark onboarding as complete and redirect anyway
+      try {
+        const { data: userRes } = await supabase.auth.getUser();
+        if (userRes?.user) {
+          await supabase
+            .from("profiles")
+            .update({ onboarding_completed: true })
+            .eq("id", userRes.user.id);
+          
+          toast({
+            title: "Setup Complete! 🎉", 
+            description: "Some preferences may need to be set manually in settings.",
+          });
+          
+          navigate('/feed', { replace: true });
+          return;
+        }
+      } catch (fallbackError) {
+        console.error('Fallback completion failed:', fallbackError);
+      }
+      
       toast({
         title: "Error",
         description: "Failed to complete onboarding. Please try again.",
