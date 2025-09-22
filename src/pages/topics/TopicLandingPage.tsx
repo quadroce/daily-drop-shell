@@ -93,10 +93,11 @@ export const TopicLandingPage = () => {
     ? `${topic.intro.slice(0, 150)}${topic.intro.length > 150 ? '...' : ''}`
     : `Explore ${topic.label} - Level ${topic.level} topic with articles, subtopics and latest content`;
   
-  // Determine og:image for social sharing - use a reliable hosted image as fallback
+  // Determine og:image for social sharing - use DailyDrops branded image as fallback
+  const defaultOgImage = `${baseUrl}/og-dailydrops.jpg`;
   const ogImage = articles && articles.length > 0 && articles[0].imageUrl
-    ? articles[0].imageUrl
-    : 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&h=630&fit=crop';
+    ? (articles[0].imageUrl.startsWith('http') ? articles[0].imageUrl : `${baseUrl}${articles[0].imageUrl}`)
+    : defaultOgImage;
 
   const jsonLd = {
     "@context": "https://schema.org",
