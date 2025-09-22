@@ -27,13 +27,15 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get current date info
+    // Get current date info - Use UTC to ensure consistent timezone
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
-    const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const utcNow = new Date(now.toISOString()); // Ensure UTC
+    const todayStr = utcNow.toISOString().split('T')[0]; // YYYY-MM-DD
+    const dayOfWeek = utcNow.getUTCDay(); // 0 = Sunday, 1 = Monday, etc. (UTC)
     const isMonday = dayOfWeek === 1;
     
-    console.log(`📅 Today is ${todayStr}, day of week: ${dayOfWeek}, isMonday: ${isMonday}`);
+    console.log(`📅 UTC Today is ${todayStr}, day of week: ${dayOfWeek}, isMonday: ${isMonday}`);
+    console.log(`📅 UTC Time: ${utcNow.toISOString()}, Local time: ${now.toString()}`);
 
     // Use get_newsletter_targets database function for robust user selection
     console.log('👥 Querying newsletter targets...');
@@ -57,22 +59,33 @@ serve(async (req) => {
       const tier = user.subscription_tier;
       const cadence = user.cadence;
       
+      console.log(`🔍 Processing user: ${user.email}, tier: ${tier}, cadence: ${cadence}`);
+      
       // Premium users get daily newsletters
       if (tier === 'premium' || tier === 'corporate' || tier === 'sponsor') {
-        return cadence === 'daily';
+        const eligible = cadence === 'daily';
+        console.log(`   → Premium user: ${eligible ? 'ELIGIBLE' : 'NOT ELIGIBLE'} (cadence: ${cadence})`);
+        return eligible;
       }
       
       // Free users only get weekly newsletters on Monday
-      if (tier === 'free' && isMonday) {
-        return cadence === 'weekly';
+      if (tier === 'free') {
+        const eligible = isMonday && cadence === 'weekly';
+        console.log(`   → Free user: ${eligible ? 'ELIGIBLE' : 'NOT ELIGIBLE'} (isMonday: ${isMonday}, cadence: ${cadence})`);
+        return eligible;
       }
       
+      console.log(`   → Unknown tier: NOT ELIGIBLE`);
       return false;
     }) || [];
 
+    const premiumCount = eligibleUsers.filter(u => u.subscription_tier === 'premium' || u.subscription_tier === 'corporate' || u.subscription_tier === 'sponsor').length;
+    const freeCount = eligibleUsers.filter(u => u.subscription_tier === 'free').length;
+    
     console.log(`✅ ${eligibleUsers.length} users eligible for today's newsletters`);
-    console.log(`   - Premium users: ${eligibleUsers.filter(u => u.subscription_tier === 'premium').length}`);
-    console.log(`   - Free users: ${eligibleUsers.filter(u => u.subscription_tier === 'free').length}`);
+    console.log(`   - Premium/Corporate/Sponsor users: ${premiumCount}`);
+    console.log(`   - Free users: ${freeCount}`);
+    console.log(`   - Total users checked: ${users?.length || 0}`);
 
     if (eligibleUsers.length === 0) {
       console.log('✨ No users eligible for newsletters today');
