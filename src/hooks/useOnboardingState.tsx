@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { useUserProfile } from "@/hooks/useUserProfile";
 
 const SAVED_TOPICS_KEY = 'dailydrops_saved_topics';
 
@@ -27,6 +28,7 @@ function jsonHash(obj: unknown) {
 
 export function useOnboardingState() {
   const navigate = useNavigate();
+  const { refetch: refetchProfile } = useUserProfile();
   const [state, setState] = useState<State>({
     current_step: 1,
     selected_topics: [],
@@ -261,6 +263,9 @@ export function useOnboardingState() {
         userId,
       );
       if (profileError) throw profileError;
+
+      // Refresh profile cache to avoid redirect loop
+      await refetchProfile();
 
       navigate("/feed", { replace: true });
     } catch (error) {
