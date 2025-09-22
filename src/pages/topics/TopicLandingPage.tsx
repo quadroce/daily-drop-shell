@@ -89,6 +89,11 @@ export const TopicLandingPage = () => {
   const description = topic.intro 
     ? `${topic.intro.slice(0, 150)}${topic.intro.length > 150 ? '...' : ''}`
     : `Explore ${topic.label} - Level ${topic.level} topic with articles, subtopics and latest content`;
+  
+  // Determine og:image for social sharing
+  const ogImage = articles && articles.length > 0 && articles[0].imageUrl
+    ? articles[0].imageUrl
+    : `${window.location.origin}/topic-default.png`;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -113,6 +118,7 @@ export const TopicLandingPage = () => {
         title={`${topic.label} - Topics`}
         description={description}
         canonical={canonical}
+        ogImage={ogImage}
         jsonLd={jsonLd}
       />
       
