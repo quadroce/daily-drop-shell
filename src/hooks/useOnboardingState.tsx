@@ -264,15 +264,54 @@ export function useOnboardingState() {
       );
       if (profileError) throw profileError;
 
-      // Refresh profile cache to avoid redirect loop
-      await refetchProfile();
-
+      // Wait for profile to be updated with polling mechanism
+      const maxAttempts = 10;
+      const pollInterval = 500; // 500ms
+      let attempts = 0;
+      
+      while (attempts < maxAttempts) {
+        try {
+          // Refresh profile cache
+          await refetchProfile();
+          
+          // Check if profile is actually updated
+          const { data: updatedProfile, error: checkError } = await supabase
+            .from('profiles')
+            .select('onboarding_completed')
+            .eq('id', userId)
+            .single();
+            
+          if (checkError) throw checkError;
+          
+          if (updatedProfile?.onboarding_completed === true) {
+            // Profile is confirmed updated, safe to navigate
+            navigate("/feed", { replace: true });
+            return;
+          }
+          
+          attempts++;
+          if (attempts < maxAttempts) {
+            // Wait before next attempt
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+          }
+        } catch (pollError) {
+          console.error('Profile polling error:', pollError);
+          attempts++;
+          if (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+          }
+        }
+      }
+      
+      // If we reach here, polling failed - navigate anyway as fallback
+      console.warn('Profile update polling timed out, navigating anyway');
       navigate("/feed", { replace: true });
+      
     } catch (error) {
       console.error('Error in completeOnboarding:', error);
       throw error; // Re-throw for parent component to handle
     }
-  }, [navigate, state]);
+  }, [navigate, state, refetchProfile]);
 
   // helper memorizzati
   const api = useMemo(
