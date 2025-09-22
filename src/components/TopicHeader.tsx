@@ -22,7 +22,8 @@ export const TopicHeader = ({
   showPreview = false
 }: TopicHeaderProps) => {
   const { session } = useAuth();
-  const currentUrl = window.location.href;
+  // Use canonical URL for consistent sharing without UTM parameters
+  const currentUrl = `https://dailydrops.cloud/topics/${topicSlug}`;
 
   return (
     <header className="mb-8">
