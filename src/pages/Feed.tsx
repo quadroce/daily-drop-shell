@@ -862,17 +862,6 @@ const Feed = () => {
           <p className="text-muted-foreground">
             Curated content based on your interests
           </p>
-
-          {/* Constraint helper */}
-          <div className="mt-4 p-3 bg-muted/50 rounded-lg">
-            <p className="text-sm text-muted-foreground">
-              {isFallbackActive && (
-                <span className="ml-2 px-2 py-1 bg-warning/20 text-warning text-xs rounded">
-                  Using temporary preferences
-                </span>
-              )}
-            </p>
-          </div>
         </div>
 
         <div className="space-y-4">
