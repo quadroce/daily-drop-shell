@@ -178,6 +178,8 @@ const OnboardingPage: React.FC = () => {
         title: "Welcome to DailyDrops! 🎉",
         description: "Your account has been set up successfully.",
       });
+      // Explicit redirect to feed
+      navigate('/feed', { replace: true });
     } catch (error) {
       console.error('Error completing onboarding:', error);
       toast({
