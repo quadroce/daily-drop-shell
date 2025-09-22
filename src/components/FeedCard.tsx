@@ -8,6 +8,7 @@ import { createDebouncedOpenTracker } from "@/lib/feedback";
 import YouTubePlayer from "./YouTubePlayer";
 import { ImagePlaceholder } from "./ui/image-placeholder";
 import { useEngagementState } from "@/hooks/useEngagementState";
+import { ShareButton } from "./ShareButton";
 import { useEffect } from "react";
 
 export type FeedCardProps = {
@@ -30,7 +31,7 @@ export type FeedCardProps = {
 
 type FeedCardComponentProps = FeedCardProps & {
   user?: { isLoggedIn: boolean; isPremium: boolean };
-  onEngage?: (e: { itemId: string; action: "save"|"dismiss"|"like"|"dislike"|"open"|"video_play" }) => void;
+  onEngage?: (e: { itemId: string; action: "save"|"dismiss"|"like"|"dislike"|"open"|"video_play"|"share" }) => void;
   position?: number;
 };
 
@@ -290,6 +291,13 @@ export const FeedCard = ({
                     <Bookmark className={`h-3 w-3 ${engagementState.isSaved ? 'fill-current' : ''}`} />
                   </Button>
                 )}
+                
+                <ShareButton 
+                  dropId={id}
+                  title={title}
+                  url={href}
+                  disabled={loadingState}
+                />
                 
                 <Button 
                   variant="ghost" 

@@ -1588,6 +1588,10 @@ export type Database = {
           youtube_embed_pref: boolean
         }
       }
+      update_user_vector_on_share: {
+        Args: { p_drop_id: number; p_user_id: string; p_weight?: number }
+        Returns: undefined
+      }
       upsert_preferences: {
         Args: { _langs: number[]; _topics: number[] }
         Returns: undefined
