@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Seo } from "@/components/Seo";
 import { ArchiveNav } from "@/components/ArchiveNav";
 import { ArchiveList } from "@/components/ArchiveList";
-import { PremiumSidebar } from "@/components/PremiumSidebar";
 import { TopicCtaBar } from "@/components/topics/TopicCtaBar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getTopicArchive, getTopicData } from "@/lib/api/topics";
@@ -131,10 +130,19 @@ export const TopicArchiveIndexPage = () => {
           </div>
 
           <div className="lg:col-span-1">
-            <PremiumSidebar
-              title="Unlock unlimited archives with Premium"
-              upgradeHref="/pricing"
-            />
+            <div className="sticky top-6">
+              <div className="bg-card border rounded-lg p-6">
+                <h3 className="text-lg font-semibold mb-4">Follow & Share</h3>
+                <TopicCtaBar
+                  topicId={1}
+                  topicSlug={slug}
+                  topicTitle={topic?.title || ''}
+                  pageTitle={pageTitle}
+                  pageUrl={canonical}
+                  className="flex-col items-start gap-3"
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>
