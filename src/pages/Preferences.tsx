@@ -128,11 +128,11 @@ const Preferences: React.FC = () => {
           <div className="grid md:grid-cols-2 gap-6">
             <LanguagePreferences
               selectedLanguages={selectedLanguageCodes}
-              onChange={setSelectedLanguageCodes}
+              onLanguageChange={setSelectedLanguageCodes}
             />
             <YouTubePreferences
-              value={youtubeEmbedPref}
-              onChange={setYoutubeEmbedPref}
+              youtubeEmbedPref={youtubeEmbedPref}
+              onYouTubeChange={setYoutubeEmbedPref}
             />
           </div>
 
@@ -145,8 +145,14 @@ const Preferences: React.FC = () => {
               <h3 className="text-lg font-semibold">Topics</h3>
             </div>
             <TopicsOnboardingWizard
-              selectedTopics={selectedTopics}
-              onChangeSelected={setSelectedTopics}
+              initialSelectedTopics={selectedTopics}
+              onSave={async () => {
+                // Do nothing - handled by main save button
+              }}
+              onSaveAll={async (topics) => {
+                setSelectedTopics(topics);
+              }}
+              shouldNavigateAfterSave={false}
             />
           </div>
 

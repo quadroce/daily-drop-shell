@@ -3,14 +3,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 
 type OnboardingData = {
-  languages: string[];
-  topicIds: number[];
-  youtubeEmbedPref: boolean;
+  current_step: number;
+  selected_topics: number[];
+  profile_data: any;
+  communication_prefs: any;
 };
 
 type State = {
-  step: number;
-  data: OnboardingData;
+  current_step: number;
+  selected_topics: number[];
+  profile_data: any;
+  communication_prefs: any;
   loaded: boolean;
   dirty: boolean;
 };
@@ -23,8 +26,10 @@ function jsonHash(obj: unknown) {
 export function useOnboardingState() {
   const navigate = useNavigate();
   const [state, setState] = useState<State>({
-    step: 1,
-    data: { languages: [], topicIds: [], youtubeEmbedPref: true },
+    current_step: 1,
+    selected_topics: [],
+    profile_data: {},
+    communication_prefs: {},
     loaded: false,
     dirty: false,
   });
@@ -33,9 +38,7 @@ export function useOnboardingState() {
   const saveTimerRef = useRef<number | null>(null);
   const savingRef = useRef(false);
   const lastSavedHashRef = useRef<string>("");
-  const lastSnapshotRef = useRef<{ step: number; data: OnboardingData } | null>(
-    null,
-  );
+  const lastSnapshotRef = useRef<State | null>(null);
   const mountedRef = useRef(false);
 
   // ===== LOAD una volta =====
@@ -50,29 +53,26 @@ export function useOnboardingState() {
       }
       const { data, error } = await supabase
         .from("onboarding_state")
-        .select("step,languages,topic_ids,youtube_embed_pref")
+        .select("current_step,selected_topics,profile_data,communication_prefs")
         .eq("user_id", user.id)
         .single();
 
       if (!alive) return;
 
       if (!error && data) {
-        const incoming: OnboardingData = {
-          languages: data.languages ?? [],
-          topicIds: data.topic_ids ?? [],
-          youtubeEmbedPref: !!data.youtube_embed_pref,
-        };
-        const step = data.step ?? 1;
-        const snapshot = { step, data: incoming };
-        lastSnapshotRef.current = snapshot;
-        lastSavedHashRef.current = jsonHash(snapshot);
-
-        setState({
-          step,
-          data: incoming,
+        const newState: State = {
+          current_step: data.current_step ?? 1,
+          selected_topics: data.selected_topics ?? [],
+          profile_data: data.profile_data ?? {},
+          communication_prefs: data.communication_prefs ?? {},
           loaded: true,
           dirty: false,
-        });
+        };
+        
+        lastSnapshotRef.current = newState;
+        lastSavedHashRef.current = jsonHash(newState);
+
+        setState(newState);
       } else {
         // nessuno stato salvato → loaded true ma dirty false
         setState((p) => ({ ...p, loaded: true, dirty: false }));
@@ -87,17 +87,17 @@ export function useOnboardingState() {
 
   // ===== setters STABILI =====
   const setStep = useCallback((next: number) => {
-    setState((
-      prev,
-    ) => (prev.step === next ? prev : { ...prev, step: next, dirty: true }));
+    setState((prev) => 
+      prev.current_step === next ? prev : { ...prev, current_step: next, dirty: true }
+    );
   }, []);
 
-  const updateData = useCallback((patch: Partial<OnboardingData>) => {
+  const updateData = useCallback((patch: Partial<Omit<State, 'loaded' | 'dirty'>>) => {
     setState((prev) => {
-      const nextData = { ...prev.data, ...patch };
+      const nextState = { ...prev, ...patch };
       // se identico, non sporcare
-      if (jsonHash(nextData) === jsonHash(prev.data)) return prev;
-      return { ...prev, data: nextData, dirty: true };
+      if (jsonHash(nextState) === jsonHash(prev)) return prev;
+      return { ...nextState, dirty: true };
     });
   }, []);
 
@@ -119,9 +119,7 @@ export function useOnboardingState() {
           return;
         }
 
-        const snapshot = { step: state.step, data: state.data };
-        // evita risalvataggi identici
-        const currentHash = jsonHash(snapshot);
+        const currentHash = jsonHash(state);
         if (currentHash === lastSavedHashRef.current) {
           setState((p) => ({ ...p, dirty: false }));
           return;
@@ -130,14 +128,14 @@ export function useOnboardingState() {
         // persisti
         const { error } = await supabase.from("onboarding_state").upsert({
           user_id: userId,
-          step: state.step,
-          languages: state.data.languages,
-          topic_ids: state.data.topicIds,
-          youtube_embed_pref: state.data.youtubeEmbedPref,
+          current_step: state.current_step,
+          selected_topics: state.selected_topics,
+          profile_data: state.profile_data,
+          communication_prefs: state.communication_prefs,
         });
         if (error) throw error;
 
-        lastSnapshotRef.current = snapshot;
+        lastSnapshotRef.current = { ...state };
         lastSavedHashRef.current = currentHash;
         // segna clean SENZA triggherare altri effetti (dirty false fa early-return)
         setState((p) => ({ ...p, dirty: false }));
@@ -149,7 +147,7 @@ export function useOnboardingState() {
             "send",
             "event",
             "onboarding_step_saved",
-            `${state.step}`,
+            `${state.current_step}`,
           );
           // o il tuo wrapper: analytics.track('onboarding_step_saved', {...})
         } catch {}
@@ -160,7 +158,7 @@ export function useOnboardingState() {
         savingRef.current = false;
       }
     }, 500); // debounce 0.5s
-  }, [state.step, state.data, state.loaded, state.dirty]);
+  }, [state.current_step, state.selected_topics, state.profile_data, state.communication_prefs, state.loaded, state.dirty]);
 
   // ===== COMPLETE: salva finale e vai a /feed =====
   const completeOnboarding = useCallback(async () => {
@@ -169,15 +167,14 @@ export function useOnboardingState() {
     if (!userId) throw new Error("Not authenticated");
 
     // assicurati ultimo save
-    const snapshot = { step: state.step, data: state.data };
-    const currentHash = jsonHash(snapshot);
+    const currentHash = jsonHash(state);
     if (currentHash !== lastSavedHashRef.current && !savingRef.current) {
       await supabase.from("onboarding_state").upsert({
         user_id: userId,
-        step: state.step,
-        languages: state.data.languages,
-        topic_ids: state.data.topicIds,
-        youtube_embed_pref: state.data.youtubeEmbedPref,
+        current_step: state.current_step,
+        selected_topics: state.selected_topics,
+        profile_data: state.profile_data,
+        communication_prefs: state.communication_prefs,
       });
       lastSavedHashRef.current = currentHash;
     }
@@ -188,7 +185,7 @@ export function useOnboardingState() {
       userId,
     );
     navigate("/feed", { replace: true });
-  }, [navigate, state.step, state.data]);
+  }, [navigate, state]);
 
   // helper memorizzati
   const api = useMemo(
