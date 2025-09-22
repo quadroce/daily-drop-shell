@@ -35,11 +35,9 @@ const OnboardingPage: React.FC = () => {
   // Enhanced state management with auto-save and recovery
   const { 
     state: onboardingState, 
-    isLoading: isLoadingState, 
-    isAutoSaving, 
-    saveStep, 
-    clearState,
-    error: stateError 
+    setStep,
+    updateData,
+    completeOnboarding
   } = useOnboardingState();
   
   // Enhanced error handling
@@ -54,9 +52,9 @@ const OnboardingPage: React.FC = () => {
 
   // Derived state from onboarding state
   const currentStep = onboardingState.current_step;
-  const formData = onboardingState.profile_data;
-  const selectedTopics = onboardingState.selected_topics;
-  const communicationPrefs = onboardingState.communication_prefs;
+  const formData = onboardingState.profile_data || {};
+  const selectedTopics = onboardingState.selected_topics || [];
+  const communicationPrefs = onboardingState.communication_prefs || {};
 
   // Load topics and prefill from OAuth if available
   useEffect(() => {
@@ -79,7 +77,7 @@ const OnboardingPage: React.FC = () => {
         first_name: metadata.first_name || metadata.given_name || formData.first_name || '',
         last_name: metadata.last_name || metadata.family_name || formData.last_name || '',
       };
-      saveStep(currentStep, { profile_data: newProfileData });
+      updateData({ profile_data: newProfileData });
     }
   }, [user]);
 
@@ -103,7 +101,7 @@ const OnboardingPage: React.FC = () => {
     };
     
     // Auto-save the change
-    saveStep(currentStep, { profile_data: newProfileData });
+    updateData({ profile_data: newProfileData });
   };
 
   const handleNext = () => {
@@ -153,117 +151,59 @@ const OnboardingPage: React.FC = () => {
       }
       
       // Auto-save the step progression
-      saveStep(nextStep, {});
+      setStep(nextStep);
     }
   };
 
   const handleBack = () => {
     if (currentStep > 1) {
       const prevStep = currentStep - 1;
-      saveStep(prevStep, {});
+      setStep(prevStep);
     }
   };
 
   const handleTopicsChange = (topics: number[]) => {
-    saveStep(currentStep, { selected_topics: topics });
+    updateData({ selected_topics: topics });
   };
 
   const handleCommunicationChange = (prefs: { [key: string]: boolean }) => {
-    saveStep(currentStep, { communication_prefs: prefs });
+    updateData({ communication_prefs: prefs });
   };
 
   const handleComplete = async () => {
-    const performComplete = async () => {
-      setIsCompleting(true);
-      clearError(); // Clear any previous errors
-      
-      try {
-        // Save profile data
-        const profileData: OnboardingProfile = {
-          first_name: formData.first_name || undefined,
-          last_name: formData.last_name || undefined,
-          company_role: formData.company_role || undefined,
-          language_prefs: formData.language_prefs || ['en'],
-          youtube_embed_pref: formData.youtube_embed_pref ?? true,
-        };
-        
-        await saveProfile(profileData);
-        
-        // Save topic preferences
-        if (selectedTopics.length > 0) {
-          await saveTopics(selectedTopics);
-        }
-        
-        // Save communication preferences
-        console.log('Onboarding: Saving communication preferences:', communicationPrefs);
-        if (communicationPrefs.newsletter !== undefined) {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) {
-            console.log('Onboarding: Creating/updating newsletter subscription:', {
-              user_id: user.id,
-              active: communicationPrefs.newsletter
-            });
-            
-            const { error } = await supabase
-              .from('newsletter_subscriptions')
-              .upsert({
-                user_id: user.id,
-                active: communicationPrefs.newsletter,
-                slot: 'morning',
-                cadence: 'daily'
-              });
-            
-            if (error) {
-              console.error('Onboarding: Error saving newsletter preference:', error);
-              throw error;
-            } else {
-              console.log('Onboarding: Newsletter preference saved successfully');
-            }
-          }
-        }
-        
-        // Mark onboarding as complete
-        await markOnboardingComplete();
-        
-        // Clear saved onboarding state
-        await clearOnboardingState();
-        
-        // Track completion
-        track('onboarding_completed', {
-          total_topics: selectedTopics.length,
-          retry_count: retryCount
-        });
-        
-        toast({
-          title: "Welcome to DailyDrops! 🎉",
-          description: "Your account has been set up successfully.",
-        });
-        
-        navigate('/feed');
-      } catch (error) {
-        handleError(error as Error, currentStep, 'completing onboarding');
-        throw error; // Re-throw for retry handling
-      } finally {
-        setIsCompleting(false);
-      }
-    };
-
+    setIsCompleting(true);
     try {
-      await performComplete();
+      await completeOnboarding();
+      toast({
+        title: "Welcome to DailyDrops! 🎉",
+        description: "Your account has been set up successfully.",
+      });
     } catch (error) {
-      // Error is already handled by handleError
+      console.error('Error completing onboarding:', error);
+      toast({
+        title: "Error",
+        description: "Failed to complete onboarding. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCompleting(false);
     }
   };
 
   const handleRestart = async () => {
     try {
-      await clearState();
+      updateData({ 
+        current_step: 1, 
+        selected_topics: [], 
+        profile_data: {}, 
+        communication_prefs: {} 
+      });
       toast({
         title: "Onboarding Reset",
         description: "Starting fresh from the beginning.",
       });
     } catch (error) {
-      handleError(error as Error, currentStep, 'restarting onboarding');
+      console.error('Error restarting onboarding:', error);
     }
   };
 
@@ -274,7 +214,7 @@ const OnboardingPage: React.FC = () => {
     return null;
   }
 
-  if (isLoadingState) {
+  if (!onboardingState.loaded) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -294,7 +234,7 @@ const OnboardingPage: React.FC = () => {
             <h1 className="text-3xl font-bold text-foreground">
               Welcome to DailyDrops
             </h1>
-            {isAutoSaving && (
+            {onboardingState.dirty && (
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin" />
                 <span>Saving...</span>
@@ -314,41 +254,6 @@ const OnboardingPage: React.FC = () => {
             <Progress value={progressValue} className="h-2" />
           </div>
 
-          {/* Error Handling */}
-          {(stateError || operationError) && (
-            <div className="max-w-md mx-auto mt-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-              <p className="text-sm text-destructive mb-2">
-                {stateError || operationError}
-              </p>
-              <div className="flex gap-2 justify-center">
-                {operationError && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => retry(handleComplete, currentStep)}
-                    disabled={isRetrying}
-                  >
-                    {isRetrying ? (
-                      <>
-                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                        Retrying...
-                      </>
-                    ) : (
-                      `Retry ${retryCount > 0 ? `(${retryCount})` : ''}`
-                    )}
-                  </Button>
-                )}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleRestart}
-                >
-                  <RotateCcw className="h-3 w-3 mr-1" />
-                  Restart
-                </Button>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Step Content */}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -51,6 +51,7 @@ export const ChannelToggleList: React.FC<ChannelToggleListProps> = ({
   const [channelStates, setChannelStates] = useState<{ [key: string]: boolean }>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<{ [key: string]: boolean }>({});
+  const initializedRef = useRef(false);
 
   // Define all communication channels
   const allChannels: Channel[] = [
@@ -129,6 +130,8 @@ export const ChannelToggleList: React.FC<ChannelToggleListProps> = ({
 
   // Load initial channel states
   useEffect(() => {
+    if (initializedRef.current) return;
+    
     const loadChannelStates = async () => {
       if (!user?.id) {
         setLoading(false);
@@ -188,6 +191,7 @@ export const ChannelToggleList: React.FC<ChannelToggleListProps> = ({
         });
       } finally {
         setLoading(false);
+        initializedRef.current = true;
       }
     };
 
