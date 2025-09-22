@@ -215,30 +215,33 @@ export function useOnboardingState() {
     const userId = u?.user?.id;
     if (!userId) throw new Error("Not authenticated");
 
-    // assicurati ultimo save
-    const currentHash = jsonHash(state);
-    if (currentHash !== lastSavedHashRef.current && !savingRef.current) {
-      await supabase.from("onboarding_state").upsert({
-        user_id: userId,
-        current_step: state.current_step,
-        selected_topics: state.selected_topics,
-        profile_data: state.profile_data,
-        communication_prefs: state.communication_prefs,
-      });
-      lastSavedHashRef.current = currentHash;
-    }
+    try {
+      // assicurati ultimo save
+      const currentHash = jsonHash(state);
+      if (currentHash !== lastSavedHashRef.current && !savingRef.current) {
+        const { error: saveError } = await supabase.from("onboarding_state").upsert({
+          user_id: userId,
+          current_step: state.current_step,
+          selected_topics: state.selected_topics,
+          profile_data: state.profile_data,
+          communication_prefs: state.communication_prefs,
+        });
+        if (saveError) throw saveError;
+        lastSavedHashRef.current = currentHash;
+      }
 
-    // Transfer selected topics to preferences table
-    if (state.selected_topics.length > 0) {
-      try {
+      // Transfer selected topics to preferences table
+      if (state.selected_topics.length > 0) {
         // Get existing preferences or create new one
-        const { data: existingPrefs } = await supabase
+        const { data: existingPrefs, error: fetchError } = await supabase
           .from('preferences')
           .select('selected_language_ids')
           .eq('user_id', userId)
           .maybeSingle();
+        
+        if (fetchError) throw fetchError;
 
-        await supabase
+        const { error: upsertError } = await supabase
           .from('preferences')
           .upsert({
             user_id: userId,
@@ -248,17 +251,22 @@ export function useOnboardingState() {
           }, {
             onConflict: 'user_id'
           });
-      } catch (error) {
-        console.error('Error saving topics to preferences:', error);
+        
+        if (upsertError) throw upsertError;
       }
-    }
 
-    // flag profilo + redirect
-    await supabase.from("profiles").update({ onboarding_completed: true }).eq(
-      "id",
-      userId,
-    );
-    navigate("/feed", { replace: true });
+      // flag profilo + redirect
+      const { error: profileError } = await supabase.from("profiles").update({ onboarding_completed: true }).eq(
+        "id",
+        userId,
+      );
+      if (profileError) throw profileError;
+
+      navigate("/feed", { replace: true });
+    } catch (error) {
+      console.error('Error in completeOnboarding:', error);
+      throw error; // Re-throw for parent component to handle
+    }
   }, [navigate, state]);
 
   // helper memorizzati
