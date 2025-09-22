@@ -11,7 +11,7 @@ export type Topic = {
 };
 
 // Add article fetching for topics
-export async function getTopicArticles(topicSlug: string, limit: number = 6) {
+export async function getTopicArticles(topicSlug: string, limit: number = 6, cursor?: string) {
   // First get all topics that match this slug or are descendants
   const { data: topics, error: topicError } = await supabase
     .from('topics')
@@ -21,7 +21,7 @@ export async function getTopicArticles(topicSlug: string, limit: number = 6) {
   if (topicError) throw topicError;
   
   const currentTopic = topics?.find(t => t.slug === topicSlug);
-  if (!currentTopic) return [];
+  if (!currentTopic) return { articles: [], hasMore: false, nextCursor: null };
   
   // Get relevant topic IDs (current topic + children if it's L1 or L2)
   let relevantTopicIds = [currentTopic.id];
@@ -37,8 +37,8 @@ export async function getTopicArticles(topicSlug: string, limit: number = 6) {
     }
   }
   
-  // Fetch drops that are associated with these topics
-  const { data: drops, error: dropsError } = await supabase
+  // Build query with cursor pagination
+  let query = supabase
     .from('drops')
     .select(`
       id,
@@ -53,13 +53,29 @@ export async function getTopicArticles(topicSlug: string, limit: number = 6) {
     `)
     .in('content_topics.topic_id', relevantTopicIds)
     .eq('tag_done', true)
-    .order('published_at', { ascending: false })
-    .limit(limit);
+    .order('published_at', { ascending: false });
+
+  // Apply cursor pagination if provided
+  if (cursor) {
+    query = query.lt('published_at', cursor);
+  }
+
+  // Fetch one extra to check if there are more
+  const { data: drops, error: dropsError } = await query.limit(limit + 1);
   
   if (dropsError) throw dropsError;
   
+  // Check if there are more articles
+  const hasMore = drops ? drops.length > limit : false;
+  const articlesData = hasMore ? drops?.slice(0, limit) : drops;
+  
+  // Get next cursor from last article
+  const nextCursor = articlesData && articlesData.length > 0 
+    ? articlesData[articlesData.length - 1].published_at 
+    : null;
+  
   // Transform to FeedCardProps format
-  return drops?.map(drop => ({
+  const articles = articlesData?.map(drop => ({
     id: drop.id.toString(),
     type: drop.type === 'video' ? 'video' as const : 'article' as const,
     title: drop.title,
@@ -75,11 +91,19 @@ export async function getTopicArticles(topicSlug: string, limit: number = 6) {
     youtubeId: drop.type === 'video' ? extractYouTubeId(drop.url) : undefined,
     isPremium: false
   })) || [];
+
+  return { articles, hasMore, nextCursor };
 }
 
 function extractYouTubeId(url: string): string | undefined {
   const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
   return match ? match[1] : undefined;
+}
+
+// Legacy wrapper for backward compatibility
+export async function getTopicArticlesLegacy(topicSlug: string, limit: number = 6) {
+  const result = await getTopicArticles(topicSlug, limit);
+  return result.articles;
 }
 
 export async function getAllTopics(): Promise<Topic[]> {

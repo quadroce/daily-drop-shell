@@ -8,7 +8,8 @@ import { FeedCard } from "@/components/FeedCard";
 import { TopicHeader } from "@/components/TopicHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Topic, getTopicWithChildren, buildBreadcrumb, getChildren, getTopicArticles } from "@/lib/topics";
+import { InfiniteArticlesList } from "@/components/InfiniteArticlesList";
+import { Topic, getTopicWithChildren, buildBreadcrumb, getChildren } from "@/lib/topics";
 import { useAnalytics } from "@/lib/analytics";
 import { useEngagement } from "@/hooks/useEngagement";
 import { useAuth } from "@/hooks/useAuth";
@@ -53,12 +54,6 @@ export const TopicLandingPage = () => {
     enabled: !!topicData && topicData.topic.level === 1,
   });
 
-  const { data: articles, isLoading: articlesLoading } = useQuery({
-    queryKey: ['topic-articles', slug],
-    queryFn: () => getTopicArticles(slug!),
-    enabled: !!slug,
-  });
-
   if (!slug) {
     return <Navigate to="/404" replace />;
   }
@@ -95,9 +90,7 @@ export const TopicLandingPage = () => {
   
   // Determine og:image for social sharing - use DailyDrops branded image as fallback
   const defaultOgImage = `${baseUrl}/og-dailydrops.jpg`;
-  const ogImage = articles && articles.length > 0 && articles[0].imageUrl
-    ? (articles[0].imageUrl.startsWith('http') ? articles[0].imageUrl : `${baseUrl}${articles[0].imageUrl}`)
-    : defaultOgImage;
+  const ogImage = defaultOgImage;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -136,7 +129,7 @@ export const TopicLandingPage = () => {
           topicTitle={topic.label}
           topicIntro={topic.intro}
           level={topic.level}
-          showPreview={!session && (articles?.length || 0) > 0}
+          showPreview={false}
         />
 
         {/* For L1 and L2: Show Articles first, then Subtopics */}
@@ -153,42 +146,7 @@ export const TopicLandingPage = () => {
                 </Button>
               </div>
               
-              {articlesLoading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {[1, 2, 3, 4, 5, 6].map(i => (
-                    <div key={i} className="space-y-3">
-                      <Skeleton className="aspect-video rounded-lg" />
-                      <Skeleton className="h-4 w-full" />
-                      <Skeleton className="h-4 w-3/4" />
-                    </div>
-                  ))}
-                </div>
-              ) : articles && articles.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {articles.map(article => (
-                    <FeedCard
-                      key={article.id}
-                      {...article}
-                      onEngage={(action) => {
-                        track('open_item', { 
-                          itemId: action.itemId, 
-                          topic: slug,
-                          action: action.action
-                        });
-                      }}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-muted/30 rounded-2xl p-8 text-center">
-                  <p className="text-muted-foreground mb-4">
-                    No articles found for this topic yet. Check back soon!
-                  </p>
-                  <button className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
-                    Follow Topic for Updates
-                  </button>
-                </div>
-              )}
+              <InfiniteArticlesList topicSlug={slug} />
             </section>
 
             {/* Children Topics */}
@@ -264,42 +222,7 @@ export const TopicLandingPage = () => {
                 </h2>
               </div>
               
-              {articlesLoading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {[1, 2, 3, 4, 5, 6].map(i => (
-                    <div key={i} className="space-y-3">
-                      <Skeleton className="aspect-video rounded-lg" />
-                      <Skeleton className="h-4 w-full" />
-                      <Skeleton className="h-4 w-3/4" />
-                    </div>
-                  ))}
-                </div>
-              ) : articles && articles.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {articles.map(article => (
-                    <FeedCard
-                      key={article.id}
-                      {...article}
-                      onEngage={(action) => {
-                        track('open_item', { 
-                          itemId: action.itemId, 
-                          topic: slug,
-                          action: action.action
-                        });
-                      }}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-muted/30 rounded-2xl p-8 text-center">
-                  <p className="text-muted-foreground mb-4">
-                    No articles found for this topic yet. Check back soon!
-                  </p>
-                  <button className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
-                    Follow Topic for Updates
-                  </button>
-                </div>
-              )}
+              <InfiniteArticlesList topicSlug={slug} />
             </section>
           </>
         )}
