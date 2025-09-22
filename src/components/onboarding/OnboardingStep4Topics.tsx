@@ -19,7 +19,6 @@ export const OnboardingStep4Topics: React.FC<OnboardingStep4Props> = ({
   onBack
 }) => {
   const hasMinTopics = selectedTopics.length >= 1;
-  const isAtMaxTopics = selectedTopics.length >= 15;
 
   const handleSaveTopics = async (topicIds: number[]) => {
     onTopicsChange(topicIds);
@@ -36,10 +35,10 @@ export const OnboardingStep4Topics: React.FC<OnboardingStep4Props> = ({
           </CardTitle>
           <div className="flex items-center justify-between">
             <p className="text-muted-foreground">
-              Topics are organized as a tree (Level 1 → Level 2 → Level 3). You can select up to 15 total topics.
+              Topics are organized as a tree (Level 1 → Level 2 → Level 3). Select your interests.
             </p>
-            <Badge variant={isAtMaxTopics ? "destructive" : "outline"}>
-              {selectedTopics.length}/15 selected
+            <Badge variant="outline">
+              {selectedTopics.length} selected
             </Badge>
           </div>
           

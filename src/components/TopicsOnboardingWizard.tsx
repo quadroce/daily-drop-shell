@@ -504,15 +504,13 @@ export const TopicsOnboardingWizard: React.FC<TopicsOnboardingWizardProps> = ({
                 <ChevronRight className="w-4 h-4 ml-2" />
               </Button>
             ) : (
-              // Show button only if onSaveAll is provided (main CTA) or if it's not step 3
-              onSaveAll && (
-                <Button 
-                  onClick={handleSaveAll}
-                  disabled={saving || selectedTopics.size === 0}
-                >
-                  {saving ? 'Saving...' : 'Save All Preferences'}
-                </Button>
-              )
+              // Show appropriate button in the last step
+              <Button 
+                onClick={onSaveAll ? handleSaveAll : handleSave}
+                disabled={saving || selectedTopics.size === 0}
+              >
+                {saving ? 'Saving...' : onSaveAll ? 'Save All Preferences' : 'Continue'}
+              </Button>
             )}
           </div>
         </div>
