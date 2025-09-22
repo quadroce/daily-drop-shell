@@ -24,14 +24,14 @@ interface DigestContent {
 
 export function renderTemplate(content: DigestContent): string {
   const { user, digest, testMode, unsubscribeUrl, preferencesUrl } = content;
-  
+
   return `
     <!DOCTYPE html>
     <html>
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${testMode ? '[TEST] ' : ''}Your ${digest.cadence} digest</title>
+        <title>${testMode ? "[TEST] " : ""}Your ${digest.cadence} digest</title>
         <style>
           /* Reset and base styles */
           * { box-sizing: border-box; }
@@ -308,7 +308,11 @@ export function renderTemplate(content: DigestContent): string {
       </head>
       <body>
         <div class="container">
-          ${testMode ? '<div class="test-banner">🧪 TEST MODE - This is a test newsletter</div>' : ''}
+          ${
+    testMode
+      ? '<div class="test-banner">🧪 TEST MODE - This is a test newsletter</div>'
+      : ""
+  }
           
           <!-- Header with Logo -->
           <div class="header">
@@ -326,34 +330,49 @@ export function renderTemplate(content: DigestContent): string {
           <!-- Greeting -->
           <div class="greeting">
             <h1>Hi ${user.name}! 👋</h1>
-            <p>Here's your personalized ${digest.cadence} digest with ${digest.items.length} handpicked articles curated just for you.</p>
+            <p>Here's your personalized ${digest.cadence} digest with ${digest.items.length} articles curated just for you.</p>
           </div>
 
           <!-- Stats -->
           <div class="digest-stats">
-            📅 ${new Date(digest.date).toLocaleDateString('en-US', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })} • ${digest.slot} edition
+            📅 ${
+    new Date(digest.date).toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    })
+  } • ${digest.slot} edition
           </div>
 
           <!-- Articles -->
           <div class="content">
-            ${digest.items.map((item, index) => `
+            ${
+    digest.items.map((item, index) => `
               <article class="article">
-                ${item.image_url ? `
+                ${
+      item.image_url
+        ? `
                   <img src="${item.image_url}" alt="${item.title}" class="article-image" />
-                ` : ''}
+                `
+        : ""
+    }
                 <div class="article-content">
                   <h2><a href="${item.url}" target="_blank">${item.title}</a></h2>
-                  ${item.summary ? `<p class="article-summary">${item.summary}</p>` : ''}
-                  ${item.tags && item.tags.length > 0 ? `
+                  ${
+      item.summary ? `<p class="article-summary">${item.summary}</p>` : ""
+    }
+                  ${
+      item.tags && item.tags.length > 0
+        ? `
                     <div class="tags">
-                      ${item.tags.map(tag => `<span class="tag">#${tag}</span>`).join('')}
+                      ${
+          item.tags.map((tag) => `<span class="tag">#${tag}</span>`).join("")
+        }
                     </div>
-                  ` : ''}
+                  `
+        : ""
+    }
                   <div class="article-meta">
                     <svg class="meta-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M8 2V5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -361,14 +380,17 @@ export function renderTemplate(content: DigestContent): string {
                       <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
                       <path d="M3 10H21" stroke="currentColor" stroke-width="2"/>
                     </svg>
-                    <span>Published ${new Date(item.published_at).toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      day: 'numeric' 
-                    })}</span>
+                    <span>Published ${
+      new Date(item.published_at).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      })
+    }</span>
                   </div>
                 </div>
               </article>
-            `).join('')}
+            `).join("")
+  }
           </div>
 
           <!-- Footer -->
@@ -379,8 +401,12 @@ export function renderTemplate(content: DigestContent): string {
             </div>
             <div class="footer-tier">${user.subscription_tier.toUpperCase()} member</div>
             <div class="footer-links">
-              <a href="${preferencesUrl || '#'}" style="color: #64748b;">Manage preferences</a> • 
-              <a href="${unsubscribeUrl || '#'}" style="color: #64748b;">Unsubscribe</a>
+              <a href="${
+    preferencesUrl || "#"
+  }" style="color: #64748b;">Manage preferences</a> • 
+              <a href="${
+    unsubscribeUrl || "#"
+  }" style="color: #64748b;">Unsubscribe</a>
             </div>
           </div>
         </div>
