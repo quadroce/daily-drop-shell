@@ -170,7 +170,7 @@ export const getTopicData = async (slug: string): Promise<Topic> => {
   try {
     const { data: topic } = await supabase
       .from('topics')
-      .select('slug, label')
+      .select('slug, label, intro, allow_rss, allow_share, allow_follow')
       .eq('slug', slug)
       .eq('is_active', true)
       .single();
@@ -186,7 +186,7 @@ export const getTopicData = async (slug: string): Promise<Topic> => {
     return {
       slug: topic.slug,
       title: topic.label,
-      introHtml: `<p>Content about ${topic.label}.</p>`
+      introHtml: topic.intro || `<p>Content about ${topic.label}.</p>`
     };
   } catch (error) {
     console.error('Error fetching topic data:', error);

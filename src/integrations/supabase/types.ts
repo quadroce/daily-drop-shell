@@ -1050,6 +1050,9 @@ export type Database = {
       }
       topics: {
         Row: {
+          allow_follow: boolean | null
+          allow_rss: boolean | null
+          allow_share: boolean | null
           id: number
           intro: string | null
           is_active: boolean
@@ -1059,6 +1062,9 @@ export type Database = {
           slug: string
         }
         Insert: {
+          allow_follow?: boolean | null
+          allow_rss?: boolean | null
+          allow_share?: boolean | null
           id?: number
           intro?: string | null
           is_active?: boolean
@@ -1068,6 +1074,9 @@ export type Database = {
           slug: string
         }
         Update: {
+          allow_follow?: boolean | null
+          allow_rss?: boolean | null
+          allow_share?: boolean | null
           id?: number
           intro?: string | null
           is_active?: boolean
@@ -1288,6 +1297,35 @@ export type Database = {
       ensure_profile: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      feed_get_page_drops: {
+        Args: {
+          p_cursor?: string
+          p_l1?: number
+          p_l2?: number
+          p_language?: string
+          p_limit?: number
+          p_user_id: string
+        }
+        Returns: {
+          final_score: number
+          id: number
+          image_url: string
+          l1_topic_id: number
+          l2_topic_id: number
+          language: string
+          published_at: string
+          reason_for_ranking: string
+          source_id: number
+          summary: string
+          tags: string[]
+          title: string
+          type: Database["public"]["Enums"]["drop_type"]
+          url: string
+          youtube_channel_id: string
+          youtube_thumbnail_url: string
+          youtube_video_id: string
+        }[]
       }
       get_candidate_drops: {
         Args: { limit_n?: number }

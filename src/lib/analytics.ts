@@ -38,6 +38,12 @@ export type AnalyticsEvent =
   | 'newsletter_open'
   | 'whatsapp_verified'
   | 'whatsapp_drop_sent'
+  // Topic Events
+  | 'follow_topic_clicked'
+  | 'unfollow_topic_clicked'
+  | 'rss_subscribed_topic'
+  | 'share_topic_clicked'
+  | 'signup_from_topic_page'
   // Monetization Events
   | 'begin_checkout'
   | 'purchase'

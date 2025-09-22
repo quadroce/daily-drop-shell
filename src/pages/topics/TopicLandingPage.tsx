@@ -5,16 +5,19 @@ import { TopicCard } from "@/components/TopicCard";
 import { ChipLink } from "@/components/ChipLink";
 import { Breadcrumb } from "@/components/Breadcrumb";
 import { FeedCard } from "@/components/FeedCard";
+import { TopicHeader } from "@/components/TopicHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Topic, getTopicWithChildren, buildBreadcrumb, getChildren, getTopicArticles } from "@/lib/topics";
 import { useAnalytics } from "@/lib/analytics";
 import { useEngagement } from "@/hooks/useEngagement";
+import { useAuth } from "@/hooks/useAuth";
 import { useEffect } from "react";
 
 export const TopicLandingPage = () => {
   const { slug } = useParams<{ slug: string }>();
   const { track } = useAnalytics();
+  const { session } = useAuth();
 
   // Track engagement on this page
   useEngagement();
@@ -116,26 +119,14 @@ export const TopicLandingPage = () => {
       <div className="container mx-auto px-4 py-8">
         {breadcrumb && <Breadcrumb items={breadcrumb} />}
         
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-4">{topic.label}</h1>
-          <div className="text-muted-foreground mb-4">
-            <p>Level {topic.level} topic</p>
-            {topic.intro && topic.level !== 3 && (
-              <div className="mt-4 prose prose-sm max-w-none text-muted-foreground">
-                <p>{topic.intro}</p>
-              </div>
-            )}
-            {!topic.intro && topic.level === 3 && (
-              <p className="mt-2">This is a specialized topic with focused content and discussions.</p>
-            )}
-            {!topic.intro && topic.level === 2 && (
-              <p className="mt-2">Explore subtopics and specialized areas within {topic.label}.</p>
-            )}
-            {!topic.intro && topic.level === 1 && (
-              <p className="mt-2">Browse all subtopics and specialized areas in {topic.label}.</p>
-            )}
-          </div>
-        </header>
+        <TopicHeader
+          topicId={topic.id}
+          topicSlug={topic.slug}
+          topicTitle={topic.label}
+          topicIntro={topic.intro}
+          level={topic.level}
+          showPreview={!session && (articles?.length || 0) > 0}
+        />
 
         {/* For L1 and L2: Show Articles first, then Subtopics */}
         {(topic.level === 1 || topic.level === 2) ? (

@@ -3,15 +3,18 @@ import { useQuery } from "@tanstack/react-query";
 import { Seo } from "@/components/Seo";
 import { DailyDrop } from "@/components/DailyDrop";
 import { ArchiveNav } from "@/components/ArchiveNav";
+import { TopicHeader } from "@/components/TopicHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getTopicDaily, getTopicArchive, getTopicData } from "@/lib/api/topics";
 import { useAnalytics } from "@/lib/analytics";
+import { useAuth } from "@/hooks/useAuth";
 import { useEffect } from "react";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, isAfter, subDays } from "date-fns";
 
 export const TopicDailyArchivePage = () => {
   const { slug, date } = useParams<{ slug: string; date: string }>();
   const { track } = useAnalytics();
+  const { session } = useAuth();
 
   // Mock user data - replace with real auth
   const user = { 
@@ -55,6 +58,9 @@ export const TopicDailyArchivePage = () => {
   const formattedDate = format(parseISO(date), 'MMMM d, yyyy');
   const title = `${topic?.title} - ${formattedDate} (${articleCount} articles)`;
   const description = `Explore ${articleCount} curated articles ${videoCount > 0 ? `and ${videoCount} videos ` : ''}from ${topic?.title} on ${formattedDate}. Stay updated with the latest insights, research, and trends in ${topic?.title?.toLowerCase()}.`;
+  
+  // Check if this is older than 90 days for noindex
+  const isOld = isAfter(subDays(new Date(), 90), parseISO(date));
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -113,6 +119,7 @@ export const TopicDailyArchivePage = () => {
         title={title}
         description={description}
         canonical={canonical}
+        noindex={isOld}
         jsonLd={jsonLd}
       />
 

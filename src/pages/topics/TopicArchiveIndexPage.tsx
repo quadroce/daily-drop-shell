@@ -4,14 +4,17 @@ import { Seo } from "@/components/Seo";
 import { ArchiveNav } from "@/components/ArchiveNav";
 import { ArchiveList } from "@/components/ArchiveList";
 import { PremiumSidebar } from "@/components/PremiumSidebar";
+import { TopicHeader } from "@/components/TopicHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getTopicArchive, getTopicData } from "@/lib/api/topics";
 import { useAnalytics } from "@/lib/analytics";
+import { useAuth } from "@/hooks/useAuth";
 import { useEffect } from "react";
 
 export const TopicArchiveIndexPage = () => {
   const { slug } = useParams<{ slug: string }>();
   const { track } = useAnalytics();
+  const { session } = useAuth();
 
   // Mock user data - replace with real auth
   const user = { isPremium: new URLSearchParams(window.location.search).has('premium') };
@@ -84,12 +87,14 @@ export const TopicArchiveIndexPage = () => {
 
       <div className="border-b border-border">
         <div className="max-w-6xl mx-auto px-4 py-6">
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            {topic?.title} Archive
-          </h1>
-          <p className="text-muted-foreground">
-            Browse historical content and daily drops
-          </p>
+          <TopicHeader
+            topicId={1} // TODO: Get actual topic ID
+            topicSlug={slug}
+            topicTitle={topic?.title || ''}
+            topicIntro="Catch up on past curated Drops for this topic."
+            level={1}
+            showPreview={false}
+          />
         </div>
       </div>
 
