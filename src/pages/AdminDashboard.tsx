@@ -537,68 +537,113 @@ const AdminDashboard = () => {
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground mb-2">Admin Dashboard</h1>
-        <p className="text-muted-foreground">Unified system monitoring, management and debug console</p>
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Admin Dashboard</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">Manage your DailyDrops platform</p>
+        
+        {/* Quick Actions Row - Mobile Friendly */}
+        <div className="mt-4 flex flex-wrap gap-2 sm:gap-3">
+          <Button 
+            onClick={() => window.location.href = '/admin/sources'} 
+            variant="outline" 
+            size="sm"
+            className="text-xs sm:text-sm"
+          >
+            <Database className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            Gestisci Sorgenti
+          </Button>
+          <Button 
+            onClick={() => window.location.href = '/admin/articles'} 
+            variant="outline" 
+            size="sm"
+            className="text-xs sm:text-sm"
+          >
+            <FileText className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            Gestisci Articoli
+          </Button>
+          <Button 
+            onClick={triggerSitemapGeneration}
+            variant="outline" 
+            size="sm"
+            className="text-xs sm:text-sm"
+            disabled={running}
+          >
+            <Globe className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            Gestisci Sitemap
+          </Button>
+          <Button 
+            onClick={triggerManualRun}
+            variant="outline" 
+            size="sm"
+            className="text-xs sm:text-sm"
+            disabled={running}
+          >
+            <Play className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            Manual Ingestion
+          </Button>
+        </div>
       </div>
 
       {/* Global System Status */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Articles</CardTitle>
-            <Database className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs sm:text-sm font-medium">Total Articles</CardTitle>
+            <Database className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.total_drops || 0}</div>
+            <div className="text-xl sm:text-2xl font-bold">{stats?.total_drops || 0}</div>
             <p className="text-xs text-muted-foreground">
               {stats?.tagged_drops || 0} tagged ({Math.round(((stats?.tagged_drops || 0) / (stats?.total_drops || 1)) * 100)}%)
             </p>
             <Progress 
               value={((stats?.tagged_drops || 0) / (stats?.total_drops || 1)) * 100} 
-              className="mt-2" 
+              className="mt-2 h-1.5 sm:h-2" 
             />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Processing Queue</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs sm:text-sm font-medium">Processing Queue</CardTitle>
+            <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.processing_queue || 0}</div>
+            <div className="text-xl sm:text-2xl font-bold">{stats?.processing_queue || 0}</div>
             <p className="text-xs text-muted-foreground">Articles waiting to be processed</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Recent Activity</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs sm:text-sm font-medium">Recent Activity</CardTitle>
+            <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{logs[0]?.new_articles || 0}</div>
+            <div className="text-xl sm:text-2xl font-bold">{logs[0]?.new_articles || 0}</div>
             <p className="text-xs text-muted-foreground">
-              Articles in last cycle ({formatDate(logs[0]?.cycle_timestamp || '')})
+              Articles in last cycle
+            </p>
+            <p className="text-xs text-muted-foreground truncate">
+              {formatDate(logs[0]?.cycle_timestamp || '')}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">System Status</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs sm:text-sm font-medium">System Status</CardTitle>
+            <Activity className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="flex items-center space-x-2">
               {ingestionHealth?.is_healthy ? (
-                <CheckCircle className="h-5 w-5 text-green-500" />
+                <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
               ) : (
-                <AlertCircle className="h-5 w-5 text-red-500" />
+                <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-red-500" />
               )}
-              <span className={`font-medium ${ingestionHealth?.is_healthy ? 'text-green-700' : 'text-red-700'}`}>
-                {ingestionHealth?.is_healthy ? 'Healthy' : 'Issues Detected'}
+              <span className={`text-sm font-medium ${ingestionHealth?.is_healthy ? 'text-green-700' : 'text-red-700'}`}>
+                {ingestionHealth?.is_healthy ? 'Healthy' : 'Issues'}
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -610,29 +655,29 @@ const AdminDashboard = () => {
 
       {/* Ingestion Health Monitor */}
       {ingestionHealth && (
-        <Card className="mb-8">
+        <Card className="mb-6 sm:mb-8">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5" />
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Activity className="h-4 w-4 sm:h-5 sm:w-5" />
               System Health Monitor
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div className="text-center">
-                <div className="text-2xl font-bold text-foreground">{ingestionHealth.minutes_since_last_run}m</div>
-                <div className="text-sm text-muted-foreground">Since Last Success</div>
+                <div className="text-xl sm:text-2xl font-bold text-foreground">{ingestionHealth.minutes_since_last_run}m</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Since Last Success</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-foreground">{ingestionHealth.queue_size}</div>
-                <div className="text-sm text-muted-foreground">Queue Size</div>
+                <div className="text-xl sm:text-2xl font-bold text-foreground">{ingestionHealth.queue_size}</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Queue Size</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-foreground">{ingestionHealth.untagged_articles}</div>
-                <div className="text-sm text-muted-foreground">Untagged Articles</div>
+                <div className="text-xl sm:text-2xl font-bold text-foreground">{ingestionHealth.untagged_articles}</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Untagged Articles</div>
               </div>
               <div className="text-center">
-                <Badge variant={ingestionHealth.is_healthy ? "default" : "destructive"} className="text-sm">
+                <Badge variant={ingestionHealth.is_healthy ? "default" : "destructive"} className="text-xs sm:text-sm">
                   {ingestionHealth.is_healthy ? "HEALTHY" : "UNHEALTHY"}
                 </Badge>
                 <div className="text-xs text-muted-foreground mt-1">Overall Status</div>
@@ -643,39 +688,58 @@ const AdminDashboard = () => {
       )}
 
       {/* Tabbed Interface */}
-      <Tabs defaultValue="control" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7">
-          <TabsTrigger value="control">Control Panel</TabsTrigger>
-          <TabsTrigger value="debug">Debug Console</TabsTrigger>
-          <TabsTrigger value="content">Content & Tagging</TabsTrigger>
-          <TabsTrigger value="youtube">YouTube</TabsTrigger>
-          <TabsTrigger value="onboarding">User Onboarding</TabsTrigger>
-          <TabsTrigger value="system">System Tools</TabsTrigger>
-          <TabsTrigger value="sitemaps">Sitemaps & SEO</TabsTrigger>
-          <TabsTrigger value="logs">Logs & History</TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue="control" className="space-y-4 sm:space-y-6">
+        {/* Mobile: Horizontal scroll tabs */}
+        <div className="sm:hidden">
+          <TabsList className="w-full justify-start overflow-x-auto">
+            <TabsTrigger value="control" className="flex-shrink-0 text-xs">Control</TabsTrigger>
+            <TabsTrigger value="debug" className="flex-shrink-0 text-xs">Debug</TabsTrigger>
+            <TabsTrigger value="content" className="flex-shrink-0 text-xs">Content</TabsTrigger>
+            <TabsTrigger value="youtube" className="flex-shrink-0 text-xs">YouTube</TabsTrigger>
+            <TabsTrigger value="onboarding" className="flex-shrink-0 text-xs">Users</TabsTrigger>
+            <TabsTrigger value="system" className="flex-shrink-0 text-xs">System</TabsTrigger>
+            <TabsTrigger value="sitemaps" className="flex-shrink-0 text-xs">SEO</TabsTrigger>
+            <TabsTrigger value="logs" className="flex-shrink-0 text-xs">Logs</TabsTrigger>
+          </TabsList>
+        </div>
+        
+        {/* Desktop: Grid layout tabs */}
+        <div className="hidden sm:block">
+          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8">
+            <TabsTrigger value="control">Control Panel</TabsTrigger>
+            <TabsTrigger value="debug">Debug Console</TabsTrigger>
+            <TabsTrigger value="content">Content & Tagging</TabsTrigger>
+            <TabsTrigger value="youtube">YouTube</TabsTrigger>
+            <TabsTrigger value="onboarding">User Onboarding</TabsTrigger>
+            <TabsTrigger value="system">System Tools</TabsTrigger>
+            <TabsTrigger value="sitemaps">Sitemaps & SEO</TabsTrigger>
+            <TabsTrigger value="logs">Logs & History</TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Control Panel */}
         <TabsContent value="control">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="h-5 w-5" />
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                  <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
                   Scheduled Jobs Control
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3 sm:space-y-4">
                 {cronJobs.map((job) => (
-                  <div key={job.name} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
-                      <h3 className="font-medium capitalize">{job.name.replace(/_/g, ' ')}</h3>
-                      <p className="text-sm text-muted-foreground">
+                  <div key={job.name} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 border rounded-lg space-y-2 sm:space-y-0">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm sm:text-base font-medium capitalize truncate">
+                        {job.name.replace(/_/g, ' ')}
+                      </h3>
+                      <p className="text-xs sm:text-sm text-muted-foreground">
                         Updated: {formatDate(job.updated_at)}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <Badge variant={job.enabled ? "default" : "secondary"}>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <Badge variant={job.enabled ? "default" : "secondary"} className="text-xs">
                         {job.enabled ? "Active" : "Paused"}
                       </Badge>
                       <Switch
@@ -690,22 +754,22 @@ const AdminDashboard = () => {
 
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Play className="h-5 w-5" />
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                  <Play className="h-4 w-4 sm:h-5 sm:w-5" />
                   Manual Actions
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3 sm:space-y-4">
                 <Button 
                   onClick={triggerManualRun} 
                   disabled={running}
-                  className="w-full"
+                  className="w-full justify-start text-sm"
                   variant="outline"
                 >
                   {running ? (
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 mr-2 animate-spin" />
                   ) : (
-                    <Play className="h-4 w-4 mr-2" />
+                    <Play className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
                   )}
                   {running ? 'Running...' : 'Trigger Manual Ingestion'}
                 </Button>
@@ -713,13 +777,13 @@ const AdminDashboard = () => {
                 <Button 
                   onClick={triggerRetagAll} 
                   disabled={running}
-                  className="w-full"
+                  className="w-full justify-start text-sm"
                   variant="secondary"
                 >
                   {running ? (
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 mr-2 animate-spin" />
                   ) : (
-                    <Tags className="h-4 w-4 mr-2" />
+                    <Tags className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
                   )}
                   {running ? 'Processing...' : 'Retag All Untagged Articles'}
                 </Button>
@@ -727,13 +791,13 @@ const AdminDashboard = () => {
                 <Button 
                   onClick={cleanupFailedQueue} 
                   disabled={running}
-                  className="w-full"
+                  className="w-full justify-start text-sm"
                   variant="destructive"
                 >
                   {running ? (
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 mr-2 animate-spin" />
                   ) : (
-                    <AlertCircle className="h-4 w-4 mr-2" />
+                    <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
                   )}
                   {running ? 'Cleaning...' : 'Cleanup Failed Queue'}
                 </Button>
@@ -744,11 +808,11 @@ const AdminDashboard = () => {
 
         {/* Debug Console */}
         <TabsContent value="debug">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Zap className="h-5 w-5" />
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                  <Zap className="h-4 w-4 sm:h-5 sm:w-5" />
                   Emergency Debug Actions
                 </CardTitle>
               </CardHeader>
@@ -756,11 +820,11 @@ const AdminDashboard = () => {
                 <Button 
                   onClick={() => triggerDebugFunction('trigger-manual-restart')}
                   disabled={debugLoading === 'trigger-manual-restart'}
-                  className="w-full"
+                  className="w-full justify-start text-sm"
                   variant="destructive"
                 >
-                  {debugLoading === 'trigger-manual-restart' && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  <Zap className="w-4 h-4 mr-2" />
+                  {debugLoading === 'trigger-manual-restart' && <Loader2 className="w-3 w-3 sm:w-4 h-3 sm:h-4 mr-2 animate-spin" />}
+                  <Zap className="w-3 w-3 sm:w-4 h-3 sm:h-4 mr-2" />
                   Emergency System Restart
                 </Button>
 
@@ -768,10 +832,10 @@ const AdminDashboard = () => {
                   onClick={() => triggerDebugFunction('test-tag-drops')}
                   disabled={debugLoading === 'test-tag-drops'}
                   variant="outline"
-                  className="w-full"
+                  className="w-full justify-start text-sm"
                 >
-                  {debugLoading === 'test-tag-drops' && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  <Tags className="w-4 h-4 mr-2" />
+                  {debugLoading === 'test-tag-drops' && <Loader2 className="w-3 w-3 sm:w-4 h-3 sm:h-4 mr-2 animate-spin" />}
+                  <Tags className="w-3 w-3 sm:w-4 h-3 sm:h-4 mr-2" />
                   Test AI Tagging System
                 </Button>
 
@@ -779,10 +843,10 @@ const AdminDashboard = () => {
                   onClick={() => triggerDebugFunction('tag-drops', { limit: 20, concurrent_requests: 2 })}
                   disabled={debugLoading === 'tag-drops'}
                   variant="outline"
-                  className="w-full"
+                  className="w-full justify-start text-sm"
                 >
-                  {debugLoading === 'tag-drops' && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  <Play className="w-4 h-4 mr-2" />
+                  {debugLoading === 'tag-drops' && <Loader2 className="w-3 w-3 sm:w-4 h-3 sm:h-4 mr-2 animate-spin" />}
+                  <Play className="w-3 w-3 sm:w-4 h-3 sm:h-4 mr-2" />
                   Force Process Untagged (20)
                 </Button>
               </CardContent>
