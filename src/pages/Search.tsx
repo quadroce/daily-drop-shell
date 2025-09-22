@@ -41,9 +41,20 @@ const searchContent = async (query: string, tag?: string): Promise<SearchResult>
 
     // Apply text search if provided
     if (query) {
-      supabaseQuery = supabaseQuery.or(
-        `title.ilike.%${query}%,summary.ilike.%${query}%`
-      );
+      const terms = query.trim().split(/\s+/);
+      if (terms.length === 1) {
+        // Single term search
+        supabaseQuery = supabaseQuery.or(
+          `title.ilike.%${terms[0]}%,summary.ilike.%${terms[0]}%`
+        );
+      } else {
+        // Multiple terms search - all terms must be present
+        const titleConditions = terms.map(term => `title.ilike.%${term}%`).join(',');
+        const summaryConditions = terms.map(term => `summary.ilike.%${term}%`).join(',');
+        supabaseQuery = supabaseQuery.or(
+          `and(${titleConditions}),and(${summaryConditions})`
+        );
+      }
     }
 
     // Apply tag filter if provided
@@ -359,50 +370,31 @@ const Search = () => {
                 Enter keywords or browse by topic to find relevant content
               </p>
               
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-2xl mx-auto">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => {
-                    setCurrentQuery("artificial intelligence");
-                    updateSearchParams("artificial intelligence", "");
-                  }}
-                  className="text-xs"
-                >
-                  AI Articles
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 max-w-4xl mx-auto">
+                <Button asChild variant="outline" size="sm" className="text-xs">
+                  <Link to="/topics/technology">
+                    Technology
+                  </Link>
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => {
-                    setCurrentTag("ml");
-                    updateSearchParams("", "ml");
-                  }}
-                  className="text-xs"
-                >
-                  Machine Learning
+                <Button asChild variant="outline" size="sm" className="text-xs">
+                  <Link to="/topics/ai-ml">
+                    AI & ML
+                  </Link>
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => {
-                    setCurrentTag("deep-learning");
-                    updateSearchParams("", "deep-learning");
-                  }}
-                  className="text-xs"
-                >
-                  Deep Learning
+                <Button asChild variant="outline" size="sm" className="text-xs">
+                  <Link to="/topics/ai-applications">
+                    AI Applications
+                  </Link>
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => {
-                    setCurrentQuery("neural networks");
-                    updateSearchParams("neural networks", "");
-                  }}
-                  className="text-xs"
-                >
-                  Neural Networks
+                <Button asChild variant="outline" size="sm" className="text-xs">
+                  <Link to="/topics/media-communications">
+                    Media & Communications
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="sm" className="text-xs">
+                  <Link to="/topics/generative-ai-tools">
+                    Generative AI Tools
+                  </Link>
                 </Button>
               </div>
             </div>
