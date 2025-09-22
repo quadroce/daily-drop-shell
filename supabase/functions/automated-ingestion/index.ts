@@ -232,7 +232,7 @@ async function runAutomatedIngestion(): Promise<ProcessingStats> {
     console.log(`✅ Embeddings processed=${stats.embeddings_processed}`);
   } catch (e: any) {
     console.error("❌ Embeddings failed:", e);
-    stats.errors.push(`Embeddings failed: ${e?.message || e});
+    stats.errors.push(`Embeddings failed: ${e?.message || e}`);
   }
 
   // Log su DB (best-effort)
