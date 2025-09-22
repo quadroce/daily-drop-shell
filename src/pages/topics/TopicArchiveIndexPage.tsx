@@ -4,23 +4,28 @@ import { Seo } from "@/components/Seo";
 import { ArchiveNav } from "@/components/ArchiveNav";
 import { ArchiveList } from "@/components/ArchiveList";
 import { PremiumSidebar } from "@/components/PremiumSidebar";
-import { TopicHeader } from "@/components/TopicHeader";
+import { TopicCtaBar } from "@/components/topics/TopicCtaBar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getTopicArchive, getTopicData } from "@/lib/api/topics";
 import { useAnalytics } from "@/lib/analytics";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { useEffect } from "react";
+import { breadcrumbJsonLd, collectionPageJsonLd, itemListJsonLd } from "@/lib/seo";
 
 export const TopicArchiveIndexPage = () => {
   const { slug } = useParams<{ slug: string }>();
   const { track } = useAnalytics();
   const { session } = useAuth();
-
-  // Mock user data - replace with real auth
-  const user = { isPremium: new URLSearchParams(window.location.search).has('premium') };
+  const { isPremium } = useUserProfile();
 
   useEffect(() => {
-    track('page_view', { page: 'topic_archive', slug });
+    track('page_view', { 
+      page: 'topic_archive', 
+      slug,
+      topic_slug: slug,
+      location: 'archive_index'
+    });
   }, [slug, track]);
 
   const { data: topic } = useQuery({
@@ -31,7 +36,7 @@ export const TopicArchiveIndexPage = () => {
 
   const { data: archive, isLoading, error } = useQuery({
     queryKey: ['topic-archive', slug],
-    queryFn: () => getTopicArchive(slug!, user.isPremium),
+    queryFn: () => getTopicArchive(slug!, isPremium),
     enabled: !!slug,
   });
 
@@ -44,56 +49,51 @@ export const TopicArchiveIndexPage = () => {
   }
 
   const canonical = `${window.location.origin}/topics/${slug}/archive`;
+  const pageTitle = `${topic?.title} Archive – Past DailyDrops`;
+  const pageDescription = `Catch up on curated Drops for ${topic?.title}. Browse past days, articles & videos.`;
 
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "CollectionPage",
-    "name": `${topic?.title} Archive`,
-    "description": `Browse historical content and articles about ${topic?.title}`,
-    "url": canonical,
-    "breadcrumb": {
-      "@type": "BreadcrumbList",
-      "itemListElement": [
-        {
-          "@type": "ListItem",
-          "position": 1,
-          "name": "Topics",
-          "item": `${window.location.origin}/topics`
-        },
-        {
-          "@type": "ListItem",
-          "position": 2,
-          "name": topic?.title,
-          "item": `${window.location.origin}/topics/${slug}`
-        },
-        {
-          "@type": "ListItem",
-          "position": 3,
-          "name": "Archive",
-          "item": canonical
-        }
-      ]
-    }
-  };
+  // Enhanced structured data
+  const breadcrumbs = [
+    { name: "Topics", url: `${window.location.origin}/topics` },
+    { name: topic?.title || '', url: `${window.location.origin}/topics/${slug}` },
+    { name: "Archive", url: canonical }
+  ];
+
+  const jsonLd = collectionPageJsonLd(
+    pageTitle,
+    pageDescription,
+    canonical,
+    breadcrumbs
+  );
 
   return (
     <>
       <Seo
-        title={`${topic?.title} Archive - Historical Content & News`}
-        description={`Browse historical content and articles about ${topic?.title}. Access past drops and stay updated.`}
+        title={pageTitle}
+        description={pageDescription}
         canonical={canonical}
         jsonLd={jsonLd}
       />
 
       <div className="border-b border-border">
         <div className="max-w-6xl mx-auto px-4 py-6">
-          <TopicHeader
-            topicId={1} // TODO: Get actual topic ID
+          {/* Header */}
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold text-foreground mb-2">
+              {topic?.title} Archive
+            </h1>
+            <p className="text-lg text-muted-foreground mb-4">
+              Catch up on curated Drops for {topic?.title}. Browse past days, articles & videos.
+            </p>
+          </div>
+
+          {/* CTA Bar */}
+          <TopicCtaBar
+            topicId={1}
             topicSlug={slug}
             topicTitle={topic?.title || ''}
-            topicIntro="Catch up on past curated Drops for this topic."
-            level={1}
-            showPreview={false}
+            pageTitle={pageTitle}
+            pageUrl={canonical}
           />
         </div>
       </div>
@@ -125,7 +125,7 @@ export const TopicArchiveIndexPage = () => {
               <ArchiveList
                 slug={slug}
                 days={archive.days}
-                premiumLocked={!user.isPremium}
+                premiumLocked={!isPremium}
               />
             )}
           </div>

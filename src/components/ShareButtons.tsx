@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Share2, MessageSquare } from "lucide-react";
+import { Share2, MessageSquare, ExternalLink } from "lucide-react";
 import { useAnalytics } from "@/lib/analytics";
 import { addUtmToUrl } from "@/lib/utils/utm";
 
@@ -18,7 +18,8 @@ export const ShareButtons = ({
 }: ShareButtonsProps) => {
   const { track } = useAnalytics();
 
-  const shareText = `AI is moving fast 🚀 Today's curated Drop on ${topicName}: ${title} 👉`;
+  // Updated share text to match specifications
+  const shareText = `AI moves fast 🚀 Today's curated Drop on ${topicName}: ${title} 👉`;
 
   const handleShare = (channel: 'linkedin' | 'reddit' | 'whatsapp') => {
     const urlWithUtm = addUtmToUrl(url, 'share', channel, 'topic');
@@ -26,7 +27,9 @@ export const ShareButtons = ({
 
     switch (channel) {
       case 'linkedin':
-        shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(urlWithUtm)}`;
+        // Updated to use new LinkedIn share URL format
+        const linkedinText = `${shareText} ${urlWithUtm}`;
+        shareUrl = `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(linkedinText)}`;
         break;
       case 'reddit':
         shareUrl = `https://www.reddit.com/submit?url=${encodeURIComponent(urlWithUtm)}&title=${encodeURIComponent(title)}`;
@@ -37,11 +40,12 @@ export const ShareButtons = ({
         break;
     }
 
-    // Track the share event
+    // Track the share event with enhanced analytics
     track('share_topic_clicked', { 
       channel,
       url: urlWithUtm,
-      topic: topicName
+      topic: topicName,
+      topic_slug: url.split('/topics/')[1]?.split('/')[0] || 'unknown'
     });
 
     // Open in new window
@@ -56,8 +60,9 @@ export const ShareButtons = ({
         variant="ghost"
         size="sm"
         onClick={() => handleShare('linkedin')}
-        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 gap-1"
       >
+        <ExternalLink className="h-3 w-3" />
         LinkedIn
       </Button>
       
@@ -65,8 +70,9 @@ export const ShareButtons = ({
         variant="ghost"
         size="sm"
         onClick={() => handleShare('reddit')}
-        className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+        className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 gap-1"
       >
+        <ExternalLink className="h-3 w-3" />
         Reddit
       </Button>
       

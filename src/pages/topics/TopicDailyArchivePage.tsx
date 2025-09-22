@@ -3,27 +3,35 @@ import { useQuery } from "@tanstack/react-query";
 import { Seo } from "@/components/Seo";
 import { DailyDrop } from "@/components/DailyDrop";
 import { ArchiveNav } from "@/components/ArchiveNav";
-import { TopicHeader } from "@/components/TopicHeader";
+import { TopicCtaBar } from "@/components/topics/TopicCtaBar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getTopicDaily, getTopicArchive, getTopicData } from "@/lib/api/topics";
 import { useAnalytics } from "@/lib/analytics";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { useEffect } from "react";
 import { format, parseISO, isAfter, subDays } from "date-fns";
+import { isOlderThan90Days, breadcrumbJsonLd, itemListJsonLd } from "@/lib/seo";
 
 export const TopicDailyArchivePage = () => {
   const { slug, date } = useParams<{ slug: string; date: string }>();
   const { track } = useAnalytics();
   const { session } = useAuth();
+  const { isPremium } = useUserProfile();
 
-  // Mock user data - replace with real auth
   const user = { 
-    isPremium: new URLSearchParams(window.location.search).has('premium'),
-    isLoggedIn: true 
+    isPremium,
+    isLoggedIn: !!session 
   };
 
   useEffect(() => {
-    track('page_view', { page: 'topic_daily', slug, date });
+    track('page_view', { 
+      page: 'topic_daily', 
+      slug, 
+      date,
+      topic_slug: slug,
+      location: 'daily_archive'
+    });
   }, [slug, date, track]);
 
   const { data: topic } = useQuery({
@@ -34,7 +42,7 @@ export const TopicDailyArchivePage = () => {
 
   const { data: archive } = useQuery({
     queryKey: ['topic-archive', slug],
-    queryFn: () => getTopicArchive(slug!, user.isPremium),
+    queryFn: () => getTopicArchive(slug!, isPremium),
     enabled: !!slug,
   });
 
@@ -56,48 +64,36 @@ export const TopicDailyArchivePage = () => {
   const videoCount = dailyItems?.filter(item => item.type === 'video').length || 0;
   const canonical = `${window.location.origin}/topics/${slug}/${date}`;
   const formattedDate = format(parseISO(date), 'MMMM d, yyyy');
-  const title = `${topic?.title} - ${formattedDate} (${articleCount} articles)`;
-  const description = `Explore ${articleCount} curated articles ${videoCount > 0 ? `and ${videoCount} videos ` : ''}from ${topic?.title} on ${formattedDate}. Stay updated with the latest insights, research, and trends in ${topic?.title?.toLowerCase()}.`;
+  const title = `Daily Drop on ${topic?.title} – ${formattedDate} | DailyDrops`;
+  const description = `Curated daily feed on ${topic?.title} for ${formattedDate}: top articles, videos & insights.`;
   
-  // Check if this is older than 90 days for noindex
-  const isOld = isAfter(subDays(new Date(), 90), parseISO(date));
+  // Check if this is older than 90 days for noindex using utility
+  const isOld = isOlderThan90Days(parseISO(date));
+
+  // Enhanced structured data
+  const breadcrumbs = [
+    { name: "Topics", url: `${window.location.origin}/topics` },
+    { name: topic?.title || '', url: `${window.location.origin}/topics/${slug}` },
+    { name: "Archive", url: `${window.location.origin}/topics/${slug}/archive` },
+    { name: formattedDate, url: canonical }
+  ];
+
+  const itemListItems = dailyItems?.map((item, index) => ({
+    name: item.title,
+    url: item.href,
+    image: item.imageUrl,
+    description: item.summary
+  })) || [];
 
   const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "ItemList",
-    "name": `${topic?.title} - ${formattedDate}`,
-    "description": `Daily content drop for ${topic?.title} on ${formattedDate}`,
-    "url": canonical,
+    ...itemListJsonLd(
+      `${topic?.title} - ${formattedDate}`,
+      `Daily content drop for ${topic?.title} on ${formattedDate}`,
+      canonical,
+      itemListItems
+    ),
     "datePublished": date,
-    "breadcrumb": {
-      "@type": "BreadcrumbList",
-      "itemListElement": [
-        {
-          "@type": "ListItem",
-          "position": 1,
-          "name": "Topics",
-          "item": `${window.location.origin}/topics`
-        },
-        {
-          "@type": "ListItem",
-          "position": 2,
-          "name": topic?.title,
-          "item": `${window.location.origin}/topics/${slug}`
-        },
-        {
-          "@type": "ListItem",
-          "position": 3,
-          "name": "Archive",
-          "item": `${window.location.origin}/topics/${slug}/archive`
-        },
-        {
-          "@type": "ListItem",
-          "position": 4,
-          "name": formattedDate,
-          "item": canonical
-        }
-      ]
-    }
+    "breadcrumb": breadcrumbJsonLd(breadcrumbs)
   };
 
   const handleEngage = (engagement: { itemId: string; action: "save"|"dismiss"|"like"|"dislike"|"open"|"video_play" }) => {
@@ -131,6 +127,16 @@ export const TopicDailyArchivePage = () => {
         />
       )}
 
+      {/* Sticky CTA Bar for mobile */}
+      <TopicCtaBar
+        topicId={1}
+        topicSlug={slug}
+        topicTitle={topic?.title || ''}
+        pageTitle={title}
+        pageUrl={canonical}
+        sticky={true}
+      />
+
       <div className="border-b border-border">
         <div className="max-w-4xl mx-auto px-4 py-6">
           {/* Breadcrumb */}
@@ -153,23 +159,32 @@ export const TopicDailyArchivePage = () => {
           </nav>
           
           {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground mb-2">
-                {topic?.title}
-              </h1>
-              <div className="flex items-center gap-4">
-                <p className="text-lg text-muted-foreground">
-                  {formattedDate}
-                </p>
-                {articleCount > 0 && (
-                  <div className="text-sm text-muted-foreground bg-muted px-3 py-1 rounded-full">
-                    {articleCount} article{articleCount !== 1 ? 's' : ''}
-                    {videoCount > 0 && ` • ${videoCount} video${videoCount !== 1 ? 's' : ''}`}
-                  </div>
-                )}
-              </div>
+          <div className="mb-6">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+              <span>{topic?.title}</span>
+              <span>•</span>
+              <span>{formattedDate}</span>
             </div>
+            <h1 className="text-3xl font-bold text-foreground mb-4">
+              Daily Drop on {topic?.title}
+            </h1>
+            {articleCount > 0 && (
+              <div className="text-sm text-muted-foreground bg-muted px-3 py-1 rounded-full inline-block">
+                {articleCount} article{articleCount !== 1 ? 's' : ''}
+                {videoCount > 0 && ` • ${videoCount} video${videoCount !== 1 ? 's' : ''}`}
+              </div>
+            )}
+          </div>
+
+          {/* Desktop CTA Bar */}
+          <div className="hidden sm:block">
+            <TopicCtaBar
+              topicId={1}
+              topicSlug={slug}
+              topicTitle={topic?.title || ''}
+              pageTitle={title}
+              pageUrl={canonical}
+            />
           </div>
         </div>
       </div>
