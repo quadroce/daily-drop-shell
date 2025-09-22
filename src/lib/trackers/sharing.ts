@@ -64,7 +64,7 @@ export const getShareUrls = (title: string, url: string, message: string) => {
   const encodedMessage = encodeURIComponent(shareText);
 
   return {
-    linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}&title=${encodedTitle}&summary=${encodedMessage}`,
+    linkedin: `https://www.linkedin.com/feed/?shareActive=true&text=${encodedMessage}`,
     reddit: `https://www.reddit.com/submit?url=${encodedUrl}&title=${encodedTitle}`,
     whatsapp: `https://wa.me/?text=${encodedMessage}`,
     twitter: `https://twitter.com/intent/tweet?text=${encodedMessage}` // Not used per requirements
