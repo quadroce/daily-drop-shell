@@ -36,6 +36,7 @@ import { track } from "@/lib/analytics";
 import { trackDropViewed } from "@/lib/trackers/content";
 import { Seo } from "@/components/Seo";
 import { useEngagementState } from "../hooks/useEngagementState";
+import { ShareButton } from "@/components/ShareButton";
 
 // Helper function for getting image URLs
 const getImageUrl = (drop: any) => {
@@ -297,6 +298,14 @@ const DropCard = (
                     </TooltipContent>
                   </Tooltip>
                 )}
+
+                <ShareButton 
+                  dropId={dropId}
+                  title={drop.title}
+                  url={drop.url}
+                  disabled={loadingState}
+                  className="h-6 w-6"
+                />
 
                 <Tooltip>
                   <TooltipTrigger asChild>
