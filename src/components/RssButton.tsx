@@ -18,7 +18,7 @@ export const RssButton = ({
   const { track } = useAnalytics();
 
   const handleRssClick = () => {
-    const rssUrl = `https://qimelntuxquptqqynxzv.supabase.co/functions/v1/rss-feed/topics/${topicSlug}.rss`;
+    const rssUrl = `https://dailydrops.cloud/rss-feed/topics/${topicSlug}.rss`;
     
     // Track RSS subscription
     track('rss_subscribed_topic', { 

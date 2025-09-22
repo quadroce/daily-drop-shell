@@ -4,5 +4,8 @@
 /sitemaps/topics.xml    https://qimelntuxquptqqynxzv.supabase.co/functions/v1/serve-topics-sitemap    200
 /sitemaps/topics-archive.xml    https://qimelntuxquptqqynxzv.supabase.co/functions/v1/serve-topics-archive-sitemap    200
 
+# RSS feed redirects to Supabase functions  
+/rss-feed/topics/:slug.rss    https://qimelntuxquptqqynxzv.supabase.co/functions/v1/rss-feed/topics/:slug.rss    200
+
 # Handle all other routes with React Router
 /*    /index.html   200
