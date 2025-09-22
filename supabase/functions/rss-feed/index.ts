@@ -14,10 +14,13 @@ serve(async (req) => {
 
   try {
     const url = new URL(req.url);
+    console.log('RSS request URL:', req.url);
     const pathSegments = url.pathname.split('/');
     const slug = pathSegments[pathSegments.length - 1]?.replace('.rss', '');
+    console.log('Extracted slug:', slug, 'from path segments:', pathSegments);
 
     if (!slug) {
+      console.log('No slug found in URL');
       return new Response('Topic slug is required', { 
         status: 400, 
         headers: { ...corsHeaders, 'Content-Type': 'text/plain' } 
@@ -38,11 +41,14 @@ serve(async (req) => {
       .single();
 
     if (topicError || !topic) {
+      console.log('Topic not found:', { slug, topicError, topic });
       return new Response('Topic not found', { 
         status: 404, 
         headers: { ...corsHeaders, 'Content-Type': 'text/plain' } 
       });
     }
+
+    console.log('Found topic:', { id: topic.id, label: topic.label });
 
     // Get last 30 days of drops for this topic
     const cutoffDate = new Date();
@@ -79,6 +85,8 @@ serve(async (req) => {
       });
     }
 
+    console.log(`Found ${articles?.length || 0} articles for topic ${slug}`);
+
     // Build RSS feed
     const rssItems = (articles || []).map(article => {
       const pubDate = new Date(article.published_at || article.created_at).toUTCString();
@@ -99,11 +107,11 @@ serve(async (req) => {
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>DailyDrops - ${topic.label}</title>
-    <link>https://qimelntuxquptqqynxzv.supabase.co/topics/${slug}</link>
+    <link>https://dailydrops.cloud/topics/${slug}</link>
     <description>Daily curated content about ${topic.label}. ${topic.intro || ''}</description>
     <language>en-us</language>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
-    <atom:link href="https://qimelntuxquptqqynxzv.supabase.co/functions/v1/rss-feed/topics/${slug}.rss" rel="self" type="application/rss+xml" />
+    <atom:link href="https://dailydrops.cloud/rss-feed/topics/${slug}.rss" rel="self" type="application/rss+xml" />
     ${rssItems}
   </channel>
 </rss>`;
