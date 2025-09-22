@@ -117,6 +117,9 @@ verify_jwt = true
 [functions.send-onboarding-reminders]
 verify_jwt = false
 
+[functions.rss-feed]
+verify_jwt = false
+
 [functions.unsubscribe-newsletter]
 verify_jwt = false
 
