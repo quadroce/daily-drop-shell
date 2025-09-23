@@ -49,8 +49,20 @@ const Feed = () => {
         const preferences = {
           selectedTopicIds: prefs?.selected_topic_ids || [],
           selectedLanguageIds: prefs?.selected_language_ids || [],
-          languageCodes: ['en'] // Default for now
+          languageCodes: [] as string[]
         };
+        
+        // Convert language IDs to codes
+        if (prefs?.selected_language_ids?.length > 0) {
+          const { data: languages } = await supabase
+            .from('languages')
+            .select('id, code')
+            .in('id', prefs.selected_language_ids);
+          
+          preferences.languageCodes = languages?.map(lang => lang.code) || ['en'];
+        } else {
+          preferences.languageCodes = ['en']; // Default fallback
+        }
         
         console.log('✅ Setting user preferences:', preferences);
         setUserPreferences(preferences);
@@ -92,7 +104,7 @@ const Feed = () => {
     reset
   } = useInfiniteFeed({
     userId: userProfile?.id || null,
-    language: userPreferences?.languageCodes?.[0] || null,
+    languageCodes: userPreferences?.languageCodes || null,
     l1: null, // No filters for now - show all content
     l2: null
   });

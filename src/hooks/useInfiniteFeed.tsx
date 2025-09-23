@@ -195,12 +195,12 @@ async function fetchPage({
 
 interface UseInfiniteFeedParams {
   userId: string | null;
-  language?: string | null;
+  languageCodes?: string[] | null;
   l1?: number | null;
   l2?: number | null;
 }
 
-export function useInfiniteFeed({ userId, language, l1, l2 }: UseInfiniteFeedParams) {
+export function useInfiniteFeed({ userId, languageCodes, l1, l2 }: UseInfiniteFeedParams) {
   const [items, setItems] = useState<FeedItem[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
@@ -222,7 +222,7 @@ export function useInfiniteFeed({ userId, language, l1, l2 }: UseInfiniteFeedPar
       console.log('📡 Calling fetchPage with params:', {
         userId,
         cursor,
-        language,
+        language: languageCodes?.[0] || null,
         l1,
         l2,
         limit: 30
@@ -231,7 +231,7 @@ export function useInfiniteFeed({ userId, language, l1, l2 }: UseInfiniteFeedPar
       const { items: page, nextCursor } = await fetchPage({
         userId,
         cursor,
-        language,
+        language: languageCodes?.[0] || null, // Use first language for now
         l1,
         l2,
         limit: 30
@@ -291,7 +291,7 @@ export function useInfiniteFeed({ userId, language, l1, l2 }: UseInfiniteFeedPar
 
   // Initial load and reset on dependency changes
   useEffect(() => {
-    console.log('🎯 useInfiniteFeed useEffect triggered:', { userId, language, l1, l2 });
+    console.log('🎯 useInfiniteFeed useEffect triggered:', { userId, languageCodes, l1, l2 });
     if (!userId) {
       console.log('❌ useInfiniteFeed: No userId, skipping load');
       return;
@@ -306,7 +306,7 @@ export function useInfiniteFeed({ userId, language, l1, l2 }: UseInfiniteFeedPar
     }, 100);
 
     return () => clearTimeout(timer);
-  }, [userId, language, l1, l2]);
+  }, [userId, languageCodes, l1, l2]);
 
   return { 
     items, 
