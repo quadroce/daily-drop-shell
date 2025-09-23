@@ -42,6 +42,7 @@ async function fetchPage({
   console.log('🔄 fetchPage called with:', { userId, cursor, language, l1, l2, limit });
   
   try {
+    console.log('📡 About to call RPC feed_get_page_drops');
     // Try the RPC first (uses cache or real-time ranking)
     const { data, error } = await supabase.rpc('feed_get_page_drops', {
       p_user_id: userId,
@@ -52,7 +53,12 @@ async function fetchPage({
       p_l2: l2 || null
     });
 
-    console.log('📡 RPC Response:', { data, error, dataLength: data?.length });
+    console.log('📡 RPC Response received:', { 
+      hasData: !!data, 
+      hasError: !!error, 
+      dataLength: data?.length,
+      errorMessage: error?.message 
+    });
 
     if (error) {
       console.warn('⚠️ RPC failed, trying fallback query:', error);
@@ -82,6 +88,7 @@ async function fetchPage({
       }))
     });
     
+    console.log('📤 Returning from fetchPage with RPC result');
     return { items, nextCursor };
     
   } catch (rpcError) {
@@ -189,6 +196,7 @@ async function fetchPage({
       lastItemScore: last?.final_score,
       allItemsCountVsLimit: `${allItems.length} vs ${limit}`
     });
+    console.log('📤 Returning from fetchPage with fallback result');
     return { items, nextCursor };
   }
 }
