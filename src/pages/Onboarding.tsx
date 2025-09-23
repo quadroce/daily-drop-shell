@@ -171,18 +171,19 @@ const OnboardingPage: React.FC = () => {
   };
 
   const handleComplete = async () => {
+    console.log('🚀 COMPLETE SETUP CLICKED - Starting onboarding completion process');
     setIsCompleting(true);
     try {
+      console.log('📤 Calling completeOnboarding() function');
       await completeOnboarding();
+      console.log('✅ completeOnboarding() completed successfully');
+      
       toast({
         title: "Welcome to DailyDrops! 🎉",
         description: "Your account has been set up successfully.",
       });
       
-      // Fallback redirect in case completeOnboarding doesn't navigate
-      setTimeout(() => {
-        navigate('/feed', { replace: true });
-      }, 1000);
+      console.log('🎯 Letting ProtectedRoute handle redirect to /feed');
       
     } catch (error) {
       console.error('Error completing onboarding:', error);

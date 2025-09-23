@@ -213,14 +213,19 @@ export function useOnboardingState() {
 
   // ===== COMPLETE: salva finale e vai a /feed =====
   const completeOnboarding = useCallback(async () => {
+    console.log('🔄 completeOnboarding: Starting completion process');
+    
     const { data: u } = await supabase.auth.getUser();
     const userId = u?.user?.id;
+    console.log('👤 completeOnboarding: User ID:', userId);
     if (!userId) throw new Error("Not authenticated");
 
     try {
       // assicurati ultimo save
+      console.log('💾 completeOnboarding: Checking if state needs final save');
       const currentHash = jsonHash(state);
       if (currentHash !== lastSavedHashRef.current && !savingRef.current) {
+        console.log('📝 completeOnboarding: Saving final onboarding state');
         const { error: saveError } = await supabase.from("onboarding_state").upsert({
           user_id: userId,
           current_step: state.current_step,
@@ -229,12 +234,15 @@ export function useOnboardingState() {
           communication_prefs: state.communication_prefs,
         });
         if (saveError) throw saveError;
+        console.log('✅ completeOnboarding: Final state saved successfully');
         lastSavedHashRef.current = currentHash;
       }
 
       // Transfer selected topics to preferences table
+      console.log('🏷️ completeOnboarding: Processing topics transfer', { topicsCount: state.selected_topics.length });
       if (state.selected_topics.length > 0) {
         // Get existing preferences or create new one
+        console.log('🔍 completeOnboarding: Fetching existing preferences');
         const { data: existingPrefs, error: fetchError } = await supabase
           .from('preferences')
           .select('selected_language_ids')
@@ -242,7 +250,9 @@ export function useOnboardingState() {
           .maybeSingle();
         
         if (fetchError) throw fetchError;
+        console.log('📋 completeOnboarding: Existing preferences fetched', existingPrefs);
 
+        console.log('💿 completeOnboarding: Upserting topic preferences');
         const { error: upsertError } = await supabase
           .from('preferences')
           .upsert({
@@ -255,17 +265,24 @@ export function useOnboardingState() {
           });
         
         if (upsertError) throw upsertError;
+        console.log('✅ completeOnboarding: Topics transferred to preferences successfully');
+      } else {
+        console.log('⚠️ completeOnboarding: No topics to transfer');
       }
 
       // flag profilo + redirect
+      console.log('🏁 completeOnboarding: Marking onboarding as completed in profile');
       const { error: profileError } = await supabase.from("profiles").update({ onboarding_completed: true }).eq(
         "id",
         userId,
       );
       if (profileError) throw profileError;
+      console.log('✅ completeOnboarding: Profile marked as onboarding completed');
 
       // Refresh profile cache to trigger ProtectedRoute redirect
+      console.log('🔄 completeOnboarding: Refreshing profile cache');
       await refetchProfile();
+      console.log('✅ completeOnboarding: Profile cache refreshed - ProtectedRoute should now redirect');
       
     } catch (error) {
       console.error('Error in completeOnboarding:', error);

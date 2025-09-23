@@ -17,10 +17,24 @@ const ProtectedRoute = ({ children, requireEmailVerification = true }: Protected
   const [showVerification, setShowVerification] = useState(false);
 
   useEffect(() => {
-    if (loading || profileLoading) return;
+    console.log('🛡️ ProtectedRoute: Evaluating conditions', {
+      loading,
+      profileLoading,
+      hasSession: !!session,
+      hasUser: !!user,
+      hasProfile: !!profile,
+      onboardingCompleted: profile?.onboarding_completed,
+      currentPath: window.location.pathname
+    });
+
+    if (loading || profileLoading) {
+      console.log('⏳ ProtectedRoute: Still loading, waiting...');
+      return;
+    }
 
     // No session - redirect to auth
     if (!session || !user) {
+      console.log('🚫 ProtectedRoute: No session/user, redirecting to auth');
       navigate("/auth");
       return;
     }
@@ -33,6 +47,7 @@ const ProtectedRoute = ({ children, requireEmailVerification = true }: Protected
       const isEmailVerified = user.email_confirmed_at !== null;
       
       if (!isGoogleUser && !isLinkedInUser && !isEmailVerified) {
+        console.log('📧 ProtectedRoute: Email verification required, showing verification screen');
         setShowVerification(true);
         return;
       }
@@ -40,7 +55,7 @@ const ProtectedRoute = ({ children, requireEmailVerification = true }: Protected
 
     // Check if onboarding is completed and user is on onboarding page - redirect to feed
     if (profile && profile.onboarding_completed && window.location.pathname === '/onboarding') {
-      console.log('ProtectedRoute: Redirecting completed user from onboarding to feed');
+      console.log('🎯 ProtectedRoute: Onboarding completed, redirecting from /onboarding to /feed');
       navigate("/feed", { replace: true });
       return;
     }
@@ -49,11 +64,13 @@ const ProtectedRoute = ({ children, requireEmailVerification = true }: Protected
     if (profile && !profile.onboarding_completed) {
       // Don't redirect if already on onboarding page
       if (window.location.pathname !== '/onboarding') {
+        console.log('📝 ProtectedRoute: Onboarding not completed, redirecting to /onboarding');
         navigate("/onboarding");
         return;
       }
     }
 
+    console.log('✅ ProtectedRoute: All conditions passed, rendering protected content');
     setShowVerification(false);
   }, [user, session, loading, profileLoading, profile, navigate, requireEmailVerification]);
 
