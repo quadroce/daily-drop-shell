@@ -115,11 +115,6 @@ const SimpleDropCard = ({
                         ? `${topicsMap.l1.get(drop.l1_topic_id)} • ${drop.reason_for_ranking}`
                         : drop.reason_for_ranking}
                     </Badge>
-                    {drop.final_score && (
-                      <span className="text-xs text-muted-foreground">
-                        {drop.final_score.toFixed(3)}
-                      </span>
-                    )}
                   </div>
                 )}
               </div>
@@ -161,7 +156,7 @@ const SimpleDropCard = ({
                   <Badge
                     key={`l1-${drop.l1_topic_id}`}
                     variant="secondary"
-                    className="text-xs py-0 px-2 bg-primary/10 text-primary"
+                    className="text-xs py-0 px-2 bg-primary text-primary-foreground"
                   >
                     {topicsMap.l1.get(drop.l1_topic_id)}
                   </Badge>
@@ -172,7 +167,7 @@ const SimpleDropCard = ({
                   <Badge
                     key={`l2-${drop.l2_topic_id}`}
                     variant="secondary"
-                    className="text-xs py-0 px-2 bg-secondary/60 text-secondary-foreground"
+                    className="text-xs py-0 px-2 bg-secondary text-secondary-foreground"
                   >
                     {topicsMap.l2.get(drop.l2_topic_id)}
                   </Badge>
@@ -184,7 +179,7 @@ const SimpleDropCard = ({
                     <Badge
                       key={`l3-${tag}`}
                       variant="outline"
-                      className="text-xs py-0 px-1 bg-muted/20"
+                      className="text-xs py-0 px-1 bg-muted text-muted-foreground"
                     >
                       {tag}
                     </Badge>
@@ -193,7 +188,7 @@ const SimpleDropCard = ({
                       key={`l3-${tag}`}
                       to={`/topics/${getTopicSlug(tag)}`}
                       variant="outline"
-                      className="text-xs py-0 px-1 bg-muted/20 hover:bg-muted/40"
+                      className="text-xs py-0 px-1 bg-muted text-muted-foreground hover:bg-muted/80"
                     >
                       {tag}
                     </ChipLink>
@@ -398,7 +393,7 @@ interface SimpleFeedListProps {
 
 export function SimpleFeedList({ items, load, hasMore, loading, error, onRetry }: SimpleFeedListProps) {
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const { updateEngagement, getState, isLoading } = useEngagementState();
+  const { updateEngagement, getState, isLoading, initializeStates } = useEngagementState();
   const { getTopicSlug, isLoading: topicsLoading } = useTopicsMap();
   const [topicsMap, setTopicsMap] = useState<{ l1: Map<number, string>; l2: Map<number, string> }>({
     l1: new Map(),
@@ -443,6 +438,15 @@ export function SimpleFeedList({ items, load, hasMore, loading, error, onRetry }
     error,
     items: items.slice(0, 3).map(i => ({ id: i.id, title: i.title }))
   });
+
+  // Initialize engagement states when items change
+  useEffect(() => {
+    if (items.length > 0) {
+      const dropIds = items.map(item => item.id.toString());
+      console.log('🔄 Initializing engagement states for', dropIds.length, 'items');
+      initializeStates(dropIds);
+    }
+  }, [items, initializeStates]);
 
   // Intersection Observer for infinite loading with better logging
   useEffect(() => {
