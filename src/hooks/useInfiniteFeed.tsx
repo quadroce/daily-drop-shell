@@ -41,29 +41,102 @@ async function fetchPage({
 }: FetchPageParams): Promise<{ items: FeedItem[], nextCursor: string | null }> {
   console.log('🔄 fetchPage called with:', { userId, cursor, language, l1, l2, limit });
   
-  const { data, error } = await supabase.rpc('feed_get_page_drops', {
-    p_user_id: userId,
-    p_limit: limit,
-    p_cursor: cursor,
-    p_language: language ?? null,
-    p_l1: l1 ?? null,
-    p_l2: l2 ?? null
-  });
+  try {
+    // Try the RPC first
+    const { data, error } = await supabase.rpc('feed_get_page_drops', {
+      p_user_id: userId,
+      p_limit: limit,
+      p_cursor: cursor || null,
+      p_language: language || null,
+      p_l1: l1 || null,
+      p_l2: l2 || null
+    });
 
-  console.log('📡 RPC Response:', { data, error, dataLength: data?.length });
+    console.log('📡 RPC Response:', { data, error, dataLength: data?.length });
 
-  if (error) {
-    console.error('❌ Feed fetch error:', error);
-    throw error;
+    if (error) {
+      console.warn('⚠️ RPC failed, trying fallback query:', error);
+      throw error;
+    }
+
+    const items = (data ?? []) as FeedItem[];
+    const last = items.at(-1);
+    
+    // Safe cursor generation - ensure published_at is not null
+    const nextCursor = last && last.published_at
+      ? btoa(`${last.final_score}:${last.published_at}:${last.id}`)
+      : null;
+    
+    return { items, nextCursor };
+    
+  } catch (rpcError) {
+    console.log('🔄 RPC failed, using fallback query...');
+    
+    // Fallback to direct query
+    let query = supabase
+      .from('drops')
+      .select(`
+        id, title, url, source_id, image_url, summary, published_at,
+        language, tags, l1_topic_id, l2_topic_id, type,
+        youtube_video_id, youtube_channel_id, youtube_thumbnail_url,
+        sources:source_id(name)
+      `)
+      .eq('tag_done', true)
+      .gte('published_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+      .not('published_at', 'is', null)
+      .order('published_at', { ascending: false })
+      .limit(limit);
+
+    // Apply cursor if provided
+    if (cursor) {
+      try {
+        const decoded = atob(cursor);
+        const [score, publishedAt, id] = decoded.split(':');
+        if (publishedAt && publishedAt !== 'null') {
+          query = query.lt('published_at', publishedAt);
+        }
+      } catch (e) {
+        console.warn('Failed to parse cursor, ignoring:', e);
+      }
+    }
+
+    const { data: fallbackData, error: fallbackError } = await query;
+    
+    if (fallbackError) {
+      console.error('❌ Fallback query failed:', fallbackError);
+      throw fallbackError;
+    }
+
+    // Transform the data to match expected format
+    const items = (fallbackData ?? []).map((item: any) => ({
+      id: item.id,
+      title: item.title,
+      url: item.url,
+      source_id: item.source_id,
+      image_url: item.image_url,
+      summary: item.summary,
+      published_at: item.published_at,
+      language: item.language,
+      tags: item.tags,
+      l1_topic_id: item.l1_topic_id,
+      l2_topic_id: item.l2_topic_id,
+      type: item.type,
+      youtube_video_id: item.youtube_video_id,
+      youtube_channel_id: item.youtube_channel_id,
+      youtube_thumbnail_url: item.youtube_thumbnail_url,
+      source_name: item.sources?.name || 'Unknown',
+      final_score: 0.5, // Default score for fallback
+      reason_for_ranking: 'Recent content'
+    })) as FeedItem[];
+
+    const last = items.at(-1);
+    const nextCursor = last && last.published_at
+      ? btoa(`0.5:${last.published_at}:${last.id}`)
+      : null;
+    
+    console.log('✅ Fallback query successful:', { itemsCount: items.length, nextCursor });
+    return { items, nextCursor };
   }
-
-  const items = (data ?? []) as FeedItem[];
-  const last = items.at(-1);
-  const nextCursor = last
-    ? btoa(`${last.final_score}:${last.published_at}:${last.id}`)
-    : null;
-  
-  return { items, nextCursor };
 }
 
 interface UseInfiniteFeedParams {

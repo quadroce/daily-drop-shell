@@ -408,11 +408,6 @@ export function SimpleFeedList({ items, load, hasMore, loading, error, onRetry }
 
   return (
     <div className="h-full overflow-y-auto">
-      {/* Debug info */}
-      <div className="mb-4 p-2 bg-muted/20 rounded text-xs">
-        Items: {items.length} | Loading: {loading ? 'Yes' : 'No'} | Has More: {hasMore ? 'Yes' : 'No'}
-      </div>
-
       {/* Render all items directly (no virtualization) */}
       <div className="space-y-0">
         {items.map((item) => (
