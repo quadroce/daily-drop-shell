@@ -217,6 +217,7 @@ export function useInfiniteFeed({ userId, languageCodes, l1, l2 }: UseInfiniteFe
     
     setLoading(true);
     setError(null);
+    console.log('✅ Loading started, setLoading(true) called');
 
     try {
       console.log('📡 Calling fetchPage with params:', {
@@ -228,7 +229,7 @@ export function useInfiniteFeed({ userId, languageCodes, l1, l2 }: UseInfiniteFe
         limit: 30
       });
       
-      const { items: page, nextCursor } = await fetchPage({
+      const result = await fetchPage({
         userId,
         cursor,
         language: languageCodes?.[0] || null, // Use first language for now
@@ -237,13 +238,28 @@ export function useInfiniteFeed({ userId, languageCodes, l1, l2 }: UseInfiniteFe
         limit: 30
       });
       
-      console.log('📦 Received page data:', { pageCount: page.length, nextCursor });
+      console.log('📦 Received fetchPage result:', { 
+        hasResult: !!result, 
+        pageCount: result?.items?.length, 
+        nextCursor: result?.nextCursor 
+      });
+
+      if (!result) {
+        throw new Error('No result returned from fetchPage');
+      }
+
+      const { items: page, nextCursor } = result;
+      
+      console.log('📦 Processed page data:', { pageCount: page.length, nextCursor });
 
       setItems(prev => {
+        console.log('📝 Updating items:', { prevCount: prev.length, newCount: page.length });
         // Deduplicate by id
         const seen = new Set(prev.map(i => i.id));
         const newItems = page.filter(i => !seen.has(i.id));
-        return [...prev, ...newItems];
+        const finalItems = [...prev, ...newItems];
+        console.log('📝 Final items count:', finalItems.length);
+        return finalItems;
       });
 
       setCursor(nextCursor);
@@ -265,7 +281,10 @@ export function useInfiniteFeed({ userId, languageCodes, l1, l2 }: UseInfiniteFe
           window.gtag('event', 'feed_load_more', { count: page.length });
         }
       }
+      
+      console.log('✅ Load completed successfully');
     } catch (e: any) {
+      console.error('❌ Error in load function:', e);
       const errorMessage = e.message ?? 'Unknown error loading feed';
       setError(errorMessage);
       
@@ -274,8 +293,10 @@ export function useInfiniteFeed({ userId, languageCodes, l1, l2 }: UseInfiniteFe
         window.gtag('event', 'feed_error', { message: errorMessage });
       }
     } finally {
+      console.log('🏁 Finally block executing, setLoading(false)');
       setLoading(false);
       setInitialLoading(false);
+      console.log('🏁 Finally block completed');
     }
   };
 
