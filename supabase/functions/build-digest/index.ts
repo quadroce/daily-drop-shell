@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { renderTemplate } from "../_shared/email-template.ts";
+import { buildNewsletterPayload } from "../newsletter/payload.ts";
+import { renderNewsletterTemplate } from "../newsletter/template.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -31,6 +33,42 @@ serve(async (req) => {
     const { userId, cadence, slot, testMode = false }: BuildDigestRequest = await req.json();
     
     console.log(`Building digest for user ${userId}, cadence: ${cadence}, slot: ${slot}, test: ${testMode}`);
+
+    // Check if we should use the new newsletter system
+    const useNewSystem = Deno.env.get('USE_NEW_NEWSLETTER_SYSTEM') === 'true';
+    
+    if (useNewSystem) {
+      console.log('🚀 Using new newsletter system with cache-first logic');
+      
+      // Use new payload builder
+      const payload = await buildNewsletterPayload(userId, cadence, slot, {
+        maxItems: testMode ? 3 : 10,
+        useCacheOnly: false,
+      });
+      
+      // Render with new template
+      const htmlContent = renderNewsletterTemplate({
+        ...payload,
+        testMode,
+      });
+      
+      return new Response(
+        JSON.stringify({
+          success: true,
+          digestContent: payload,
+          htmlContent,
+          itemCount: payload.digest.items.length,
+          algorithmSource: payload.metadata?.algorithmSource || 'new_system',
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Legacy system (keep for fallback)
+    console.log('📦 Using legacy newsletter system');
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;

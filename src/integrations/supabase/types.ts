@@ -77,6 +77,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "bookmarks_drop_id_fkey"
+            columns: ["drop_id"]
+            isOneToOne: false
+            referencedRelation: "drops_email_ready"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "bookmarks_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -110,6 +117,13 @@ export type Database = {
             columns: ["content_id"]
             isOneToOne: false
             referencedRelation: "drops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_topics_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "drops_email_ready"
             referencedColumns: ["id"]
           },
           {
@@ -239,6 +253,13 @@ export type Database = {
             columns: ["drop_id"]
             isOneToOne: false
             referencedRelation: "drops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_batch_items_drop_id_fkey"
+            columns: ["drop_id"]
+            isOneToOne: false
+            referencedRelation: "drops_email_ready"
             referencedColumns: ["id"]
           },
         ]
@@ -497,6 +518,13 @@ export type Database = {
             columns: ["drop_id"]
             isOneToOne: false
             referencedRelation: "drops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engagement_events_drop_id_fkey"
+            columns: ["drop_id"]
+            isOneToOne: false
+            referencedRelation: "drops_email_ready"
             referencedColumns: ["id"]
           },
           {
@@ -1263,7 +1291,24 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      drops_email_ready: {
+        Row: {
+          created_at: string | null
+          date_safe: string | null
+          id: number | null
+          image_url: string | null
+          lang_code: string | null
+          published_at: string | null
+          source_name: string | null
+          summary: string | null
+          tags: string[] | null
+          title_safe: string | null
+          type: Database["public"]["Enums"]["drop_type"] | null
+          url: string | null
+          youtube_video_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_soft_delete_drop: {
