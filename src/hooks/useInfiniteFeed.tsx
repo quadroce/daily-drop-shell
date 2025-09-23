@@ -79,7 +79,7 @@ async function fetchPage({
   } catch (rpcError) {
     console.log('🔄 RPC failed, using fallback query...');
     
-    // Fallback to direct query - increased limit to ensure hasMore works correctly
+    // Fallback to direct query - remove 7-day limit to get more content
     let query = supabase
       .from('drops')
       .select(`
@@ -89,7 +89,6 @@ async function fetchPage({
         sources:source_id(name)
       `)
       .eq('tag_done', true)
-      .gte('published_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
       .not('published_at', 'is', null)
       .order('published_at', { ascending: false })
       .limit(limit + 1); // Get one extra to check if there are more
@@ -210,12 +209,14 @@ export function useInfiniteFeed({ userId, language, l1, l2 }: UseInfiniteFeedPar
       });
 
       setCursor(nextCursor);
-      setHasMore(Boolean(nextCursor && page.length > 0));
+      const newHasMore = Boolean(nextCursor && page.length > 0);
+      setHasMore(newHasMore);
       
       console.log('📊 Setting hasMore:', { 
         nextCursor: !!nextCursor, 
         pageLength: page.length, 
-        hasMore: Boolean(nextCursor && page.length > 0) 
+        newHasMore,
+        cursorValue: nextCursor
       });
 
       // Analytics tracking
@@ -241,11 +242,13 @@ export function useInfiniteFeed({ userId, language, l1, l2 }: UseInfiniteFeedPar
   };
 
   const reset = () => {
+    console.log('🔄 Resetting feed state');
     setItems([]);
     setCursor(null);
     setHasMore(true);
     setError(null);
     setInitialLoading(true);
+    console.log('✅ Feed state reset complete');
   };
 
   // Initial load and reset on dependency changes
@@ -258,10 +261,11 @@ export function useInfiniteFeed({ userId, language, l1, l2 }: UseInfiniteFeedPar
     
     console.log('🔄 useInfiniteFeed: Resetting and loading...');
     reset();
-    // Small delay to ensure state is reset
+    // Longer delay to ensure state is completely reset
     const timer = setTimeout(() => {
+      console.log('🚀 Delayed load triggered');
       load();
-    }, 50);
+    }, 100);
 
     return () => clearTimeout(timer);
   }, [userId, language, l1, l2]);

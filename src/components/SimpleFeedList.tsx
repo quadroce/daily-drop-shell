@@ -495,7 +495,7 @@ export function SimpleFeedList({ items, load, hasMore, loading, error, onRetry }
   }
 
   return (
-    <div className="h-full">
+    <div>
       {/* Render all items directly (no virtualization) */}
       <div className="space-y-4">
         {items.map((item) => (
@@ -512,7 +512,7 @@ export function SimpleFeedList({ items, load, hasMore, loading, error, onRetry }
         ))}
       </div>
 
-      {/* Sentinel for infinite scroll */}
+      // Sentinel for infinite scroll
       <div ref={sentinelRef} className="h-4" />
 
       {/* Loading skeletons */}
