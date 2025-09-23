@@ -39,6 +39,8 @@ async function fetchPage({
   l2,
   limit = 30
 }: FetchPageParams): Promise<{ items: FeedItem[], nextCursor: string | null }> {
+  console.log('🔄 fetchPage called with:', { userId, cursor, language, l1, l2, limit });
+  
   const { data, error } = await supabase.rpc('feed_get_page_drops', {
     p_user_id: userId,
     p_limit: limit,
@@ -48,8 +50,10 @@ async function fetchPage({
     p_l2: l2 ?? null
   });
 
+  console.log('📡 RPC Response:', { data, error, dataLength: data?.length });
+
   if (error) {
-    console.error('Feed fetch error:', error);
+    console.error('❌ Feed fetch error:', error);
     throw error;
   }
 
@@ -78,12 +82,25 @@ export function useInfiniteFeed({ userId, language, l1, l2 }: UseInfiniteFeedPar
   const [initialLoading, setInitialLoading] = useState(true);
 
   const load = async () => {
-    if (loading || !hasMore || !userId) return;
+    console.log('🚀 Starting feed load...', { loading, hasMore, userId, cursor });
+    if (loading || !hasMore || !userId) {
+      console.log('❌ Load blocked:', { loading, hasMore, userId });
+      return;
+    }
     
     setLoading(true);
     setError(null);
 
     try {
+      console.log('📡 Calling fetchPage with params:', {
+        userId,
+        cursor,
+        language,
+        l1,
+        l2,
+        limit: 30
+      });
+      
       const { items: page, nextCursor } = await fetchPage({
         userId,
         cursor,
@@ -92,6 +109,8 @@ export function useInfiniteFeed({ userId, language, l1, l2 }: UseInfiniteFeedPar
         l2,
         limit: 30
       });
+      
+      console.log('📦 Received page data:', { pageCount: page.length, nextCursor });
 
       setItems(prev => {
         // Deduplicate by id

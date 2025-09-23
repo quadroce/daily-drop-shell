@@ -23,28 +23,45 @@ const Feed = () => {
   // Load user preferences
   useEffect(() => {
     const loadPreferences = async () => {
-      if (!userProfile?.id) return;
+      console.log('🔄 Loading preferences for user:', userProfile?.id);
+      if (!userProfile?.id) {
+        console.log('❌ No user profile ID available');
+        return;
+      }
       
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user) {
+          console.log('❌ No authenticated user found');
+          return;
+        }
         
+        console.log('📡 Fetching preferences from database...');
         const { data: prefs } = await supabase
           .from('preferences')
           .select('selected_topic_ids, selected_language_ids')
           .eq('user_id', user.id)
           .maybeSingle();
           
-        if (prefs) {
-          setUserPreferences({
-            selectedTopicIds: prefs.selected_topic_ids || [],
-            selectedLanguageIds: prefs.selected_language_ids || [],
-            languageCodes: ['en'] // Default for now
-          });
-        }
+        console.log('📋 Raw preferences data:', prefs);
+        
+        // Always set preferences - even if empty, so feed can load
+        const preferences = {
+          selectedTopicIds: prefs?.selected_topic_ids || [],
+          selectedLanguageIds: prefs?.selected_language_ids || [],
+          languageCodes: ['en'] // Default for now
+        };
+        
+        console.log('✅ Setting user preferences:', preferences);
+        setUserPreferences(preferences);
       } catch (error) {
-        console.error('Failed to load preferences:', error);
-        setUserPreferences(null);
+        console.error('❌ Failed to load preferences:', error);
+        // Set empty preferences instead of null to allow feed to load
+        setUserPreferences({
+          selectedTopicIds: [],
+          selectedLanguageIds: [],
+          languageCodes: ['en']
+        });
       } finally {
         setPreferencesLoading(false);
       }
@@ -53,10 +70,17 @@ const Feed = () => {
     loadPreferences();
   }, [userProfile?.id]);
 
-  // Check if user has meaningful preferences
+  // Check if user has meaningful preferences (but allow feed to load regardless)
   const hasValidPrefs = userPreferences && 
     userPreferences.selectedTopicIds && 
     userPreferences.selectedTopicIds.length > 0;
+  
+  console.log('🔍 Preferences validation:', {
+    userPreferences,
+    hasValidPrefs,
+    selectedTopicIds: userPreferences?.selectedTopicIds,
+    topicCount: userPreferences?.selectedTopicIds?.length
+  });
 
   const {
     items,
@@ -108,8 +132,9 @@ const Feed = () => {
     );
   }
 
-  // Show preferences setup if user has no preferences
-  if (!hasValidPrefs) {
+  // Show preferences setup if user has no preferences (but let feed load first)
+  // Temporarily disable this to allow feed to show even without preferences
+  if (false && !hasValidPrefs) {
     return (
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="text-center py-16">
