@@ -2,7 +2,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Brain, Building, Palette, TrendingUp, Globe, Heart, Users, ExternalLink } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { ArrowRight, Brain, Building, Palette, TrendingUp, Globe, Heart, Users, ExternalLink, HelpCircle } from "lucide-react";
 import { Seo } from "@/components/Seo";
 import { useIndexNow } from "@/lib/indexnow";
 import React, { useEffect, useState } from "react";
@@ -153,7 +154,7 @@ const Index = () => {
     if (!imageSrc) return null;
 
     return (
-      <div className="aspect-video bg-muted rounded-t-lg overflow-hidden">
+      <div className="aspect-video bg-muted rounded-t-2xl overflow-hidden">
         <img 
           src={imageSrc}
           alt={drop.title}
@@ -193,26 +194,22 @@ const Index = () => {
       />
 
       {/* Hero Section */}
-      <header className="bg-gradient-to-br from-primary/10 via-background to-accent/10">
-        <div className="container mx-auto px-4 py-24">
+      <header className="bg-gradient-to-br from-primary/5 via-background to-accent/5 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-accent/10 opacity-40"></div>
+        <div className="container mx-auto px-4 py-32 relative">
           <div className="max-w-4xl mx-auto text-center">
-            <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-6">
+            <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-8">
               Your daily dose of AI, Tech & Business insights
             </h1>
-            <p className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto">
+            <p className="text-xl md:text-2xl text-muted-foreground mb-16 max-w-3xl mx-auto">
               Cut through the noise. Stay updated in minutes.
             </p>
             
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" className="text-lg px-8" asChild>
+            <div className="flex justify-center">
+              <Button size="lg" className="text-lg px-12 py-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300" asChild>
                 <Link to="/auth">
                   Get Started Free
                   <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
-              <Button variant="outline" size="lg" className="text-lg px-8" asChild>
-                <Link to="/newsletter">
-                  Subscribe Free
                 </Link>
               </Button>
             </div>
@@ -222,34 +219,33 @@ const Index = () => {
 
       <main>
         {/* SEO Intro Section */}
-        <section className="container mx-auto px-4 py-16">
-          <div className="max-w-4xl mx-auto text-center">
-            <p className="text-lg text-muted-foreground leading-relaxed">
+        <section className="container mx-auto px-4 py-20">
+          <div className="max-w-2xl mx-auto text-center">
+            <p className="text-base text-muted-foreground leading-relaxed">
               Stay ahead with curated <strong>AI news</strong>, <strong>tech trends</strong>, and <strong>business intelligence</strong> delivered through our <strong>daily newsletter</strong>. 
-              Our platform aggregates the most relevant insights from trusted sources, covering everything from cutting-edge artificial intelligence developments 
-              to startup innovations and design breakthroughs. Join thousands of professionals who rely on our <strong>curated insights</strong> to make informed decisions. 
-              Whether you're tracking emerging technologies, monitoring industry shifts, or seeking strategic business perspectives, our expertly selected content 
-              cuts through information overload. Get comprehensive coverage of <strong>startups</strong>, product design evolution, and market analysis 
-              that matters to forward-thinking professionals. Transform how you consume professional content with intelligence-driven curation that respects your time and delivers genuine value.
+              Our platform aggregates the most relevant insights from trusted sources, covering cutting-edge artificial intelligence developments, 
+              startup innovations, and design breakthroughs. Join thousands of professionals who rely on our <strong>curated insights</strong> to make informed decisions. 
+              Whether you're tracking emerging technologies or seeking strategic business perspectives, our expertly selected content 
+              cuts through information overload and delivers genuine value to forward-thinking professionals.
             </p>
           </div>
         </section>
 
         {/* Topics Section */}
-        <section className="bg-muted/30">
-          <div className="container mx-auto px-4 py-24">
+        <section className="bg-muted/20">
+          <div className="container mx-auto px-4 py-28">
             <div className="max-w-6xl mx-auto">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-12 text-center">
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-16 text-center">
                 Explore Topics
               </h2>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                 {topics.map((topic) => (
-                  <Card key={topic.id} className="hover:shadow-lg transition-all duration-200 hover:-translate-y-1">
-                    <CardContent className="p-6 text-center">
+                  <Card key={topic.id} className="rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-2 hover:scale-105 border-0 bg-card/50 backdrop-blur-sm">
+                    <CardContent className="p-8 text-center">
                       <Link to={`/topics/${topic.slug}`} className="block">
-                        <div className="flex flex-col items-center gap-4">
-                          <div className="p-3 bg-primary/10 rounded-full text-primary">
+                        <div className="flex flex-col items-center gap-6">
+                          <div className="p-4 bg-primary/10 rounded-2xl text-primary">
                             {getTopicIcon(topic.slug)}
                           </div>
                           <h3 className="font-semibold text-foreground hover:text-primary transition-colors">
@@ -262,8 +258,8 @@ const Index = () => {
                 ))}
               </div>
               
-              <div className="text-center mt-12">
-                <Button variant="outline" asChild>
+              <div className="text-center mt-16">
+                <Button variant="outline" className="rounded-2xl px-8" asChild>
                   <Link to="/topics">
                     View All Topics
                     <ArrowRight className="ml-2 h-4 w-4" />
@@ -275,41 +271,41 @@ const Index = () => {
         </section>
 
         {/* Daily Preview Section */}
-        <section className="container mx-auto px-4 py-24">
+        <section className="container mx-auto px-4 py-28">
           <div className="max-w-6xl mx-auto">
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-12 text-center">
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-16 text-center">
               Today's Featured Drops
             </h2>
             
             {recentDrops.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
                 {recentDrops.map((drop) => (
-                  <Card key={drop.id} className="hover:shadow-lg transition-all duration-200 hover:-translate-y-1">
+                  <Card key={drop.id} className="rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-2 border-0 bg-card/50 backdrop-blur-sm">
                     <CardContent className="p-0">
                       <a href={drop.url} target="_blank" rel="noopener noreferrer" className="block">
                         <YouTubeThumbnail drop={drop} />
-                        <div className="p-4">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Badge variant="secondary" className="text-xs">
+                        <div className="p-6">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Badge variant="secondary" className="text-xs rounded-full px-3">
                               {drop.type === 'video' ? '📹' : '📄'} {drop.source_name}
                             </Badge>
                           </div>
-                          <h3 className="font-semibold text-foreground mb-2 line-clamp-2 hover:text-primary transition-colors">
+                          <h3 className="font-semibold text-foreground mb-3 line-clamp-2 hover:text-primary transition-colors">
                             {drop.title}
                           </h3>
                           {drop.summary && (
-                            <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                            <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
                               {drop.summary}
                             </p>
                           )}
                           
                           {/* Topic Tags */}
-                          <div className="flex flex-wrap gap-1 mb-3">
+                          <div className="flex flex-wrap gap-2 mb-4">
                             {drop.l1_topic && (
                               <ChipLink 
                                 to={`/topics/${drop.l1_topic.slug}`} 
                                 variant="tag-l1"
-                                className="text-xs"
+                                className="text-xs rounded-full"
                               >
                                 {drop.l1_topic.label}
                               </ChipLink>
@@ -318,7 +314,7 @@ const Index = () => {
                               <ChipLink 
                                 to={`/topics/${drop.l2_topic.slug}`} 
                                 variant="tag-l2"
-                                className="text-xs"
+                                className="text-xs rounded-full"
                               >
                                 {drop.l2_topic.label}
                               </ChipLink>
@@ -330,19 +326,19 @@ const Index = () => {
                                   key={tag}
                                   to={`/topics/${slug}`} 
                                   variant="tag-l3"
-                                  className="text-xs"
+                                  className="text-xs rounded-full"
                                 >
                                   {tag}
                                 </ChipLink>
                               ) : (
-                                <Badge key={tag} variant="tag-l3" className="text-xs">
+                                <Badge key={tag} variant="tag-l3" className="text-xs rounded-full">
                                   {tag}
                                 </Badge>
                               );
                             })}
                           </div>
                           
-                          <div className="flex items-center justify-between mt-3">
+                          <div className="flex items-center justify-between mt-4">
                             <span className="text-xs text-muted-foreground">
                               {new Date(drop.published_at).toLocaleDateString()}
                             </span>
@@ -355,18 +351,89 @@ const Index = () => {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground mb-6">Loading today's featured content...</p>
+              <div className="text-center py-16">
+                <p className="text-muted-foreground mb-8">Loading today's featured content...</p>
               </div>
             )}
             
             <div className="text-center">
-              <Button size="lg" asChild>
+              <Button size="lg" className="rounded-2xl px-12 py-6" asChild>
                 <Link to="/auth">
                   Join to see more content
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
+            </div>
+          </div>
+        </section>
+
+        {/* FAQ Section */}
+        <section className="bg-muted/20">
+          <div className="container mx-auto px-4 py-28">
+            <div className="max-w-4xl mx-auto">
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-16 text-center">
+                Frequently Asked Questions
+              </h2>
+              
+              <Accordion type="single" collapsible className="w-full space-y-4">
+                <AccordionItem value="how-it-works" className="border rounded-2xl px-6 bg-card/50 backdrop-blur-sm">
+                  <AccordionTrigger className="hover:no-underline py-6">
+                    <div className="flex items-center gap-3">
+                      <HelpCircle className="h-5 w-5 text-primary" />
+                      <span className="text-left font-semibold">How does DailyDrops work?</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-6 text-muted-foreground">
+                    DailyDrops curates the most relevant AI, tech, and business insights from trusted sources every day. 
+                    Our intelligent system filters through thousands of articles, videos, and reports to bring you only 
+                    what matters most. You can personalize your feed by following specific topics and receive updates 
+                    through our daily newsletter or web platform.
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="topics" className="border rounded-2xl px-6 bg-card/50 backdrop-blur-sm">
+                  <AccordionTrigger className="hover:no-underline py-6">
+                    <div className="flex items-center gap-3">
+                      <HelpCircle className="h-5 w-5 text-primary" />
+                      <span className="text-left font-semibold">What topics can I follow?</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-6 text-muted-foreground">
+                    We cover a wide range of topics including Artificial Intelligence, Machine Learning, Business Strategy, 
+                    Startups, Product Design, Finance, Technology Trends, and more. You can explore all available topics 
+                    and customize your feed to match your professional interests and stay updated on the areas that matter most to you.
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="curation" className="border rounded-2xl px-6 bg-card/50 backdrop-blur-sm">
+                  <AccordionTrigger className="hover:no-underline py-6">
+                    <div className="flex items-center gap-3">
+                      <HelpCircle className="h-5 w-5 text-primary" />
+                      <span className="text-left font-semibold">How is the content curated?</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-6 text-muted-foreground">
+                    Our curation process combines advanced AI algorithms with editorial oversight to ensure quality and relevance. 
+                    We analyze content from hundreds of trusted sources, evaluate engagement metrics, and apply intelligent filtering 
+                    to surface the most impactful stories. This approach ensures you receive high-quality, timely insights without information overload.
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="archive" className="border rounded-2xl px-6 bg-card/50 backdrop-blur-sm">
+                  <AccordionTrigger className="hover:no-underline py-6">
+                    <div className="flex items-center gap-3">
+                      <HelpCircle className="h-5 w-5 text-primary" />
+                      <span className="text-left font-semibold">Can I access past Drops?</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-6 text-muted-foreground">
+                    Yes! Our comprehensive archive allows you to browse past Drops by date and topic. 
+                    You can explore historical content, track trends over time, and never miss important insights. 
+                    The archive is fully searchable and organized by topics, making it easy to find specific content or 
+                    discover related articles from previous days.
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
             </div>
           </div>
         </section>
