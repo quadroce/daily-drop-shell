@@ -425,7 +425,26 @@ const Auth = () => {
                       </span>
                     </div>
                   </div>
-
+ <div className="text-center">
+                      <p className="text-sm text-muted-foreground">
+                        Don't have an account?{" "}
+                        <Button
+                          variant="link"
+                          className="p-0 h-auto text-sm font-medium text-accent-foreground hover:text-accent-foreground/80"
+                          onClick={() => {
+                            const tabs = document.querySelector(
+                              '[role="tablist"]',
+                            );
+                            const registerTab = tabs?.querySelector(
+                              '[value="register"]',
+                            ) as HTMLElement;
+                            registerTab?.click();
+                          }}
+                        >
+                          Create one here
+                        </Button>
+                      </p>
+                    </div>
                   <form onSubmit={handleLogin} className="space-y-4">
                     {error && (
                       <div className="flex items-center gap-2 p-3 bg-destructive/10 text-destructive rounded-lg">
@@ -504,26 +523,7 @@ const Auth = () => {
                       Sign in
                     </Button>
 
-                    <div className="text-center">
-                      <p className="text-sm text-muted-foreground">
-                        Don't have an account?{" "}
-                        <Button
-                          variant="link"
-                          className="p-0 h-auto text-sm font-medium text-accent-foreground hover:text-accent-foreground/80"
-                          onClick={() => {
-                            const tabs = document.querySelector(
-                              '[role="tablist"]',
-                            );
-                            const registerTab = tabs?.querySelector(
-                              '[value="register"]',
-                            ) as HTMLElement;
-                            registerTab?.click();
-                          }}
-                        >
-                          Create one here
-                        </Button>
-                      </p>
-                    </div>
+                   
                   </form>
                 </CardContent>
               </Card>
