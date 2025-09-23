@@ -342,14 +342,14 @@ export function useInfiniteFeed({ userId, languageCodes, l1, l2 }: UseInfiniteFe
 
   // Initial load and reset on dependency changes
   useEffect(() => {
-    console.log('🎯 useInfiniteFeed useEffect triggered:', { userId, languageCodes, l1, l2 });
+    console.log('🎯 useInfiniteFeed useEffect triggered:', { userId, l1, l2 });
     if (!userId) {
       console.log('❌ useInfiniteFeed: No userId, skipping load');
       return;
     }
     
-    // Only reset if we already have items and this is a real change (not initial load)
-    const shouldReset = items.length > 0 && (languageCodes !== undefined);
+    // Only reset if we already have items and this is a real change (not initial load)  
+    const shouldReset = items.length > 0;
     
     if (shouldReset) {
       console.log('🔄 useInfiniteFeed: Resetting due to preference changes...');
@@ -359,12 +359,12 @@ export function useInfiniteFeed({ userId, languageCodes, l1, l2 }: UseInfiniteFe
     // Always load, but add delay only if we're resetting
     const loadDelay = shouldReset ? 100 : 0;
     const timer = setTimeout(() => {
-      console.log('🚀 Delayed load triggered', { delay: loadDelay, shouldReset });
+      console.log('🚀 Load triggered', { delay: loadDelay, shouldReset });
       load();
     }, loadDelay);
 
     return () => clearTimeout(timer);
-  }, [userId, languageCodes, l1, l2]);
+  }, [userId, l1, l2]); // Removed languageCodes from dependencies
 
   return { 
     items, 
