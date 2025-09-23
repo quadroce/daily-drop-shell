@@ -6,7 +6,7 @@ import { requireSession } from "@/lib/auth";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { Seo } from "@/components/Seo";
 import { useInfiniteFeed } from "@/hooks/useInfiniteFeed";
-import { InfiniteFeedList } from "@/components/InfiniteFeedList";
+import { SimpleFeedList } from "@/components/SimpleFeedList";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -229,8 +229,8 @@ const Feed = () => {
           )}
         </div>
 
-        <div className="min-h-screen">
-          <InfiniteFeedList
+        <div className="h-[calc(100vh-200px)] overflow-hidden">
+          <SimpleFeedList
             items={items}
             load={load}
             hasMore={hasMore}
