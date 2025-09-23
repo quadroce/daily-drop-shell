@@ -14,19 +14,46 @@ serve(async (req) => {
   }
 
   try {
-    console.log('[Background] Starting background feed ranking process');
+    const requestBody = await req.json().catch(() => ({}));
+    const { trigger = 'manual', users_limit, user_id } = requestBody;
+    
+    console.log(`[Background] Starting feed ranking - trigger: ${trigger}, users_limit: ${users_limit}, user_id: ${user_id}`);
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get all users who have preferences set
-    const { data: users, error: usersError } = await supabaseClient
+    let usersQuery = supabaseClient
       .from('preferences')
       .select('user_id')
       .not('selected_topic_ids', 'is', null)
       .neq('selected_topic_ids', '{}');
+
+    // Handle specific triggers
+    if (trigger === 'onboarding_completed' && user_id) {
+      // Process only the specific user who just completed onboarding
+      usersQuery = usersQuery.eq('user_id', user_id);
+      console.log(`[Background] Processing single user after onboarding: ${user_id}`);
+    } else if (trigger === 'preload' && users_limit) {
+      // Pre-load for a limited number of users (oldest cache first)
+      const { data: usersWithOldCache } = await supabaseClient
+        .from('user_feed_cache')
+        .select('user_id, created_at')
+        .order('created_at', { ascending: true })
+        .limit(users_limit);
+      
+      if (usersWithOldCache && usersWithOldCache.length > 0) {
+        const userIds = usersWithOldCache.map(u => u.user_id);
+        usersQuery = usersQuery.in('user_id', userIds);
+        console.log(`[Background] Preloading for ${userIds.length} users with oldest cache`);
+      }
+    } else if (users_limit) {
+      // Limit users for regular processing
+      usersQuery = usersQuery.limit(users_limit);
+    }
+
+    const { data: users, error: usersError } = await usersQuery;
 
     if (usersError) {
       console.error('[Background] Error fetching users:', usersError);
@@ -302,14 +329,15 @@ serve(async (req) => {
       }
     }
 
-    console.log('[Background] Completed:', processedUsers, 'users processed,', totalCacheEntries, 'cache entries created');
+    console.log(`[Background] Completed - Trigger: ${trigger}, Users: ${processedUsers}, Cache entries: ${totalCacheEntries}`);
 
     return new Response(
       JSON.stringify({
         success: true,
+        trigger,
         processed_users: processedUsers,
         total_cache_entries: totalCacheEntries,
-        message: 'Background feed ranking completed'
+        message: `Background feed ranking completed (${trigger})`
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
