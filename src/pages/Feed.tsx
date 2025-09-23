@@ -97,6 +97,27 @@ const Feed = () => {
     l2: null
   });
 
+  // Debug logging for feed state
+  console.log('🔍 Feed component state:', {
+    userProfileId: userProfile?.id,
+    userPreferences,
+    itemsCount: items.length,
+    loading,
+    initialLoading,
+    hasMore,
+    error
+  });
+
+  // Manual trigger to ensure feed loads when user profile becomes available
+  useEffect(() => {
+    if (userProfile?.id && !loading && !initialLoading && items.length === 0 && hasMore) {
+      console.log('🔄 Manual feed trigger - user profile available but no items');
+      setTimeout(() => {
+        load();
+      }, 100);
+    }
+  }, [userProfile?.id, loading, initialLoading, items.length, hasMore, load]);
+
   // Require authentication
   useEffect(() => {
     requireSession();

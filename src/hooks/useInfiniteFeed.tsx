@@ -154,8 +154,13 @@ export function useInfiniteFeed({ userId, language, l1, l2 }: UseInfiniteFeedPar
 
   // Initial load and reset on dependency changes
   useEffect(() => {
-    if (!userId) return;
+    console.log('🎯 useInfiniteFeed useEffect triggered:', { userId, language, l1, l2 });
+    if (!userId) {
+      console.log('❌ useInfiniteFeed: No userId, skipping load');
+      return;
+    }
     
+    console.log('🔄 useInfiniteFeed: Resetting and loading...');
     reset();
     // Small delay to ensure state is reset
     const timer = setTimeout(() => {
