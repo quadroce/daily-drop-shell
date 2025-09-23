@@ -77,15 +77,21 @@ async function fetchPage({
     return { items, nextCursor };
     
   } catch (rpcError) {
-    console.log('🔄 RPC failed, using fallback query...');
+    console.log('🔄 RPC failed, using fallback query...', {
+      error: rpcError instanceof Error ? rpcError.message : 'Unknown error',
+      userId,
+      cursor,
+      language
+    });
     
-    // Fallback to direct query - remove 7-day limit to get more content
+    // Fallback to direct query - include score fields for proper calculation
     let query = supabase
       .from('drops')
       .select(`
         id, title, url, source_id, image_url, summary, published_at,
         language, tags, l1_topic_id, l2_topic_id, type,
         youtube_video_id, youtube_channel_id, youtube_thumbnail_url,
+        authority_score, quality_score, popularity_score,
         sources:source_id(name)
       `)
       .eq('tag_done', true)
@@ -114,26 +120,47 @@ async function fetchPage({
     }
 
     // Transform the data to match expected format
-    const allItems = (fallbackData ?? []).map((item: any) => ({
-      id: item.id,
-      title: item.title,
-      url: item.url,
-      source_id: item.source_id,
-      image_url: item.image_url,
-      summary: item.summary,
-      published_at: item.published_at,
-      language: item.language,
-      tags: item.tags,
-      l1_topic_id: item.l1_topic_id,
-      l2_topic_id: item.l2_topic_id,
-      type: item.type,
-      youtube_video_id: item.youtube_video_id,
-      youtube_channel_id: item.youtube_channel_id,
-      youtube_thumbnail_url: item.youtube_thumbnail_url,
-      source_name: item.sources?.name || 'Unknown',
-      final_score: 0.5, // Default score for fallback
-      reason_for_ranking: 'Recent content'
-    })) as FeedItem[];
+    const allItems = (fallbackData ?? []).map((item: any) => {
+      // Calculate proper final_score from available scores
+      const authorityScore = Number(item.authority_score) || 0.5;
+      const qualityScore = Number(item.quality_score) || 0.5;
+      const popularityScore = Number(item.popularity_score) || 0.0;
+      
+      const finalScore = Number(((authorityScore + qualityScore + popularityScore) / 3).toFixed(3));
+      
+      // Generate meaningful reason for ranking
+      let reason = 'Relevant content';
+      if (finalScore > 0.7) {
+        reason = `High quality • Score: ${finalScore}`;
+      } else if (finalScore > 0.5) {
+        reason = `Quality content • Score: ${finalScore}`;
+      } else if (finalScore > 0.3) {
+        reason = `Good content • Score: ${finalScore}`;
+      } else {
+        reason = `Fresh content • Score: ${finalScore}`;
+      }
+      
+      return {
+        id: item.id,
+        title: item.title,
+        url: item.url,
+        source_id: item.source_id,
+        image_url: item.image_url,
+        summary: item.summary,
+        published_at: item.published_at,
+        language: item.language,
+        tags: item.tags,
+        l1_topic_id: item.l1_topic_id,
+        l2_topic_id: item.l2_topic_id,
+        type: item.type,
+        youtube_video_id: item.youtube_video_id,
+        youtube_channel_id: item.youtube_channel_id,
+        youtube_thumbnail_url: item.youtube_thumbnail_url,
+        source_name: item.sources?.name || 'Unknown',
+        final_score: finalScore,
+        reason_for_ranking: reason
+      };
+    }) as FeedItem[];
 
     // Check if there are more items (we fetched limit + 1)
     const hasMoreItems = allItems.length > limit;
@@ -141,7 +168,7 @@ async function fetchPage({
     
     const last = items.at(-1);
     const nextCursor = (hasMoreItems && last && last.published_at)
-      ? btoa(`0.5:${last.published_at}:${last.id}`)
+      ? btoa(`${last.final_score}:${last.published_at}:${last.id}`)
       : null;
     
     console.log('✅ Fallback query successful:', { 
