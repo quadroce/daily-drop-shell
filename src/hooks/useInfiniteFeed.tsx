@@ -42,7 +42,7 @@ async function fetchPage({
   console.log('🔄 fetchPage called with:', { userId, cursor, language, l1, l2, limit });
   
   try {
-    // Try the RPC first
+    // Try the RPC first (uses cache or real-time ranking)
     const { data, error } = await supabase.rpc('feed_get_page_drops', {
       p_user_id: userId,
       p_limit: limit,
@@ -60,18 +60,26 @@ async function fetchPage({
     }
 
     const items = (data ?? []) as FeedItem[];
-    const last = items.at(-1);
     
-    // For RPC, if we get a full page, assume there might be more
-    const nextCursor = last && last.published_at && items.length >= limit
-      ? btoa(`${last.final_score}:${last.published_at}:${last.id}`)
-      : null;
+    // For RPC: Use position-based pagination
+    let nextCursor = null;
+    if (items.length >= limit) {
+      // Parse current position from cursor, or start at 1
+      const currentPosition = cursor ? 
+        (JSON.parse(cursor).position || 1) : 1;
+      const nextPosition = currentPosition + items.length;
+      nextCursor = JSON.stringify({ position: nextPosition });
+    }
     
     console.log('✅ RPC query successful:', { 
       itemsCount: items.length, 
       limit, 
       nextCursor: !!nextCursor,
-      hasMore: !!nextCursor 
+      hasMore: !!nextCursor,
+      personalizedScores: items.slice(0, 3).map(i => ({ 
+        score: i.final_score, 
+        reason: i.reason_for_ranking 
+      }))
     });
     
     return { items, nextCursor };

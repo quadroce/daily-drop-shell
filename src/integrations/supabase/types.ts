@@ -1344,14 +1344,23 @@ export type Database = {
         Returns: undefined
       }
       feed_get_page_drops: {
-        Args: {
-          p_cursor?: string
-          p_l1?: number
-          p_l2?: number
-          p_language?: string
-          p_limit?: number
-          p_user_id: string
-        }
+        Args:
+          | {
+              p_cursor?: string
+              p_l1?: number
+              p_l2?: number
+              p_language?: string
+              p_limit?: number
+              p_user_id: string
+            }
+          | {
+              p_cursor?: string
+              p_l1?: number
+              p_l2?: number
+              p_language?: string
+              p_limit?: number
+              p_user_id: string
+            }
         Returns: {
           final_score: number
           id: number

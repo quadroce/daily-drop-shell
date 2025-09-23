@@ -83,7 +83,7 @@ serve(async (req) => {
           .eq('tag_done', true)
           .gte('created_at', thirtyDaysAgo.toISOString())
           .order('created_at', { ascending: false })
-          .limit(100); // Limit candidates for background processing
+          .limit(500); // Increased limit for better cache coverage
 
         // Get user topic slugs once (for efficiency)
         let userTopicSlugs: string[] = [];
@@ -168,8 +168,31 @@ serve(async (req) => {
               }
             }
 
-            // Vector similarity placeholder
-            const vectorSim = 0.5;
+            // Vector similarity calculation (using cosine similarity)
+            let vectorSim = 0;
+            if (profile?.preference_embeddings && drop.embeddings) {
+              try {
+                // Calculate cosine similarity between user preference embedding and drop embedding
+                const { data: similarity } = await supabaseClient
+                  .rpc('cosine_distance', {
+                    vector1: profile.preference_embeddings,
+                    vector2: drop.embeddings
+                  });
+                
+                // Convert cosine distance to similarity (1 - distance)
+                vectorSim = similarity ? Math.max(0, Math.min(1, 1 - similarity)) : 0;
+                
+                if (vectorSim > 0.7) {
+                  reasonFactors.push('Content matches your reading patterns');
+                }
+              } catch (vectorErr) {
+                console.warn('[Background] Vector similarity error for drop', drop.id, ':', vectorErr);
+                vectorSim = 0.3; // Default similarity for content matching
+              }
+            } else {
+              // If no embeddings available, use topic matching as proxy
+              vectorSim = topicMatch > 0 ? 0.6 : 0.3;
+            }
 
             // User feedback score
             let feedbackScore = 0;
@@ -190,10 +213,11 @@ serve(async (req) => {
               reasonFactors.push('Similar content liked before');
             }
 
-            personalScore = (0.2 * topicMatch + 0.25 * vectorSim + 0.25 * feedbackScore);
+            // Personal Score: 30% topic match + 35% vector similarity + 25% feedback + 10% diversity boost
+            personalScore = (0.3 * topicMatch + 0.35 * vectorSim + 0.25 * feedbackScore + 0.1 * (usedSources.size < 3 ? 1 : 0.5));
 
-            // Final Score
-            const finalScore = 0.4 * baseScore + 0.6 * personalScore;
+            // Final Score: 35% base + 65% personal (more weight on personalization)
+            const finalScore = 0.35 * baseScore + 0.65 * personalScore;
 
             // Add recency and quality factors to reasons
             if (hoursOld < 24) {
@@ -235,9 +259,9 @@ serve(async (req) => {
           usedSources.add(youtubeDrops[0].source_name);
         }
 
-        // Second pass: apply constraints
+        // Second pass: apply constraints (increase cache size to 50 items)
         for (const drop of rankedDrops) {
-          if (finalDrops.length >= 5) break;
+          if (finalDrops.length >= 50) break;
           
           if (finalDrops.some(d => d.drop_id === drop.drop_id)) continue;
           
