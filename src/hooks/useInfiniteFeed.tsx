@@ -348,13 +348,20 @@ export function useInfiniteFeed({ userId, languageCodes, l1, l2 }: UseInfiniteFe
       return;
     }
     
-    console.log('🔄 useInfiniteFeed: Resetting and loading...');
-    reset();
-    // Longer delay to ensure state is completely reset
+    // Only reset if we already have items and this is a real change (not initial load)
+    const shouldReset = items.length > 0 && (languageCodes !== undefined);
+    
+    if (shouldReset) {
+      console.log('🔄 useInfiniteFeed: Resetting due to preference changes...');
+      reset();
+    }
+    
+    // Always load, but add delay only if we're resetting
+    const loadDelay = shouldReset ? 100 : 0;
     const timer = setTimeout(() => {
-      console.log('🚀 Delayed load triggered');
+      console.log('🚀 Delayed load triggered', { delay: loadDelay, shouldReset });
       load();
-    }, 100);
+    }, loadDelay);
 
     return () => clearTimeout(timer);
   }, [userId, languageCodes, l1, l2]);
