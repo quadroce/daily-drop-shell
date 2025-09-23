@@ -49,6 +49,15 @@ const Auth = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  // Handle URL tab parameter
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const tabParam = urlParams.get('tab');
+    if (tabParam === 'register' || tabParam === 'login' || tabParam === 'reset') {
+      setActiveTab(tabParam);
+    }
+  }, [location.search]);
+
   // Redirect if already authenticated
   useEffect(() => {
     if (user) {

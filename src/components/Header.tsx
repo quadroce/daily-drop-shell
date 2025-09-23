@@ -218,7 +218,10 @@ const Header = () => {
             : (
               <div className="hidden md:flex items-center space-x-2">
                 <Button asChild variant="ghost">
-                  <Link to="/auth">Sign In - Register</Link>
+                  <Link to="/auth?tab=login">Log In</Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link to="/auth?tab=register">Register</Link>
                 </Button>
               </div>
             )}
@@ -295,13 +298,20 @@ const Header = () => {
                           onLinkClick={() => setIsSheetOpen(false)}
                         />
 
-                        <div className="border-t pt-4">
+                        <div className="border-t pt-4 space-y-2">
                           <Link
-                            to="/auth"
+                            to="/auth?tab=login"
                             onClick={() => setIsSheetOpen(false)}
                             className="block py-2 text-primary hover:text-primary/80"
                           >
-                            Sign In
+                            Log In
+                          </Link>
+                          <Link
+                            to="/auth?tab=register"
+                            onClick={() => setIsSheetOpen(false)}
+                            className="block py-2 text-muted-foreground hover:text-primary"
+                          >
+                            Register
                           </Link>
                         </div>
                       </nav>
