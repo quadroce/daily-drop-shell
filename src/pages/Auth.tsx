@@ -426,11 +426,11 @@ const Auth = () => {
                     </div>
                   </div>
  <div className="text-center">
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-base text-muted-foreground">
                         Don't have an account?{" "}
                         <Button
                           variant="link"
-                          className="p-0 h-auto text-sm font-medium text-accent-foreground hover:text-accent-foreground/80"
+                          className="p-0 h-auto text-base font-medium text-accent-foreground hover:text-accent-foreground/80"
                           onClick={() => {
                             const tabs = document.querySelector(
                               '[role="tablist"]',
