@@ -156,7 +156,7 @@ const SimpleDropCard = ({
                   <Badge
                     key={`l1-${drop.l1_topic_id}`}
                     variant="secondary"
-                    className="text-xs py-0 px-2 bg-primary text-primary-foreground"
+                    className="text-xs py-0 px-2 bg-blue-600 text-white"
                   >
                     {topicsMap.l1.get(drop.l1_topic_id)}
                   </Badge>
@@ -167,7 +167,7 @@ const SimpleDropCard = ({
                   <Badge
                     key={`l2-${drop.l2_topic_id}`}
                     variant="secondary"
-                    className="text-xs py-0 px-2 bg-secondary text-secondary-foreground"
+                    className="text-xs py-0 px-2 bg-green-400 text-white"
                   >
                     {topicsMap.l2.get(drop.l2_topic_id)}
                   </Badge>
@@ -179,7 +179,7 @@ const SimpleDropCard = ({
                     <Badge
                       key={`l3-${tag}`}
                       variant="outline"
-                      className="text-xs py-0 px-1 bg-muted text-muted-foreground"
+                      className="text-xs py-0 px-1 bg-orange-400 text-white"
                     >
                       {tag}
                     </Badge>
@@ -188,7 +188,7 @@ const SimpleDropCard = ({
                       key={`l3-${tag}`}
                       to={`/topics/${getTopicSlug(tag)}`}
                       variant="outline"
-                      className="text-xs py-0 px-1 bg-muted text-muted-foreground hover:bg-muted/80"
+                      className="text-xs py-0 px-1 bg-orange-400 text-white hover:bg-orange-500"
                     >
                       {tag}
                     </ChipLink>
