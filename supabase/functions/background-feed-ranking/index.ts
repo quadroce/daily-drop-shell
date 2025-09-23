@@ -143,6 +143,7 @@ serve(async (req) => {
 
         // Calculate rankings for each drop
         const rankedDrops: any[] = [];
+        const usedSources = new Set<string>();
 
         for (const drop of drops) {
           try {
@@ -274,7 +275,6 @@ serve(async (req) => {
         // Apply constraints and diversity (similar to content-ranking)
         const finalDrops: any[] = [];
         const sourceCount = new Map<string, number>();
-        const usedSources = new Set<string>();
         let youtubeCount = 0;
 
         // First pass: ensure at least 1 YouTube item
