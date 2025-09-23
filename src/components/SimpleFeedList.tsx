@@ -467,7 +467,10 @@ export function SimpleFeedList({ items, load, hasMore, loading, error, onRetry }
         entries.forEach((entry) => {
           if (entry.isIntersecting && !loading) {
             console.log('🔄 Intersection Observer triggered - loading more items');
+            console.log('🔍 Current state when triggered:', { hasMore, loading, itemsCount: items.length });
             load();
+          } else if (entry.isIntersecting && loading) {
+            console.log('⏳ Intersection Observer triggered but loading already in progress');
           }
         });
       },
@@ -480,7 +483,7 @@ export function SimpleFeedList({ items, load, hasMore, loading, error, onRetry }
       console.log('🧹 Cleaning up intersection observer');
       io.disconnect();
     };
-  }, [hasMore, loading, load]);
+  }, [hasMore, loading]);
 
   if (error) {
     return (
@@ -517,7 +520,17 @@ export function SimpleFeedList({ items, load, hasMore, loading, error, onRetry }
       </div>
 
       {/* Sentinel for infinite scroll */}
-      <div ref={sentinelRef} className="h-4" />
+      <div 
+        ref={sentinelRef} 
+        className="h-20 flex items-center justify-center"
+        style={{ minHeight: '80px' }}
+      >
+        {hasMore && !loading && (
+          <div className="text-xs text-muted-foreground">
+            Scroll to load more content...
+          </div>
+        )}
+      </div>
 
       {/* Loading skeletons */}
       {loading && (
