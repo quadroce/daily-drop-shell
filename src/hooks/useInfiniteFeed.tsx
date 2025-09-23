@@ -72,7 +72,7 @@ async function fetchPage({
   } catch (rpcError) {
     console.log('🔄 RPC failed, using fallback query...');
     
-    // Fallback to direct query
+    // Fallback to direct query - increased limit to ensure hasMore works correctly
     let query = supabase
       .from('drops')
       .select(`
@@ -85,7 +85,7 @@ async function fetchPage({
       .gte('published_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
       .not('published_at', 'is', null)
       .order('published_at', { ascending: false })
-      .limit(limit);
+      .limit(limit + 1); // Get one extra to check if there are more
 
     // Apply cursor if provided
     if (cursor) {
@@ -108,7 +108,7 @@ async function fetchPage({
     }
 
     // Transform the data to match expected format
-    const items = (fallbackData ?? []).map((item: any) => ({
+    const allItems = (fallbackData ?? []).map((item: any) => ({
       id: item.id,
       title: item.title,
       url: item.url,
@@ -129,8 +129,12 @@ async function fetchPage({
       reason_for_ranking: 'Recent content'
     })) as FeedItem[];
 
+    // Check if there are more items (we fetched limit + 1)
+    const hasMoreItems = allItems.length > limit;
+    const items = hasMoreItems ? allItems.slice(0, limit) : allItems;
+    
     const last = items.at(-1);
-    const nextCursor = last && last.published_at
+    const nextCursor = (hasMoreItems && last && last.published_at)
       ? btoa(`0.5:${last.published_at}:${last.id}`)
       : null;
     

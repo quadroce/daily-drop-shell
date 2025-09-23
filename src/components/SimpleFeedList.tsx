@@ -1,10 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEngagementState } from "@/hooks/useEngagementState";
 import { useTopicsMap } from "@/hooks/useTopicsMap";
 import { FeedItem } from "@/hooks/useInfiniteFeed";
+import { supabase } from "@/integrations/supabase/client";
 
 // Import the existing DropCard component
 import { Card, CardTitle } from "@/components/ui/card";
@@ -47,7 +48,8 @@ const SimpleDropCard = ({
   getTopicSlug, 
   topicsLoading, 
   getState, 
-  isLoading 
+  isLoading,
+  topicsMap 
 }: {
   drop: FeedItem;
   updateEngagement: (dropId: string, action: string) => Promise<boolean>;
@@ -55,6 +57,7 @@ const SimpleDropCard = ({
   topicsLoading: boolean;
   getState: (dropId: string) => any;
   isLoading: (dropId: string) => boolean;
+  topicsMap: { l1: Map<number, string>; l2: Map<number, string> };
 }) => {
   const imageUrl = getImageUrl(drop);
   const dropId = drop.id.toString();
@@ -101,15 +104,22 @@ const SimpleDropCard = ({
                   </time>
                 </div>
 
-                {/* Ranking reason */}
+                {/* Ranking reason with score */}
                 {drop.reason_for_ranking && (
-                  <div className="mt-1">
+                  <div className="mt-1 flex items-center gap-2">
                     <Badge
                       variant="outline"
                       className="text-xs bg-primary/5 text-primary/80 border-primary/20"
                     >
-                      {drop.reason_for_ranking}
+                      {drop.l1_topic_id && topicsMap.l1.get(drop.l1_topic_id) 
+                        ? `${topicsMap.l1.get(drop.l1_topic_id)} • ${drop.reason_for_ranking}`
+                        : drop.reason_for_ranking}
                     </Badge>
+                    {drop.final_score && (
+                      <span className="text-xs text-muted-foreground">
+                        {drop.final_score.toFixed(3)}
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
@@ -146,13 +156,35 @@ const SimpleDropCard = ({
             {/* Tags and Actions */}
             <div className="flex items-center justify-between">
               <div className="flex flex-wrap gap-1">
+                {/* L1 Topic */}
+                {drop.l1_topic_id && topicsMap.l1.get(drop.l1_topic_id) && (
+                  <Badge
+                    key={`l1-${drop.l1_topic_id}`}
+                    variant="secondary"
+                    className="text-xs py-0 px-2 bg-primary/10 text-primary"
+                  >
+                    {topicsMap.l1.get(drop.l1_topic_id)}
+                  </Badge>
+                )}
+                
+                {/* L2 Topic */}
+                {drop.l2_topic_id && topicsMap.l2.get(drop.l2_topic_id) && (
+                  <Badge
+                    key={`l2-${drop.l2_topic_id}`}
+                    variant="secondary"
+                    className="text-xs py-0 px-2 bg-secondary/60 text-secondary-foreground"
+                  >
+                    {topicsMap.l2.get(drop.l2_topic_id)}
+                  </Badge>
+                )}
+                
                 {/* L3 Tags - Show available tags */}
                 {drop.tags?.filter((tag) => tag && tag.trim()).map((tag: string) => (
                   topicsLoading || !getTopicSlug(tag) ? (
                     <Badge
                       key={`l3-${tag}`}
-                      variant="tag-l3"
-                      className="text-xs py-0 px-1"
+                      variant="outline"
+                      className="text-xs py-0 px-1 bg-muted/20"
                     >
                       {tag}
                     </Badge>
@@ -160,8 +192,8 @@ const SimpleDropCard = ({
                     <ChipLink
                       key={`l3-${tag}`}
                       to={`/topics/${getTopicSlug(tag)}`}
-                      variant="tag-l3"
-                      className="text-xs py-0 px-1"
+                      variant="outline"
+                      className="text-xs py-0 px-1 bg-muted/20 hover:bg-muted/40"
                     >
                       {tag}
                     </ChipLink>
@@ -287,14 +319,23 @@ const SimpleDropCard = ({
             </div>
           </div>
 
-          {/* Image Section - Right */}
-          <div className="relative w-28 h-28 m-4 overflow-hidden rounded-lg flex-shrink-0">
+          {/* Image Section - Right - Clickable */}
+          <div className="relative w-28 h-28 m-4 overflow-hidden rounded-lg flex-shrink-0 cursor-pointer"
+               onClick={() => {
+                 track("content_click", {
+                   drop_id: drop.id,
+                   content_id: drop.id,
+                   source: drop.source_name,
+                   topic: drop.tags?.[0],
+                 });
+                 window.open(drop.url, "_blank");
+               }}>
             {imageUrl ? (
               <div className="relative w-full h-full">
                 <img
                   src={imageUrl}
                   alt={drop.title}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
                   onError={(e) => {
                     // Try fallback for YouTube videos
                     if (drop.type === "video" && drop.url) {
@@ -359,6 +400,41 @@ export function SimpleFeedList({ items, load, hasMore, loading, error, onRetry }
   const sentinelRef = useRef<HTMLDivElement>(null);
   const { updateEngagement, getState, isLoading } = useEngagementState();
   const { getTopicSlug, isLoading: topicsLoading } = useTopicsMap();
+  const [topicsMap, setTopicsMap] = useState<{ l1: Map<number, string>; l2: Map<number, string> }>({
+    l1: new Map(),
+    l2: new Map()
+  });
+
+  // Load L1 and L2 topics map
+  useEffect(() => {
+    const loadTopicsMap = async () => {
+      try {
+        const { data: topics } = await supabase
+          .from('topics')
+          .select('id, label, level')
+          .in('level', [1, 2]);
+        
+        if (topics) {
+          const l1Map = new Map<number, string>();
+          const l2Map = new Map<number, string>();
+          
+          topics.forEach(topic => {
+            if (topic.level === 1) {
+              l1Map.set(topic.id, topic.label);
+            } else if (topic.level === 2) {
+              l2Map.set(topic.id, topic.label);
+            }
+          });
+          
+          setTopicsMap({ l1: l1Map, l2: l2Map });
+        }
+      } catch (error) {
+        console.error('Failed to load topics map:', error);
+      }
+    };
+
+    loadTopicsMap();
+  }, []);
 
   console.log('🎯 SimpleFeedList render:', {
     itemsCount: items.length,
@@ -407,9 +483,9 @@ export function SimpleFeedList({ items, load, hasMore, loading, error, onRetry }
   }
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full">
       {/* Render all items directly (no virtualization) */}
-      <div className="space-y-0">
+      <div className="space-y-4 overflow-y-auto h-full">
         {items.map((item) => (
           <SimpleDropCard
             key={item.id}
@@ -419,6 +495,7 @@ export function SimpleFeedList({ items, load, hasMore, loading, error, onRetry }
             topicsLoading={topicsLoading}
             getState={getState}
             isLoading={isLoading}
+            topicsMap={topicsMap}
           />
         ))}
       </div>
