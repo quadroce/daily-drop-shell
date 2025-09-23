@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import EmailVerification from "./EmailVerification";
 import { Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -12,9 +13,38 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute = ({ children, requireEmailVerification = true }: ProtectedRouteProps) => {
   const { user, session, loading } = useAuth();
-  const { profile, isLoading: profileLoading } = useUserProfile();
+  const { profile, isLoading: profileLoading, refetch } = useUserProfile();
   const navigate = useNavigate();
   const [showVerification, setShowVerification] = useState(false);
+
+  // Set up realtime listener for profile changes
+  useEffect(() => {
+    if (!user?.id) return;
+
+    console.log('🔄 ProtectedRoute: Setting up realtime listener for profile changes');
+    
+    const channel = supabase
+      .channel('profile-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('🔄 ProtectedRoute: Profile changed, refetching...', payload);
+          refetch();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('🔄 ProtectedRoute: Cleaning up realtime listener');
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, refetch]);
 
   useEffect(() => {
     console.log('🛡️ ProtectedRoute: Evaluating conditions', {
