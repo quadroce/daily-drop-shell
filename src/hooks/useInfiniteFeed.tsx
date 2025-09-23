@@ -223,6 +223,7 @@ export function useInfiniteFeed({ userId, languageCodes, l1, l2 }: UseInfiniteFe
       return;
     }
     
+    console.log('🔧 Setting loading to true...');
     setLoading(true);
     setError(null);
     console.log('✅ Loading started, setLoading(true) called');
@@ -293,6 +294,7 @@ export function useInfiniteFeed({ userId, languageCodes, l1, l2 }: UseInfiniteFe
       console.log('✅ Load completed successfully');
     } catch (e: any) {
       console.error('❌ Error in load function:', e);
+      console.log('🔧 Setting loading to false in catch block...');
       const errorMessage = e.message ?? 'Unknown error loading feed';
       setError(errorMessage);
       
@@ -301,10 +303,12 @@ export function useInfiniteFeed({ userId, languageCodes, l1, l2 }: UseInfiniteFe
         window.gtag('event', 'feed_error', { message: errorMessage });
       }
     } finally {
-      console.log('🏁 Finally block executing, setLoading(false)');
+      console.log('🏁 Finally block executing - BEFORE setLoading(false)');
+      console.log('🔧 About to set loading to false...');
       setLoading(false);
       setInitialLoading(false);
-      console.log('🏁 Finally block completed');
+      console.log('🏁 Finally block completed - AFTER setLoading(false)');
+      console.log('🔧 Current loading state should now be false');
     }
   };
 

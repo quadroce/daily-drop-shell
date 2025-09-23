@@ -205,8 +205,8 @@ const Feed = () => {
   return (
     <>
       <Seo
-        title="Your Daily Content Feed - DailyDrops"
-        description="Discover personalized content curated by AI based on your interests. Get daily tech updates, insights, and trending topics delivered to your feed."
+        title="Your Drops of Knowledge - DailyDrops"
+        description="Discover your personalized drops of knowledge curated by AI based on your interests. Get daily tech updates, insights, and trending topics."
         canonical="https://dailydrops.cloud/feed"
         noindex={!hasValidPrefs}
         jsonLd={{
@@ -226,10 +226,10 @@ const Feed = () => {
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-foreground mb-2">
-              Your Feed
+              Your Drops of knowledge
             </h1>
             <p className="text-muted-foreground">
-              Infinite scroll feed ranked by relevance
+              Personalized content curated just for you
             </p>
           </div>
           
