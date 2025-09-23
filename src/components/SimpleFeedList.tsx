@@ -465,12 +465,19 @@ export function SimpleFeedList({ items, load, hasMore, loading, error, onRetry }
     const io = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting && !loading) {
+          if (entry.isIntersecting && !loading && hasMore) {
             console.log('🔄 Intersection Observer triggered - loading more items');
             console.log('🔍 Current state when triggered:', { hasMore, loading, itemsCount: items.length });
-            load();
+            
+            // Use a timeout to ensure state updates are processed
+            setTimeout(() => {
+              console.log('⏰ Triggering load after timeout');
+              load();
+            }, 100);
           } else if (entry.isIntersecting && loading) {
             console.log('⏳ Intersection Observer triggered but loading already in progress');
+          } else if (entry.isIntersecting && !hasMore) {
+            console.log('🏁 Intersection Observer triggered but no more items available');
           }
         });
       },

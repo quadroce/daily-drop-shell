@@ -57,7 +57,8 @@ async function fetchPage({
       hasData: !!data, 
       hasError: !!error, 
       dataLength: data?.length,
-      errorMessage: error?.message 
+      errorMessage: error?.message,
+      languageFilter: language
     });
 
     if (error) {
@@ -235,13 +236,14 @@ export function useInfiniteFeed({ userId, languageCodes, l1, l2 }: UseInfiniteFe
         language: languageCodes?.[0] || null,
         l1,
         l2,
-        limit: 30
+        limit: 30,
+        allLanguages: languageCodes
       });
       
       const result = await fetchPage({
         userId,
         cursor,
-        language: languageCodes?.[0] || null, // Use first language for now
+        language: languageCodes ? languageCodes.join(',') : null, // Pass all languages
         l1,
         l2,
         limit: 30
