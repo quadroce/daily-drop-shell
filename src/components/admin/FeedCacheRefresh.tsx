@@ -3,11 +3,20 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserProfile } from '@/hooks/useUserProfile';
 
 export function FeedCacheRefresh() {
   const { user } = useAuth();
+  const { profile } = useUserProfile();
   const { toast } = useToast();
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Mostra il pulsante solo per admin e superadmin
+  const canRefreshCache = profile?.role === 'admin' || profile?.role === 'superadmin';
+
+  if (!canRefreshCache) {
+    return null;
+  }
 
   const refreshUserCache = async () => {
     if (!user?.id) {
