@@ -451,8 +451,8 @@ export function SimpleFeedList({ items, load, hasMore, loading, error, onRetry }
   // Intersection Observer for infinite loading with better logging
   useEffect(() => {
     console.log('🔍 Setting up intersection observer:', { hasMore, loading });
-    if (!hasMore || loading) {
-      console.log('❌ Intersection observer blocked:', { hasMore, loading });
+    if (!hasMore) {
+      console.log('❌ Intersection observer blocked - no more items:', { hasMore });
       return;
     }
     
@@ -465,7 +465,7 @@ export function SimpleFeedList({ items, load, hasMore, loading, error, onRetry }
     const io = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting) {
+          if (entry.isIntersecting && !loading) {
             console.log('🔄 Intersection Observer triggered - loading more items');
             load();
           }
