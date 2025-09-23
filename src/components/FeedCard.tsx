@@ -9,6 +9,8 @@ import YouTubePlayer from "./YouTubePlayer";
 import { ImagePlaceholder } from "./ui/image-placeholder";
 import { useEngagementState } from "@/hooks/useEngagementState";
 import { ShareButton } from "./ShareButton";
+import { ChipLink } from "./ChipLink";
+import { useTopicsMap } from "@/hooks/useTopicsMap";
 import { useEffect } from "react";
 
 export type FeedCardProps = {
@@ -57,6 +59,7 @@ export const FeedCard = ({
 }: FeedCardComponentProps) => {
   const { track } = useAnalytics();
   const { updateEngagement, getState, isLoading, initializeStates } = useEngagementState();
+  const { getTopicSlug } = useTopicsMap();
   
   // Create debounced open tracker for this component instance
   const debouncedOpenTracker = createDebouncedOpenTracker(2000);
@@ -235,26 +238,60 @@ export const FeedCard = ({
 
             <div className="flex items-center justify-between gap-2 mt-auto">
               <div className="flex gap-1 flex-wrap min-w-0 flex-1">
-                {/* L1 Topic Badge */}
-                {l1Topic && (
-                  <Badge variant="tag-l1" className="text-xs py-0 px-2 truncate">
-                    {l1Topic}
-                  </Badge>
-                )}
+                {/* L1 Topic Badge/Link */}
+                {l1Topic && (() => {
+                  const slug = getTopicSlug(l1Topic);
+                  return slug ? (
+                    <ChipLink 
+                      to={`/topics/${slug}`} 
+                      variant="tag-l1" 
+                      className="text-xs py-0 px-2 truncate"
+                    >
+                      {l1Topic}
+                    </ChipLink>
+                  ) : (
+                    <Badge variant="tag-l1" className="text-xs py-0 px-2 truncate">
+                      {l1Topic}
+                    </Badge>
+                  );
+                })()}
                 
-                {/* L2 Topic Badge */}
-                {l2Topic && (
-                  <Badge variant="tag-l2" className="text-xs py-0 px-2 truncate">
-                    {l2Topic}
-                  </Badge>
-                )}
+                {/* L2 Topic Badge/Link */}
+                {l2Topic && (() => {
+                  const slug = getTopicSlug(l2Topic);
+                  return slug ? (
+                    <ChipLink 
+                      to={`/topics/${slug}`} 
+                      variant="tag-l2" 
+                      className="text-xs py-0 px-2 truncate"
+                    >
+                      {l2Topic}
+                    </ChipLink>
+                  ) : (
+                    <Badge variant="tag-l2" className="text-xs py-0 px-2 truncate">
+                      {l2Topic}
+                    </Badge>
+                  );
+                })()}
                 
-                {/* L3 Tags */}
-                {tags.slice(0, l1Topic || l2Topic ? 1 : 2).map((tag, index) => (
-                  <Badge key={`l3-${index}`} variant="tag-l3" className="text-xs py-0 px-2 truncate">
-                    {tag}
-                  </Badge>
-                ))}
+                {/* L3 Tags - Link if topic exists, Badge otherwise */}
+                {tags.slice(0, l1Topic || l2Topic ? 1 : 2).map((tag, index) => {
+                  const slug = getTopicSlug(tag);
+                  return slug ? (
+                    <ChipLink 
+                      key={`l3-${index}`}
+                      to={`/topics/${slug}`} 
+                      variant="tag-l3" 
+                      className="text-xs py-0 px-2 truncate"
+                    >
+                      {tag}
+                    </ChipLink>
+                  ) : (
+                    <Badge key={`l3-${index}`} variant="tag-l3" className="text-xs py-0 px-2 truncate">
+                      {tag}
+                    </Badge>
+                  );
+                })}
                 
                 {/* Show +N for remaining tags */}
                 {tags.length > (l1Topic || l2Topic ? 1 : 2) && (
