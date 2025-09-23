@@ -38,7 +38,13 @@ const ProtectedRoute = ({ children, requireEmailVerification = true }: Protected
       }
     }
 
-    // Check if onboarding is completed
+    // Check if onboarding is completed and user is on onboarding page - redirect to feed
+    if (profile && profile.onboarding_completed && window.location.pathname === '/onboarding') {
+      navigate("/feed", { replace: true });
+      return;
+    }
+
+    // Check if onboarding is not completed - redirect to onboarding
     if (profile && !profile.onboarding_completed) {
       // Don't redirect if already on onboarding page
       if (window.location.pathname !== '/onboarding') {
