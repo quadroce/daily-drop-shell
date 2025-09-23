@@ -40,6 +40,7 @@ const ProtectedRoute = ({ children, requireEmailVerification = true }: Protected
 
     // Check if onboarding is completed and user is on onboarding page - redirect to feed
     if (profile && profile.onboarding_completed && window.location.pathname === '/onboarding') {
+      console.log('ProtectedRoute: Redirecting completed user from onboarding to feed');
       navigate("/feed", { replace: true });
       return;
     }

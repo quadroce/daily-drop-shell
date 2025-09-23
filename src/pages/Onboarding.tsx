@@ -201,7 +201,7 @@ const OnboardingPage: React.FC = () => {
             description: "Some preferences may need to be set manually in settings.",
           });
           
-          navigate('/feed', { replace: true });
+          // Let ProtectedRoute handle the redirect
           return;
         }
       } catch (fallbackError) {
