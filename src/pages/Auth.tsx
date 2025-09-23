@@ -45,6 +45,7 @@ const Auth = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  const [activeTab, setActiveTab] = useState("login");
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -283,7 +284,7 @@ const Auth = () => {
             </p>
           </div>
 
-          <Tabs defaultValue="login" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="register">Register</TabsTrigger>
               <TabsTrigger value="login">Login</TabsTrigger>
@@ -431,15 +432,7 @@ const Auth = () => {
                         <Button
                           variant="link"
                           className="p-0 h-auto text-base font-medium text-accent-foreground hover:text-accent-foreground/80"
-                          onClick={() => {
-                            const tabs = document.querySelector(
-                              '[role="tablist"]',
-                            );
-                            const registerTab = tabs?.querySelector(
-                              '[value="register"]',
-                            ) as HTMLElement;
-                            registerTab?.click();
-                          }}
+                          onClick={() => setActiveTab("register")}
                         >
                           Create one here
                         </Button>
