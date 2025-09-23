@@ -229,7 +229,7 @@ const Feed = () => {
           )}
         </div>
 
-        <div className="h-[calc(100vh-200px)] overflow-hidden">
+        <div className="h-[calc(100vh-200px)] overflow-y-auto">
           <SimpleFeedList
             items={items}
             load={load}

@@ -62,10 +62,17 @@ async function fetchPage({
     const items = (data ?? []) as FeedItem[];
     const last = items.at(-1);
     
-    // Safe cursor generation - ensure published_at is not null
-    const nextCursor = last && last.published_at
+    // For RPC, if we get a full page, assume there might be more
+    const nextCursor = last && last.published_at && items.length >= limit
       ? btoa(`${last.final_score}:${last.published_at}:${last.id}`)
       : null;
+    
+    console.log('✅ RPC query successful:', { 
+      itemsCount: items.length, 
+      limit, 
+      nextCursor: !!nextCursor,
+      hasMore: !!nextCursor 
+    });
     
     return { items, nextCursor };
     
@@ -138,7 +145,13 @@ async function fetchPage({
       ? btoa(`0.5:${last.published_at}:${last.id}`)
       : null;
     
-    console.log('✅ Fallback query successful:', { itemsCount: items.length, nextCursor });
+    console.log('✅ Fallback query successful:', { 
+      itemsCount: items.length, 
+      allItemsCount: allItems.length,
+      limit,
+      hasMoreItems,
+      nextCursor: !!nextCursor 
+    });
     return { items, nextCursor };
   }
 }
@@ -197,7 +210,13 @@ export function useInfiniteFeed({ userId, language, l1, l2 }: UseInfiniteFeedPar
       });
 
       setCursor(nextCursor);
-      setHasMore(Boolean(nextCursor) && page.length > 0);
+      setHasMore(Boolean(nextCursor && page.length > 0));
+      
+      console.log('📊 Setting hasMore:', { 
+        nextCursor: !!nextCursor, 
+        pageLength: page.length, 
+        hasMore: Boolean(nextCursor && page.length > 0) 
+      });
 
       // Analytics tracking
       if (typeof window !== 'undefined' && window.gtag) {

@@ -444,11 +444,19 @@ export function SimpleFeedList({ items, load, hasMore, loading, error, onRetry }
     items: items.slice(0, 3).map(i => ({ id: i.id, title: i.title }))
   });
 
-  // Intersection Observer for infinite loading
+  // Intersection Observer for infinite loading with better logging
   useEffect(() => {
-    if (!hasMore || loading) return;
+    console.log('🔍 Setting up intersection observer:', { hasMore, loading });
+    if (!hasMore || loading) {
+      console.log('❌ Intersection observer blocked:', { hasMore, loading });
+      return;
+    }
+    
     const el = sentinelRef.current;
-    if (!el) return;
+    if (!el) {
+      console.log('❌ No sentinel element found');
+      return;
+    }
 
     const io = new IntersectionObserver(
       (entries) => {
@@ -462,8 +470,12 @@ export function SimpleFeedList({ items, load, hasMore, loading, error, onRetry }
       { rootMargin: "600px 0px 600px 0px" }
     );
 
+    console.log('✅ Observing sentinel element');
     io.observe(el);
-    return () => io.disconnect();
+    return () => {
+      console.log('🧹 Cleaning up intersection observer');
+      io.disconnect();
+    };
   }, [hasMore, loading, load]);
 
   if (error) {
@@ -485,7 +497,7 @@ export function SimpleFeedList({ items, load, hasMore, loading, error, onRetry }
   return (
     <div className="h-full">
       {/* Render all items directly (no virtualization) */}
-      <div className="space-y-4 overflow-y-auto h-full">
+      <div className="space-y-4">
         {items.map((item) => (
           <SimpleDropCard
             key={item.id}
