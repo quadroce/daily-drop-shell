@@ -172,11 +172,14 @@ async function fetchPage({
       : null;
     
     console.log('✅ Fallback query successful:', { 
-      itemsCount: items.length, 
-      allItemsCount: allItems.length,
+      totalFetched: allItems.length,
+      returnedItems: items.length,
       limit,
-      hasMoreItems,
-      nextCursor: !!nextCursor 
+      hasMore: hasMoreItems,
+      nextCursor: nextCursor?.substring(0, 20) + '...',
+      lastItemDate: last?.published_at,
+      lastItemScore: last?.final_score,
+      allItemsCountVsLimit: `${allItems.length} vs ${limit}`
     });
     return { items, nextCursor };
   }

@@ -229,16 +229,14 @@ const Feed = () => {
           )}
         </div>
 
-        <div className="h-[calc(100vh-200px)] overflow-y-auto">
-          <SimpleFeedList
-            items={items}
-            load={load}
-            hasMore={hasMore}
-            loading={loading}
-            error={error}
-            onRetry={reset}
-          />
-        </div>
+        <SimpleFeedList
+          items={items}
+          load={load}
+          hasMore={hasMore}
+          loading={loading}
+          error={error}
+          onRetry={reset}
+        />
       </div>
     </>
   );
