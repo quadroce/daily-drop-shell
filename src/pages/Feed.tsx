@@ -9,6 +9,7 @@ import { useInfiniteFeed } from "@/hooks/useInfiniteFeed";
 import { SimpleFeedList } from "@/components/SimpleFeedList";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
+import { FeedCacheRefresh } from "@/components/admin/FeedCacheRefresh";
 
 const Feed = () => {
   const navigate = useNavigate();
@@ -249,6 +250,9 @@ const Feed = () => {
           error={error}
           onRetry={reset}
         />
+        
+        {/* Debug: Pulsante per rigenerare cache personalizzata */}
+        <FeedCacheRefresh />
       </div>
     </>
   );
