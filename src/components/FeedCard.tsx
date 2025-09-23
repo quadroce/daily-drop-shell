@@ -241,6 +241,7 @@ export const FeedCard = ({
                 {/* L1 Topic Badge/Link */}
                 {l1Topic && (() => {
                   const slug = getTopicSlug(l1Topic);
+                  console.log(`🏷️ L1 Topic "${l1Topic}" -> slug: "${slug}"`);
                   return slug ? (
                     <ChipLink 
                       to={`/topics/${slug}`} 
