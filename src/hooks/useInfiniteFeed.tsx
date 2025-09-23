@@ -68,29 +68,44 @@ async function fetchPage({
 
     const items = (data ?? []) as FeedItem[];
     
+    // Filter out non-English/Italian content on frontend as fallback
+    const filteredItems = items.filter(item => {
+      // Check if title contains Chinese characters
+      const chineseRegex = /[\u4e00-\u9fff]/;
+      const hasChineseChars = chineseRegex.test(item.title);
+      
+      if (hasChineseChars) {
+        console.log('🚫 Filtering out Chinese content:', item.title);
+        return false;
+      }
+      
+      return true;
+    });
+    
     // For RPC: Use position-based pagination
     let nextCursor = null;
-    if (items.length >= limit) {
+    if (filteredItems.length >= limit) {
       // Parse current position from cursor, or start at 1
       const currentPosition = cursor ? 
         (JSON.parse(cursor).position || 1) : 1;
-      const nextPosition = currentPosition + items.length;
+      const nextPosition = currentPosition + filteredItems.length;
       nextCursor = JSON.stringify({ position: nextPosition });
     }
     
     console.log('✅ RPC query successful:', { 
-      itemsCount: items.length, 
+      originalItemsCount: items.length,
+      filteredItemsCount: filteredItems.length,
       limit, 
       nextCursor: !!nextCursor,
       hasMore: !!nextCursor,
-      personalizedScores: items.slice(0, 3).map(i => ({ 
+      personalizedScores: filteredItems.slice(0, 3).map(i => ({ 
         score: i.final_score, 
         reason: i.reason_for_ranking 
       }))
     });
     
     console.log('📤 Returning from fetchPage with RPC result');
-    return { items, nextCursor };
+    return { items: filteredItems, nextCursor };
     
   } catch (rpcError) {
     console.log('🔄 RPC failed, using fallback query...', {
@@ -256,6 +271,7 @@ export function useInfiniteFeed({ userId, languageCodes, l1, l2 }: UseInfiniteFe
       });
 
       if (!result) {
+        console.log('❌ No result from fetchPage');
         throw new Error('No result returned from fetchPage');
       }
 
