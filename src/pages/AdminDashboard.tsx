@@ -412,18 +412,24 @@ const AdminDashboard = () => {
     }
   };
 
-  const triggerBackgroundRanking = async () => {
+  const triggerBackgroundRanking = async (allUsers = false) => {
     setRunning(true);
     try {
+      const body = allUsers 
+        ? { trigger: 'manual', users_limit: 10000 } // Process all users
+        : { trigger: 'manual' };
+
       const { data, error } = await supabase.functions.invoke('background-feed-ranking', {
-        body: { trigger: 'manual' }
+        body
       });
 
       if (error) throw error;
 
       toast({
         title: "Background Ranking Started",
-        description: "Feed ranking algorithm has been triggered manually.",
+        description: allUsers 
+          ? `Processing cache for all ${data?.processed_users || 'available'} users.`
+          : "Feed ranking algorithm has been triggered manually.",
       });
     } catch (error) {
       console.error('Error triggering background ranking:', error);
@@ -1100,7 +1106,7 @@ const AdminDashboard = () => {
                 </Button>
                 
                 <Button 
-                  onClick={triggerBackgroundRanking} 
+                  onClick={() => triggerBackgroundRanking(false)} 
                   disabled={running}
                   className="w-full"
                   variant="secondary"
@@ -1111,6 +1117,20 @@ const AdminDashboard = () => {
                     <TrendingUp className="h-4 w-4 mr-2" />
                   )}
                   Trigger Feed Ranking
+                </Button>
+                
+                <Button 
+                  onClick={() => triggerBackgroundRanking(true)} 
+                  disabled={running}
+                  className="w-full"
+                  variant="outline"
+                >
+                  {running ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Database className="h-4 w-4 mr-2" />
+                  )}
+                  Calcola Cache Tutti Utenti
                 </Button>
               </CardContent>
             </Card>
