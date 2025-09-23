@@ -1132,6 +1132,43 @@ const AdminDashboard = () => {
                   )}
                   Calcola Cache Tutti Utenti
                 </Button>
+
+                <Button 
+                  onClick={async () => {
+                    setRunning(true);
+                    try {
+                      const { data, error } = await supabase.functions.invoke('manual-user-cache', {
+                        body: { user_id: 'b4c9447c-babd-4999-b462-afca6cbce147' }
+                      });
+
+                      if (error) throw error;
+
+                      toast({
+                        title: "Cache Rigenerata",
+                        description: `Cache aggiornata: ${data?.cache_items || 0} elementi`,
+                      });
+                    } catch (error) {
+                      console.error('Error regenerating user cache:', error);
+                      toast({
+                        title: "Errore",
+                        description: "Errore nella rigenerazione cache utente",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setRunning(false);
+                    }
+                  }} 
+                  disabled={running}
+                  className="w-full"
+                  variant="secondary"
+                >
+                  {running ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                  )}
+                  Rigenera Cache Mia
+                </Button>
               </CardContent>
             </Card>
           </div>
