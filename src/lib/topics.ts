@@ -48,8 +48,13 @@ export async function getTopicArticles(topicSlug: string, limit: number = 6, cur
       image_url,
       published_at,
       type,
+      l1_topic_id,
+      l2_topic_id,
+      tags,
       sources:source_id(name, homepage_url),
-      content_topics!inner(topic_id)
+      content_topics!inner(topic_id),
+      l1_topic:topics!l1_topic_id(slug, label),
+      l2_topic:topics!l2_topic_id(slug, label)
     `)
     .in('content_topics.topic_id', relevantTopicIds)
     .eq('tag_done', true)
@@ -86,7 +91,10 @@ export async function getTopicArticles(topicSlug: string, limit: number = 6, cur
       name: drop.sources?.name || 'Unknown Source',
       url: drop.sources?.homepage_url || '#'
     },
-    tags: [], // We could fetch this from content_topics if needed
+    tags: drop.tags || [],
+    l1Topic: drop.l1_topic?.label,
+    l2Topic: drop.l2_topic?.label,
+    l3Tags: drop.tags || [],
     href: drop.url,
     youtubeId: drop.type === 'video' ? extractYouTubeId(drop.url) : undefined,
     isPremium: false

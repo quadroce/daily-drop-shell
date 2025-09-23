@@ -13,7 +13,6 @@ export const useTopicsMap = () => {
       try {
         setIsLoading(true);
         const fetchedTopics = await fetchTopicsTree();
-        console.log('🔍 Topics loaded:', fetchedTopics);
         setTopics(fetchedTopics);
         setError(null);
       } catch (err) {
@@ -32,7 +31,6 @@ export const useTopicsMap = () => {
     topics.forEach(topic => {
       map.set(topic.label, topic.slug);
     });
-    console.log('🗺️ Topics map created:', Object.fromEntries(map));
     return map;
   }, [topics]);
 
