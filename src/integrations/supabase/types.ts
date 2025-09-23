@@ -1366,7 +1366,7 @@ export type Database = {
           summary: string
           tags: string[]
           title: string
-          type: Database["public"]["Enums"]["drop_type"]
+          type: string
           url: string
           youtube_channel_id: string
           youtube_thumbnail_url: string
