@@ -183,7 +183,14 @@ const OnboardingPage: React.FC = () => {
         description: "Your account has been set up successfully.",
       });
       
-      console.log('🎯 Letting ProtectedRoute handle redirect to /feed');
+      console.log('🎯 Resetting button state and letting ProtectedRoute handle redirect');
+      setIsCompleting(false);
+      
+      // Safety timeout - if ProtectedRoute doesn't redirect in 3 seconds, force it
+      setTimeout(() => {
+        console.log('⚠️ Safety timeout triggered - forcing redirect to /feed');
+        navigate('/feed');
+      }, 3000);
       
     } catch (error) {
       console.error('Error completing onboarding:', error);
