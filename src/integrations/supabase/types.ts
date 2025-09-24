@@ -910,9 +910,11 @@ export type Database = {
           is_paused: boolean | null
           last_error_at: string | null
           last_success_at: string | null
+          last_zero_attempt_at: string | null
           paused_until: string | null
           source_id: number
           updated_at: string | null
+          zero_article_attempts: number | null
         }
         Insert: {
           consecutive_errors?: number | null
@@ -921,9 +923,11 @@ export type Database = {
           is_paused?: boolean | null
           last_error_at?: string | null
           last_success_at?: string | null
+          last_zero_attempt_at?: string | null
           paused_until?: string | null
           source_id: number
           updated_at?: string | null
+          zero_article_attempts?: number | null
         }
         Update: {
           consecutive_errors?: number | null
@@ -932,9 +936,11 @@ export type Database = {
           is_paused?: boolean | null
           last_error_at?: string | null
           last_success_at?: string | null
+          last_zero_attempt_at?: string | null
           paused_until?: string | null
           source_id?: number
           updated_at?: string | null
+          zero_article_attempts?: number | null
         }
         Relationships: []
       }

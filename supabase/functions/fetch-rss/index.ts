@@ -1,9 +1,11 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { XMLParser } from "npm:fast-xml-parser";
 
 const SUPABASE_URL = "https://qimelntuxquptqqynxzv.supabase.co";
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY!);
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,6 +16,12 @@ interface Source {
   id: number;
   name: string;
   feed_url: string;
+  source_health?: Array<{
+    zero_article_attempts: number;
+    last_zero_attempt_at: string | null;
+    is_paused: boolean;
+    consecutive_errors: number;
+  }>;
 }
 
 interface RSSItem {
@@ -91,58 +99,70 @@ function parseFeed(xmlContent: string): RSSItem[] {
   }
 }
 
-// Update source health status
-async function updateSourceHealth(sourceId: number, isSuccess: boolean, errorType?: string) {
-  const healthData = isSuccess ? {
-    consecutive_errors: 0,
-    last_success_at: new Date().toISOString(),
-    is_paused: false,
-    paused_until: null,
-    updated_at: new Date().toISOString()
-  } : {
-    consecutive_errors: 1, // Will be incremented by PostgreSQL trigger if needed
-  };
-
-  if (!isSuccess && errorType) {
-    healthData.error_type = errorType;
-    healthData.last_error_at = new Date().toISOString();
-    healthData.updated_at = new Date().toISOString();
-  }
-
+// Update source health status and handle auto-elimination
+async function updateSourceHealth(sourceId: number, isSuccess: boolean, articleCount: number = 0, errorType?: string) {
   try {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/source_health`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-        'apikey': SERVICE_ROLE_KEY,
-        'Content-Type': 'application/json',
-        'Prefer': 'resolution=merge-duplicates',
-      },
-      body: JSON.stringify({
-        source_id: sourceId,
-        ...healthData
-      }),
-    });
+    if (isSuccess && articleCount === 0) {
+      // Track zero article attempts
+      await supabase
+        .from('source_health')
+        .upsert({
+          source_id: sourceId,
+          zero_article_attempts: 'zero_article_attempts + 1',
+          last_zero_attempt_at: new Date().toISOString(),
+          last_success_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'source_id'
+        });
 
-    if (response.status === 409) {
-      // Update existing record
-      await fetch(`${SUPABASE_URL}/rest/v1/source_health?source_id=eq.${sourceId}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-          'apikey': SERVICE_ROLE_KEY,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(isSuccess ? healthData : {
+      // Check if source should be auto-eliminated
+      const { data: healthData } = await supabase
+        .from('source_health')
+        .select('zero_article_attempts')
+        .eq('source_id', sourceId)
+        .single();
+
+      if (healthData && healthData.zero_article_attempts >= 3) {
+        // Auto-eliminate source after 3 failed attempts
+        await supabase
+          .from('sources')
+          .update({ status: 'disabled' })
+          .eq('id', sourceId);
+        
+        console.log(`🚫 Auto-eliminated source ${sourceId} after 3 zero-article attempts`);
+      }
+    } else if (isSuccess && articleCount > 0) {
+      // Reset zero article attempts on successful article fetch
+      await supabase
+        .from('source_health')
+        .upsert({
+          source_id: sourceId,
+          consecutive_errors: 0,
+          zero_article_attempts: 0,
+          last_zero_attempt_at: null,
+          last_success_at: new Date().toISOString(),
+          is_paused: false,
+          paused_until: null,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'source_id'
+        });
+    } else if (!isSuccess) {
+      // Handle errors
+      await supabase
+        .from('source_health')
+        .upsert({
+          source_id: sourceId,
           consecutive_errors: 'consecutive_errors + 1',
           error_type: errorType,
           last_error_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          // Pause source if too many consecutive errors
           is_paused: 'consecutive_errors >= 10',
           paused_until: 'CASE WHEN consecutive_errors >= 10 THEN now() + interval \'2 hours\' ELSE paused_until END'
-        }),
-      });
+        }, {
+          onConflict: 'source_id'
+        });
     }
   } catch (error) {
     console.warn(`Failed to update source health for ${sourceId}:`, error.message);
@@ -272,8 +292,8 @@ async function processFeed(source: Source): Promise<FeedResult> {
 
       await Promise.all(enqueuePromises);
       
-      // Mark source as healthy on success
-      await updateSourceHealth(source.id, true);
+      // Update source health with article count for zero-article tracking
+      await updateSourceHealth(source.id, true, result.items);
       break; // Success, exit retry loop
       
     } catch (error) {
@@ -309,39 +329,103 @@ serve(async (req) => {
     const url = new URL(req.url);
     const sourceIdParam = url.searchParams.get('source_id');
     
-    // NEW: Pagination parameters to prevent timeouts
+    // Increased pagination parameters for better performance
     const offsetParam = parseInt(url.searchParams.get('offset') || '0', 10);
-    const limitParam = parseInt(url.searchParams.get('limit') || '50', 10); // Max 50 sources per execution
+    const limitParam = parseInt(url.searchParams.get('limit') || '80', 10); // Increased from 50 to 80
     
     console.log(`Fetching RSS feeds (offset: ${offsetParam}, limit: ${limitParam})${sourceIdParam ? ` for source ${sourceIdParam}` : ' for active sources'}`);
 
-    // Build query for active sources
-    let sourcesQuery = `${SUPABASE_URL}/rest/v1/sources?status=eq.active&feed_url=not.is.null&select=id,name,feed_url&order=id.asc`;
+    // Intelligent source fetching with prioritization
+    let sourcesQuery;
     
     if (sourceIdParam) {
-      sourcesQuery += `&id=eq.${sourceIdParam}`;
+      // Single source query
+      sourcesQuery = supabase
+        .from('sources')
+        .select(`
+          id, name, feed_url,
+          source_health (
+            zero_article_attempts,
+            last_zero_attempt_at,
+            is_paused,
+            consecutive_errors
+          )
+        `)
+        .eq('id', parseInt(sourceIdParam))
+        .eq('status', 'active')
+        .not('feed_url', 'is', null);
     } else {
-      // Add pagination only when not fetching a specific source
-      sourcesQuery += `&offset=${offsetParam}&limit=${limitParam}`;
+      // Intelligent prioritization query
+      sourcesQuery = supabase
+        .from('sources')
+        .select(`
+          id, name, feed_url,
+          source_health (
+            zero_article_attempts,
+            last_zero_attempt_at,
+            is_paused,
+            consecutive_errors
+          )
+        `)
+        .eq('status', 'active')
+        .not('feed_url', 'is', null)
+        .range(offsetParam, offsetParam + limitParam - 1);
     }
 
-    // Fetch active sources with RSS feeds
-    const sourcesResponse = await fetch(sourcesQuery, {
-      headers: {
-        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-        'apikey': SERVICE_ROLE_KEY,
-        'Content-Type': 'application/json',
-      },
-    });
+    const { data: sourcesData, error: sourcesError } = await sourcesQuery;
 
-    if (!sourcesResponse.ok) {
-      const errorText = await sourcesResponse.text();
-      console.error('Failed to fetch sources:', errorText);
-      throw new Error(`Failed to fetch sources: ${sourcesResponse.status} ${errorText}`);
+    if (sourcesError) {
+      console.error('Error fetching sources:', sourcesError);
+      return new Response(JSON.stringify({ 
+        sources: 0, 
+        enqueued: 0, 
+        error: 'Failed to fetch sources' 
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    const sources: Source[] = await sourcesResponse.json();
-    console.log(`Found ${sources.length} sources to process (offset: ${offsetParam})`);
+    if (!sourcesData || sourcesData.length === 0) {
+      return new Response(JSON.stringify({ 
+        sources: 0, 
+        enqueued: 0, 
+        offset: offsetParam,
+        has_more: false,
+        message: offsetParam === 0 ? 'No active sources with RSS feeds found' : 'No more sources to process'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Intelligent prioritization: 
+    // 1. PRIORITY: Sources with 0 articles and <= 3 attempts (give new sources chances)
+    // 2. NORMAL: All other active sources (by health)
+    const sources = sourcesData
+      .filter(source => !source.source_health?.[0]?.is_paused)
+      .sort((a, b) => {
+        const aHealth = a.source_health?.[0];
+        const bHealth = b.source_health?.[0];
+        
+        const aAttempts = aHealth?.zero_article_attempts || 0;
+        const bAttempts = bHealth?.zero_article_attempts || 0;
+        
+        // Priority sources: sources with 0+ attempts but <= 3 (give chances to prove themselves)
+        const aPriority = aAttempts > 0 && aAttempts <= 3;
+        const bPriority = bAttempts > 0 && bAttempts <= 3;
+        
+        if (aPriority && !bPriority) return -1; // Priority sources first
+        if (!aPriority && bPriority) return 1;
+        
+        // Within same priority level, prefer fewer consecutive errors
+        return (aHealth?.consecutive_errors || 0) - (bHealth?.consecutive_errors || 0);
+      });
+      
+    console.log(`Found ${sources.length} sources to process (${sources.filter(s => {
+      const health = s.source_health?.[0];
+      const attempts = health?.zero_article_attempts || 0;
+      return attempts > 0 && attempts <= 3;
+    }).length} priority sources with 0 articles)`);
 
     if (sources.length === 0) {
       return new Response(JSON.stringify({ 
@@ -349,14 +433,14 @@ serve(async (req) => {
         enqueued: 0, 
         offset: offsetParam,
         has_more: false,
-        message: sources.length === 0 && offsetParam === 0 ? 'No active sources with RSS feeds found' : 'No more sources to process'
+        message: 'All sources are paused or disabled'
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Process feeds in small batches to avoid CPU time limits  
-    const BATCH_SIZE = 3; // Process 3 sources at a time
+    // Process feeds in optimized batches
+    const BATCH_SIZE = 5; // Increased from 3 to 5 sources at a time
     const results: FeedResult[] = [];
     
     console.log(`Processing ${sources.length} sources in batches of ${BATCH_SIZE}`);
@@ -371,9 +455,9 @@ serve(async (req) => {
       
       results.push(...batchResults);
       
-      // Small delay between batches to prevent CPU exhaustion
+      // Reduced delay between batches for faster processing
       if (i + BATCH_SIZE < sources.length) {
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise(resolve => setTimeout(resolve, 500)); // Reduced from 200ms to 500ms
       }
     }
 
@@ -388,7 +472,7 @@ serve(async (req) => {
     }
 
     // Determine if there are more sources to process
-    const hasMore = sources.length === limitParam; // If we got exactly the limit, there might be more
+    const hasMore = sourcesData.length === limitParam; // If we got exactly the limit, there might be more
 
     return new Response(JSON.stringify({
       sources: sources.length,
@@ -397,6 +481,11 @@ serve(async (req) => {
       limit: limitParam,
       has_more: hasMore,
       next_offset: hasMore ? offsetParam + limitParam : null,
+      priority_sources: sources.filter(s => {
+        const health = s.source_health?.[0];
+        const attempts = health?.zero_article_attempts || 0;
+        return attempts > 0 && attempts <= 3;
+      }).length,
       results: results.map(r => ({
         sourceId: r.sourceId,
         sourceName: r.sourceName,
