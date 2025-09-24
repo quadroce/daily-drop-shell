@@ -116,7 +116,8 @@ serve(async (req) => {
             data: tagData
           };
         } catch (error) {
-          result.tag_drops_error = error.message;
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          result.tag_drops_error = errorMessage;
         }
         break;
 
@@ -142,7 +143,8 @@ serve(async (req) => {
             data: restartData
           };
         } catch (error) {
-          result.restart_error = error.message;
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          result.restart_error = errorMessage;
         }
         break;
 
@@ -159,8 +161,8 @@ serve(async (req) => {
         const queueStats = await queueRes.json();
         
         // Get untagged count
-        const untaggedRes = await supa("/rest/v1/drops?tag_done=eq.false&select=count()");
-        const untaggedCount = await untaggedRes.json();
+        const untaggedCountRes = await supa("/rest/v1/drops?tag_done=eq.false&select=count()");
+        const untaggedCount = await untaggedCountRes.json();
         
         // Get recent drops
         const recentRes = await supa("/rest/v1/drops?select=id,title,created_at,tag_done&order=created_at.desc&limit=10");
@@ -183,10 +185,12 @@ serve(async (req) => {
 
   } catch (error) {
     console.error("❌ Debug function error:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
     return jres(500, {
       success: false,
-      error: error.message,
-      stack: error.stack
+      error: errorMessage,
+      stack: errorStack
     });
   }
 });

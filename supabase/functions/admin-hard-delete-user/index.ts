@@ -219,9 +219,10 @@ serve(async (req) => {
 
     } catch (cleanupError) {
       console.error('Error during cleanup:', cleanupError);
+      const errorMessage = cleanupError instanceof Error ? cleanupError.message : String(cleanupError);
       return new Response(JSON.stringify({ 
         error: 'Failed to complete user deletion',
-        details: cleanupError.message 
+        details: errorMessage 
       }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -230,9 +231,10 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in hard delete function:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
-      details: error.message 
+      details: errorMessage 
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

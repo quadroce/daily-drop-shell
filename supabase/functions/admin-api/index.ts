@@ -436,9 +436,10 @@ async function youtubeReprocess(req: Request) {
       } catch (error) {
         console.error(`Error processing video ${video.id}:`, error);
         errors++;
+        const errorMessage = error instanceof Error ? error.message : String(error);
         results.push({
           id: video.id,
-          error: error.message,
+          error: errorMessage,
           success: false
         });
       }
@@ -468,10 +469,12 @@ async function youtubeReprocess(req: Request) {
     
   } catch (error) {
     console.error('Failed YouTube reprocessing:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
     return new Response(JSON.stringify({
       success: false,
-      error: error.message,
-      stack: error.stack
+      error: errorMessage,
+      stack: errorStack
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500
@@ -633,11 +636,12 @@ async function getUserById(req: Request, userId: string): Promise<Response> {
 
     // Get language codes for selected language IDs
     let selectedLanguageCodes: string[] = [];
-    if (data.preferences?.selected_language_ids?.length > 0) {
+    const preferences = Array.isArray(data.preferences) ? data.preferences[0] : data.preferences;
+    if (preferences?.selected_language_ids?.length > 0) {
       const { data: langData } = await supabase
         .from('languages')
         .select('code')
-        .in('id', data.preferences.selected_language_ids);
+        .in('id', preferences.selected_language_ids);
       
       selectedLanguageCodes = langData?.map(l => l.code) || [];
     }
@@ -678,7 +682,8 @@ async function createUser(req: Request, payload?: any): Promise<Response> {
     }
 
     // Get current user for audit logging
-    const { data: authUser } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+    const authHeader = req.headers.get('authorization');
+    const { data: authUser } = authHeader ? await supabase.auth.getUser(authHeader.replace('Bearer ', '')) : { data: { user: null } };
     const currentUserId = authUser.user?.id;
 
     // Create auth user
@@ -769,7 +774,8 @@ async function updateUser(req: Request, userId: string, payload?: any): Promise<
     } = userData;
 
     // Get current user for role check and audit logging
-    const { data: authUser } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+    const authHeader = req.headers.get('authorization');
+    const { data: authUser } = authHeader ? await supabase.auth.getUser(authHeader.replace('Bearer ', '')) : { data: { user: null } };
     const currentUserId = authUser.user?.id;
     
     const { data: currentUserProfile } = await supabase

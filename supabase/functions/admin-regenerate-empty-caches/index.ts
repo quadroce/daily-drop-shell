@@ -89,7 +89,7 @@ serve(async (req) => {
     console.log(`[Admin Cache Regen] Found ${usersWithEmptyCache.length} users with empty/insufficient cache`);
 
     // Call background-feed-ranking with smart cache for these specific users
-    const userIds = usersWithEmptyCache.map(u => u.user_id);
+    const userIds = usersWithEmptyCache.map((u: any) => u.user_id);
     
     const { data: regenerationResult, error: regenError } = await supabaseClient.functions.invoke(
       'background-feed-ranking',
@@ -132,7 +132,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: 'Internal server error',
-        details: error.message
+        details: error instanceof Error ? error.message : String(error)
       }),
       { 
         status: 500, 

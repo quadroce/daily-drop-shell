@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const SUPABASE_URL = "https://qimelntuxquptqqynxzv.supabase.co";
-const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -332,7 +332,7 @@ serve(async (req) => {
       // Return early unless it's a failed item that we want to retry
       if (existingCheck.queueStatus !== 'failed') {
         return new Response(
-          JSON.stringify(response),
+          JSON.stringify(response!),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
