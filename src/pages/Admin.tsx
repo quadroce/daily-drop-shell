@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { VectorSystemInit } from "@/components/VectorSystemInit";
 import { NewsletterTestPanel } from "@/components/admin/NewsletterTestPanel";
+import { CacheRegenerationTrigger } from "@/components/admin/CacheRegenerationTrigger";
 import { Loader2, Users, Database, List, ArrowLeft, Rss, Cog, Tags, Monitor, Map, Globe, Youtube, Settings, Mail } from "lucide-react";
 
 interface Profile {
@@ -720,6 +721,11 @@ const Admin = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Cache Management */}
+      <div className="mb-8">
+        <CacheRegenerationTrigger />
+      </div>
 
       {/* UI Settings */}
       <Card className="mb-8">
