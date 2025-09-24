@@ -42,7 +42,15 @@ async function fetchPage({
   console.log('🔄 fetchPage called with:', { userId, cursor, language, l1, l2, limit });
   
   try {
-    console.log('📡 About to call RPC feed_get_page_drops');
+    console.log('📡 About to call RPC feed_get_page_drops with params:', {
+      p_user_id: userId,
+      p_limit: limit,
+      p_cursor: cursor,
+      p_language: language,
+      p_l1: l1,
+      p_l2: l2
+    });
+    
     // Try the RPC first (uses cache or real-time ranking)
     const { data, error } = await supabase.rpc('feed_get_page_drops', {
       p_user_id: userId,
@@ -58,7 +66,8 @@ async function fetchPage({
       hasError: !!error, 
       dataLength: data?.length,
       errorMessage: error?.message,
-      languageFilter: language
+      languageFilter: language,
+      rawData: data
     });
 
     if (error) {
@@ -249,6 +258,17 @@ export function useInfiniteFeed({ userId, languageCodes, l1, l2 }: UseInfiniteFe
     setLoading(true);
     setError(null);
     console.log('✅ Loading started, setLoading(true) called');
+    
+    // DEBUG: Log current feed state before loading
+    console.log('🔍 DETAILED LOAD DEBUG:', {
+      currentItems: items.length,
+      cursor,
+      hasMore,
+      userId,
+      languageCodes,
+      l1,
+      l2
+    });
 
     try {
       console.log('📡 Calling fetchPage with params:', {
