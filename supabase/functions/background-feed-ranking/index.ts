@@ -15,9 +15,9 @@ serve(async (req) => {
 
   try {
     const requestBody = await req.json().catch(() => ({}));
-    const { trigger = 'manual', users_limit, user_id, smart_cache = true } = requestBody;
+    const { trigger = 'manual', users_limit, user_id, user_ids, smart_cache = true, force_regeneration = false } = requestBody;
     
-    console.log(`[Background] Starting SMART feed ranking - trigger: ${trigger}, users_limit: ${users_limit}, user_id: ${user_id}, smart_cache: ${smart_cache}`);
+    console.log(`[Background] Starting SMART feed ranking - trigger: ${trigger}, users_limit: ${users_limit}, user_id: ${user_id}, user_ids: ${user_ids?.length || 0}, smart_cache: ${smart_cache}, force_regeneration: ${force_regeneration}`);
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -35,6 +35,10 @@ serve(async (req) => {
       // Process only the specific user who just completed onboarding
       usersQuery = usersQuery.eq('user_id', user_id);
       console.log(`[Background] Processing single user after onboarding: ${user_id}`);
+    } else if (trigger === 'admin_regeneration' && user_ids && user_ids.length > 0) {
+      // Process specific users requested by admin
+      usersQuery = usersQuery.in('user_id', user_ids);
+      console.log(`[Background] Processing ${user_ids.length} users requested by admin`);
     } else if (trigger === 'cron_optimized' || trigger === 'preload') {
       // Smart user selection: prioritize users with expired or insufficient cache
       const currentTime = new Date().toISOString();
@@ -113,11 +117,11 @@ serve(async (req) => {
       try {
         console.log('[Background] Processing user:', user.user_id);
 
-        // SMART CACHE CHECK: Only proceed if cache needs update
+        // SMART CACHE CHECK: Only proceed if cache needs update (unless force_regeneration is true)
         let shouldRegenerate = false;
         let existingCacheCount = 0;
         
-        if (smart_cache) {
+        if (smart_cache && !force_regeneration) {
           const currentTime = new Date().toISOString();
           const { data: existingCache, error: cacheCheckError } = await supabaseClient
             .from('user_feed_cache')
@@ -140,7 +144,7 @@ serve(async (req) => {
             console.log(`[Background] User ${user.user_id}: existing_cache=${existingCacheCount}, should_regenerate=${shouldRegenerate}`);
           }
         } else {
-          // Legacy mode: always regenerate
+          // Legacy mode or force regeneration: always regenerate
           shouldRegenerate = true;
         }
 
