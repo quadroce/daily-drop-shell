@@ -147,8 +147,12 @@ async function fetchPage({
       error: rpcError instanceof Error ? rpcError.message : 'Unknown error',
       userId,
       cursor,
-      language
+      language,
+      isFallbackCursor: cursor && cursor.includes('fallback')
     });
+    
+    // Check if this is a fallback cursor (cache exhausted)
+    const isFallbackCursor = cursor && cursor.includes('fallback');
     
     // Fallback to direct query - include score fields for proper calculation
     let query = supabase
@@ -165,8 +169,8 @@ async function fetchPage({
       .order('published_at', { ascending: false })
       .limit(limit + 1); // Get one extra to check if there are more
 
-    // Apply cursor if provided
-    if (cursor) {
+    // Apply cursor if provided and not a fallback cursor
+    if (cursor && !isFallbackCursor) {
       try {
         const decoded = atob(cursor);
         const [score, publishedAt, id] = decoded.split(':');
