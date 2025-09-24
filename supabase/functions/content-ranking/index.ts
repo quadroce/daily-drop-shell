@@ -225,9 +225,9 @@ serve(async (req) => {
                   cache_expires_at: cacheEntries[0]?.expires_at
                 },
                 constraints_applied: {
-                  youtube_items: rankedDrops.filter(d => d.type === 'video').length,
+                  youtube_items: rankedDrops.filter(d => d?.type === 'video').length,
                   max_per_source: 2,
-                  total_sources: new Set(rankedDrops.map(d => d.source)).size
+                  total_sources: new Set(rankedDrops.map(d => d?.source).filter(Boolean)).size
                 }
               }),
               { 
@@ -235,7 +235,7 @@ serve(async (req) => {
               }
             );
           } else {
-            console.log('[Ranking] Sources fetch error:', sourcesError);
+            console.log('[Ranking] Sources fetch error occurred');
           }
         } else {
           console.log('[Ranking] Drops fetch error or no drops found:', dropsError);
@@ -350,13 +350,13 @@ serve(async (req) => {
     };
 
     if (preferences?.selected_topic_ids?.length > 0) {
-      console.log(`[Ranking] Fetching topic details for ${preferences.selected_topic_ids.length} user preferences`);
+      console.log(`[Ranking] Fetching topic details for ${preferences?.selected_topic_ids?.length || 0} user preferences`);
       const topicsStart = performance.now();
       
       const { data: userTopics, error: topicsError } = await supabaseClient
         .from('topics')
         .select('id, slug, level, parent_id')
-        .in('id', preferences.selected_topic_ids);
+        .in('id', preferences!.selected_topic_ids);
 
       const topicsTime = performance.now() - topicsStart;
       console.log(`[Ranking] User topics fetch completed in ${topicsTime.toFixed(2)}ms`);
@@ -465,7 +465,7 @@ serve(async (req) => {
           }
           
           // L3 tag matching (lower priority, but still valuable)
-          const matchingTags = drop.tags?.filter(tag => 
+          const matchingTags = drop.tags?.filter((tag: string) => 
             topicHierarchy.level3.has(tag) || 
             userTopicSlugs.some(slug => slug.toLowerCase() === tag.toLowerCase())
           ) || [];
@@ -541,8 +541,6 @@ serve(async (req) => {
           image_url: drop.image_url,
           type: drop.type,
           tags: drop.tags || [],
-          l1_topic: l1Topic,
-          l2_topic: l2Topic,
           final_score: finalScore,
           reason_for_ranking: reasonFactors.slice(0, 2).join(' • ') || 'Relevant content',
           summary: drop.summary
@@ -684,13 +682,13 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('[Ranking] Unexpected error:', error);
-    console.error('[Ranking] Error stack:', error.stack);
+    console.error('[Ranking] Error stack:', error instanceof Error ? error.stack : String(error));
     console.error('[Ranking] Error details:', JSON.stringify(error, null, 2));
     
     return new Response(
       JSON.stringify({ 
         error: 'Internal server error',
-        details: error.message,
+        details: error instanceof Error ? error.message : String(error),
         ranked_drops: [] // Always include this for consistency
       }),
       { 

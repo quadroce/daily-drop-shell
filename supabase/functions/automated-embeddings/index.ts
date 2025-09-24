@@ -78,7 +78,7 @@ async function refreshAllUserProfiles() {
         console.log(`✅ Refreshed profile for user ${userId}`);
       } catch (error) {
         failed++;
-        const errorMsg = `Failed to refresh user ${userId}: ${error.message}`;
+        const errorMsg = `Failed to refresh user ${userId}: ${error instanceof Error ? error.message : String(error)}`;
         errors.push(errorMsg);
         console.error(`❌ ${errorMsg}`);
       }
@@ -193,7 +193,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
         timestamp: new Date().toISOString()
       }),
       { 

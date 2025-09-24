@@ -40,7 +40,7 @@ async function updateQueueItem(id: number, updates: Partial<QueueItem>) {
     headers: {
       'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
       'Content-Type': 'application/json',
-      'apikey': SERVICE_ROLE_KEY,
+      'apikey': SERVICE_ROLE_KEY!,
     },
     body: JSON.stringify({
       ...updates,
@@ -88,7 +88,7 @@ async function processQueueItems(limit = 100): Promise<ProcessResult> {
     {
       headers: {
         'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-        'apikey': SERVICE_ROLE_KEY,
+        'apikey': SERVICE_ROLE_KEY!,
         'Content-Type': 'application/json',
       },
     }
@@ -314,7 +314,7 @@ async function getIntelligentDelay(sourceId: number | null, currentTries: number
       {
         headers: {
           'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-          'apikey': SERVICE_ROLE_KEY,
+          'apikey': SERVICE_ROLE_KEY!,
           'Content-Type': 'application/json',
         },
       }
@@ -345,7 +345,7 @@ async function getIntelligentDelay(sourceId: number | null, currentTries: number
       }
     }
   } catch (error) {
-    console.warn(`Failed to get source health for ${sourceId}:`, error.message);
+    console.warn(`Failed to get source health for ${sourceId}:`, error instanceof Error ? error.message : String(error));
   }
   
   // Fallback to basic random delay

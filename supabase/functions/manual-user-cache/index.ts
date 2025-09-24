@@ -73,7 +73,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: 'Failed to regenerate user cache',
-        details: error.message
+        details: error instanceof Error ? error.message : String(error)
       }),
       { 
         status: 500, 

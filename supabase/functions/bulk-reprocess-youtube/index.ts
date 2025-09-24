@@ -172,10 +172,10 @@ Deno.serve(async (req) => {
               youtube_duration_seconds: metadataResult.duration,
               youtube_view_count: metadataResult.viewCount,
               youtube_thumbnail_url: metadataResult.thumbnailUrl,
-              // Update image_url if we got a better thumbnail
-              image_url: metadataResult.thumbnailUrl || video.image_url,
-              // Update published_at if we got YouTube publish date
-              published_at: metadataResult.publishedAt || video.published_at,
+              // Update image_url if we got a better thumbnail (fallback to empty string)
+              image_url: metadataResult.thumbnailUrl || (video as any).image_url || '',
+              // Update published_at if we got YouTube publish date (fallback to created_at)
+              published_at: metadataResult.publishedAt || (video as any).published_at || video.created_at,
               // Mark as processed
               og_scraped: true,
               // Reset tagging to reprocess with better data
@@ -202,7 +202,7 @@ Deno.serve(async (req) => {
           await new Promise(resolve => setTimeout(resolve, 200));
           
         } catch (error) {
-          console.error(`Failed to process video ${video.id}:`, error.message);
+          console.error(`Failed to process video ${video.id}:`, error instanceof Error ? error.message : String(error));
           result.failed++;
           
           result.details.push({
@@ -210,7 +210,7 @@ Deno.serve(async (req) => {
             url: video.url,
             status: 'failed',
             originalTitle: video.title,
-            error: error.message
+            error: error instanceof Error ? error.message : String(error)
           });
         }
       });
@@ -242,8 +242,8 @@ Deno.serve(async (req) => {
     console.error('Bulk reprocessing failed:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message,
-      stack: error.stack
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500

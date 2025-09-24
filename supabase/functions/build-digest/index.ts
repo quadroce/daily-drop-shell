@@ -140,19 +140,23 @@ serve(async (req) => {
       console.log(`Found ${cachedDrops.length} items in user_feed_cache, using unified ranking algorithm`);
       
       // Extract drops from cache with flattened structure
-      drops = cachedDrops.map(item => ({
-        id: item.drops.id,
-        title: item.drops.title,
-        url: item.drops.url,
-        summary: item.drops.summary,
-        image_url: item.drops.image_url,
-        published_at: item.drops.published_at,
-        tags: item.drops.tags,
-        lang_code: item.drops.lang_code,
-        type: item.drops.type,
-        final_score: item.final_score,
-        reason_for_ranking: item.reason_for_ranking
-      }));
+      drops = cachedDrops.map(item => {
+        // Handle the case where drops is returned as an array from the inner join
+        const dropData = Array.isArray(item.drops) ? item.drops[0] : item.drops;
+        return {
+          id: dropData.id,
+          title: dropData.title,
+          url: dropData.url,
+          summary: dropData.summary,
+          image_url: dropData.image_url,
+          published_at: dropData.published_at,
+          tags: dropData.tags,
+          lang_code: dropData.lang_code,
+          type: dropData.type,
+          final_score: item.final_score,
+          reason_for_ranking: item.reason_for_ranking
+        };
+      });
       
       dropIds = drops.map(d => d.id);
       usedCacheContent = true;
@@ -182,7 +186,7 @@ serve(async (req) => {
         const { data: topics } = await supabase
           .from('topics')
           .select('slug')
-          .in('id', preferences.selected_topic_ids);
+          .in('id', preferences!.selected_topic_ids);
 
         const topicSlugs = topics?.map(t => t.slug) || [];
         if (topicSlugs.length > 0) {
@@ -214,7 +218,7 @@ serve(async (req) => {
           const { data: topics } = await supabase
             .from('topics')
             .select('slug')
-            .in('id', preferences.selected_topic_ids);
+            .in('id', preferences!.selected_topic_ids);
 
           const topicSlugs = topics?.map(t => t.slug) || [];
           if (topicSlugs.length > 0) {

@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: 'Health fix failed', 
-        details: error.message 
+        details: error instanceof Error ? error.message : String(error) 
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

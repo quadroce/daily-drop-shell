@@ -177,7 +177,7 @@ export async function getUserPrefs(userId: string, supabase: any) {
         .select('code')
         .in('id', preferences.selected_language_ids);
       
-      languageCodes = languages?.map(lang => lang.code) || [];
+      languageCodes = languages?.map((lang: any) => lang.code) || [];
     }
 
     // Default to English if no languages selected
@@ -224,7 +224,7 @@ export async function getUserFeedCache(userId: string, supabase: any, maxAgeHour
       return [];
     }
     
-    return cachedItems.map(item => ({
+    return cachedItems.map((item: any) => ({
       id: String(item.drops.id),
       url: item.drops.url,
       title_safe: item.drops.title || '',
@@ -272,7 +272,7 @@ export async function selectDirectFromDrops(
         .select('slug')
         .in('id', prefs.selected_topic_ids);
       
-      const topicSlugs = topics?.map(t => t.slug) || [];
+      const topicSlugs = topics?.map((t: any) => t.slug) || [];
       if (topicSlugs.length > 0) {
         query = query.overlaps('tags', topicSlugs);
       }
@@ -285,7 +285,7 @@ export async function selectDirectFromDrops(
       return [];
     }
     
-    return (items || []).map(item => ({
+    return (items || []).map((item: any) => ({
       id: String(item.id),
       url: item.url,
       title_safe: item.title_safe,

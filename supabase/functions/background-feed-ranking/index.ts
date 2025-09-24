@@ -72,7 +72,7 @@ serve(async (req) => {
       });
 
       if (usersNeedingUpdate?.length > 0) {
-        const userIds = usersNeedingUpdate.map(u => u.user_id);
+        const userIds = usersNeedingUpdate.map((u: any) => u.user_id);
         usersQuery = usersQuery.in('user_id', userIds);
         console.log(`[Background] Smart targeting: ${userIds.length} users with expired/insufficient cache`);
       } else {
@@ -214,7 +214,7 @@ serve(async (req) => {
           const { data: userTopics } = await supabaseClient
             .from('topics')
             .select('id, slug, level')
-            .in('id', preferences.selected_topic_ids);
+            .in('id', preferences!.selected_topic_ids);
 
           if (userTopics) {
             userTopicSlugs = userTopics.map(t => t.slug);
@@ -320,7 +320,7 @@ serve(async (req) => {
               }
               // L3 tag match (medium priority)
               else if (drop.tags && drop.tags.length > 0) {
-                const matchingTags = drop.tags.filter(tag => 
+                const matchingTags = drop.tags.filter((tag: string) => 
                   topicHierarchy.level3.has(tag)
                 );
                 if (matchingTags.length > 0) {
@@ -540,7 +540,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: 'Internal server error',
-        details: error.message
+        details: error instanceof Error ? error.message : String(error)
       }),
       { 
         status: 500, 

@@ -62,7 +62,7 @@ function parseFeed(xmlContent: string): RSSItem[] {
       const entries = Array.isArray(parsed.feed.entry) 
         ? parsed.feed.entry 
         : [parsed.feed.entry];
-      return entries.map(entry => {
+      return entries.map((entry: any) => {
         let linkUrl = null;
         
         // Handle different link formats in Atom feeds
@@ -72,7 +72,7 @@ function parseFeed(xmlContent: string): RSSItem[] {
             linkUrl = entry.link;
           } else if (Array.isArray(entry.link)) {
             // Array of link objects - find the main HTML link
-            const htmlLink = entry.link.find(link => 
+            const htmlLink = entry.link.find((link: any) => 
               link['@_type'] === 'text/html' || 
               link['@_rel'] === 'alternate' ||
               !link['@_rel'] // No rel attribute usually means main link
@@ -165,7 +165,7 @@ async function updateSourceHealth(sourceId: number, isSuccess: boolean, articleC
         });
     }
   } catch (error) {
-    console.warn(`Failed to update source health for ${sourceId}:`, error.message);
+    console.warn(`Failed to update source health for ${sourceId}:`, error instanceof Error ? error.message : String(error));
   }
 }
 
@@ -231,7 +231,7 @@ async function processFeed(source: Source): Promise<FeedResult> {
         } else {
           // Permanent failure or max retries reached
           result.errors.push(errorMsg);
-          await updateSourceHealth(source.id, false, `${response.status}`);
+          await updateSourceHealth(source.id, false, response.status);
           return result;
         }
       }
@@ -266,7 +266,7 @@ async function processFeed(source: Source): Promise<FeedResult> {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-              'apikey': SERVICE_ROLE_KEY,
+              'apikey': SERVICE_ROLE_KEY!,
               'Content-Type': 'application/json',
               'Prefer': 'resolution=ignore-duplicates',
             },
@@ -285,7 +285,7 @@ async function processFeed(source: Source): Promise<FeedResult> {
             return false;
           }
         } catch (error) {
-          result.errors.push(`Error enqueuing ${item.link}: ${error.message}`);
+          result.errors.push(`Error enqueuing ${item.link}: ${error instanceof Error ? error.message : String(error)}`);
           return false;
         }
       });
@@ -297,10 +297,11 @@ async function processFeed(source: Source): Promise<FeedResult> {
       break; // Success, exit retry loop
       
     } catch (error) {
-      const isTimeout = error.name === 'TimeoutError' || error.message.includes('timeout');
-      const errorMsg = `Error processing feed: ${error.message}`;
+      const isTimeout = (error instanceof Error && error.name === 'TimeoutError') || 
+                       (error instanceof Error && error.message.includes('timeout'));
+      const errorMsg = `Error processing feed: ${error instanceof Error ? error.message : String(error)}`;
       
-      if (attempt < maxRetries && (isTimeout || error.message.includes('network'))) {
+      if (attempt < maxRetries && (isTimeout || (error instanceof Error && error.message.includes('network')))) {
         console.log(`Will retry source ${source.id} after network error (attempt ${attempt}/${maxRetries})`);
         const delay = getRetryDelay(500, attempt); // Treat as server error
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -308,7 +309,7 @@ async function processFeed(source: Source): Promise<FeedResult> {
         continue;
       } else {
         result.errors.push(errorMsg);
-        await updateSourceHealth(source.id, false, isTimeout ? 'timeout' : 'network_error');
+        await updateSourceHealth(source.id, false, isTimeout ? 408 : 500);
         break;
       }
     }
