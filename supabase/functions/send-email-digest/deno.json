@@ -1,6 +1,6 @@
 {
   "imports": {
-    "fast-xml-parser": "npm:fast-xml-parser@4"
+    "resend": "npm:resend@2.0.0"
   },
   "compilerOptions": {
     "lib": ["dom", "deno.ns"],
