@@ -53,16 +53,18 @@ const Feed = () => {
           languageCodes: [] as string[]
         };
         
-        // Convert language IDs to codes
+        // Convert language IDs to codes or use defaults
         if (prefs?.selected_language_ids?.length > 0) {
           const { data: languages } = await supabase
             .from('languages')
             .select('id, code')
             .in('id', prefs.selected_language_ids);
           
-          preferences.languageCodes = languages?.map(lang => lang.code) || ['en'];
+          preferences.languageCodes = languages?.map(lang => lang.code) || [];
         } else {
-          preferences.languageCodes = ['en']; // Default fallback
+          // Use default languages if none selected
+          preferences.selectedLanguageIds = [1, 2]; // English: 1, Italian: 2
+          preferences.languageCodes = ['en', 'it']; // Default fallback
         }
         
         console.log('✅ Setting user preferences:', preferences);
@@ -72,8 +74,8 @@ const Feed = () => {
         // Set empty preferences instead of null to allow feed to load
         setUserPreferences({
           selectedTopicIds: [],
-          selectedLanguageIds: [],
-          languageCodes: ['en']
+          selectedLanguageIds: [1, 2], // Default to English and Italian
+          languageCodes: ['en', 'it']
         });
       } finally {
         setPreferencesLoading(false);

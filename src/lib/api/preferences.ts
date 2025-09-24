@@ -116,16 +116,23 @@ export const fetchAllUserPreferences = async (): Promise<{
 
     // If we have a preferences record (regardless of array contents), return it
     if (preferences) {
+      // If no languages selected, provide defaults (English and Italian)
+      const defaultLanguageCodes = ['en', 'it'];
+      const defaultLanguageIds = [1, 2]; // English: 1, Italian: 2
+      
+      const finalLanguageCodes = languageCodes.length > 0 ? languageCodes : defaultLanguageCodes;
+      const finalLanguageIds = preferences.selected_language_ids?.length > 0 ? preferences.selected_language_ids : defaultLanguageIds;
+      
       console.log('Returning existing preferences:', {
         selectedTopicIds: preferences.selected_topic_ids || [],
-        selectedLanguageIds: preferences.selected_language_ids || [],
-        languageCodes: languageCodes.length > 0 ? languageCodes : ['en']
+        selectedLanguageIds: finalLanguageIds,
+        languageCodes: finalLanguageCodes
       });
       
       return {
         selectedTopicIds: preferences.selected_topic_ids || [],
-        selectedLanguageIds: preferences.selected_language_ids || [],
-        languageCodes: languageCodes.length > 0 ? languageCodes : ['en']
+        selectedLanguageIds: finalLanguageIds,
+        languageCodes: finalLanguageCodes
       };
     }
 
@@ -152,11 +159,11 @@ export const fetchAllUserPreferences = async (): Promise<{
       };
     }
 
-    // No preferences found anywhere
+    // No preferences found anywhere - provide defaults
     return {
       selectedTopicIds: [],
-      selectedLanguageIds: [],
-      languageCodes: ['en'] // Default to English
+      selectedLanguageIds: [1, 2], // Default to English and Italian
+      languageCodes: ['en', 'it'] // Default to English and Italian
     };
 
   } catch (error) {
