@@ -499,14 +499,45 @@ async function getUsers(req: Request, body?: any): Promise<Response> {
     const page = parseInt(params.page || '1');
     const pageSize = parseInt(params.pageSize || '50');
     
-    let query = supabase
+    // Build complex query with JOIN to get language codes from preferences
+    let baseQuery = supabase
       .from('profiles')
       .select(`
         id, email, display_name, username, first_name, last_name, 
-        subscription_tier, role, language_prefs, youtube_embed_pref, 
-        onboarding_completed, created_at, is_active, company_role
+        subscription_tier, role, youtube_embed_pref, 
+        onboarding_completed, created_at, is_active, company_role,
+        preferences!inner(selected_language_ids),
+        languages:languages!inner(code)
       `, { count: 'exact' })
       .eq('is_active', active);
+
+    // For language filtering, we need a different query structure
+    let query;
+    if (lang) {
+      // When filtering by language, we need to join with languages table and filter
+      query = supabase
+        .from('profiles')
+        .select(`
+          id, email, display_name, username, first_name, last_name, 
+          subscription_tier, role, youtube_embed_pref, 
+          onboarding_completed, created_at, is_active, company_role,
+          preferences!inner(selected_language_ids),
+          languages!inner(code)
+        `, { count: 'exact' })
+        .eq('is_active', active)
+        .eq('languages.code', lang);
+    } else {
+      // When not filtering by language, use left join to include users without preferences
+      query = supabase
+        .from('profiles')
+        .select(`
+          id, email, display_name, username, first_name, last_name, 
+          subscription_tier, role, youtube_embed_pref, 
+          onboarding_completed, created_at, is_active, company_role,
+          preferences(selected_language_ids)
+        `, { count: 'exact' })
+        .eq('is_active', active);
+    }
 
     // Search filter
     if (search) {
@@ -525,10 +556,7 @@ async function getUsers(req: Request, body?: any): Promise<Response> {
       query = query.in('role', roles);
     }
 
-    // Language filter
-    if (lang) {
-      query = query.contains('language_prefs', [lang]);
-    }
+    // Language filter is now handled in the query construction above
 
     // Sorting
     const ascending = !sort.startsWith('-');
@@ -543,8 +571,31 @@ async function getUsers(req: Request, body?: any): Promise<Response> {
 
     if (error) throw error;
 
+    // Transform the data to add selected_language_codes
+    const transformedUsers = await Promise.all((data || []).map(async (user: any) => {
+      let selectedLanguageCodes: string[] = [];
+      
+      if (user.preferences?.selected_language_ids?.length > 0) {
+        // Get language codes for this user's selected language IDs
+        const { data: langData } = await supabase
+          .from('languages')
+          .select('code')
+          .in('id', user.preferences.selected_language_ids);
+        
+        selectedLanguageCodes = langData?.map(l => l.code) || [];
+      }
+      
+      // Clean up the response structure
+      return {
+        ...user,
+        selected_language_codes: selectedLanguageCodes,
+        preferences: undefined, // Remove nested preferences object
+        languages: undefined    // Remove nested languages object
+      };
+    }));
+
     return new Response(JSON.stringify({
-      users: data,
+      users: transformedUsers,
       total: count,
       page,
       pageSize,
@@ -571,15 +622,33 @@ async function getUserById(req: Request, userId: string): Promise<Response> {
       .from('profiles')
       .select(`
         id, email, display_name, username, first_name, last_name, 
-        subscription_tier, role, language_prefs, youtube_embed_pref, 
-        onboarding_completed, created_at, is_active, company_role
+        subscription_tier, role, youtube_embed_pref, 
+        onboarding_completed, created_at, is_active, company_role,
+        preferences(selected_language_ids)
       `)
       .eq('id', userId)
       .single();
 
     if (error) throw error;
 
-    return new Response(JSON.stringify(data), {
+    // Get language codes for selected language IDs
+    let selectedLanguageCodes: string[] = [];
+    if (data.preferences?.selected_language_ids?.length > 0) {
+      const { data: langData } = await supabase
+        .from('languages')
+        .select('code')
+        .in('id', data.preferences.selected_language_ids);
+      
+      selectedLanguageCodes = langData?.map(l => l.code) || [];
+    }
+
+    const responseData = {
+      ...data,
+      selected_language_codes: selectedLanguageCodes,
+      preferences: undefined // Remove nested preferences object
+    };
+
+    return new Response(JSON.stringify(responseData), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -598,7 +667,7 @@ async function createUser(req: Request, payload?: any): Promise<Response> {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const body = payload || await req.json();
-    const { email, display_name, subscription_tier = 'free', role = 'user' } = body;
+    const { email, display_name, subscription_tier = 'free', role = 'user', selected_language_codes = [] } = body;
 
     // Validate required fields
     if (!email || !display_name) {
@@ -630,7 +699,6 @@ async function createUser(req: Request, payload?: any): Promise<Response> {
         display_name,
         subscription_tier,
         role,
-        language_prefs: [],
         youtube_embed_pref: true,
         onboarding_completed: false,
         is_active: true
@@ -639,6 +707,28 @@ async function createUser(req: Request, payload?: any): Promise<Response> {
       .single();
 
     if (profileError) throw profileError;
+
+    // Handle language preferences if provided
+    if (selected_language_codes && selected_language_codes.length > 0) {
+      // Get language IDs from codes
+      const { data: languages } = await supabase
+        .from('languages')
+        .select('id, code')
+        .in('code', selected_language_codes);
+      
+      if (languages && languages.length > 0) {
+        const languageIds = languages.map(lang => lang.id);
+        
+        // Insert into preferences table
+        await supabase
+          .from('preferences')
+          .insert({
+            user_id: newAuthUser.user.id,
+            selected_language_ids: languageIds,
+            selected_topic_ids: []
+          });
+      }
+    }
 
     // Send invite email
     await supabase.auth.admin.inviteUserByEmail(email);
@@ -674,7 +764,7 @@ async function updateUser(req: Request, userId: string, payload?: any): Promise<
     const userData = payload || await req.json();
     const { 
       display_name, username, first_name, last_name, company_role,
-      subscription_tier, role, language_prefs, youtube_embed_pref, 
+      subscription_tier, role, selected_language_codes, youtube_embed_pref, 
       onboarding_completed, is_active 
     } = userData;
 
@@ -703,8 +793,8 @@ async function updateUser(req: Request, userId: string, payload?: any): Promise<
       });
     }
 
-    // Validate language_prefs if provided
-    if (language_prefs && language_prefs.length > 3) {
+    // Validate selected_language_codes if provided
+    if (selected_language_codes && selected_language_codes.length > 3) {
       return new Response(JSON.stringify({ error: 'Maximum 3 languages allowed' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -712,13 +802,13 @@ async function updateUser(req: Request, userId: string, payload?: any): Promise<
     }
 
     // Validate language codes exist
-    if (language_prefs && language_prefs.length > 0) {
+    if (selected_language_codes && selected_language_codes.length > 0) {
       const { data: languages } = await supabase
         .from('languages')
         .select('code')
-        .in('code', language_prefs);
+        .in('code', selected_language_codes);
       
-      if (languages?.length !== language_prefs.length) {
+      if (languages?.length !== selected_language_codes.length) {
         return new Response(JSON.stringify({ error: 'Invalid language codes' }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -753,9 +843,6 @@ async function updateUser(req: Request, userId: string, payload?: any): Promise<
     }
     if (role !== undefined && role !== currentProfile.role) {
       updateData.role = role;
-    }
-    if (language_prefs !== undefined && JSON.stringify(language_prefs) !== JSON.stringify(currentProfile.language_prefs)) {
-      updateData.language_prefs = language_prefs;
     }
     if (youtube_embed_pref !== undefined && youtube_embed_pref !== currentProfile.youtube_embed_pref) {
       updateData.youtube_embed_pref = youtube_embed_pref;
@@ -805,6 +892,45 @@ async function updateUser(req: Request, userId: string, payload?: any): Promise<
       .eq('id', userId)
       .select()
       .single();
+
+    // Handle language preferences update separately
+    if (selected_language_codes !== undefined) {
+      if (selected_language_codes.length > 0) {
+        // Get language IDs from codes
+        const { data: languages } = await supabase
+          .from('languages')
+          .select('id, code')
+          .in('code', selected_language_codes);
+        
+        if (languages && languages.length > 0) {
+          const languageIds = languages.map(lang => lang.id);
+          
+          // Upsert into preferences table
+          await supabase
+            .from('preferences')
+            .upsert({
+              user_id: userId,
+              selected_language_ids: languageIds,
+              selected_topic_ids: [] // Keep existing topics or default to empty
+            }, {
+              onConflict: 'user_id',
+              ignoreDuplicates: false
+            });
+        }
+      } else {
+        // Clear language preferences
+        await supabase
+          .from('preferences')
+          .upsert({
+            user_id: userId,
+            selected_language_ids: [],
+            selected_topic_ids: [] // Keep existing topics or default to empty
+          }, {
+            onConflict: 'user_id',
+            ignoreDuplicates: false
+          });
+      }
+    }
 
     if (error) {
       console.error('Error updating user:', error);
