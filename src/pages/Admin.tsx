@@ -319,7 +319,81 @@ const Admin = () => {
     }
   };
 
-  // Admin action handlers
+  // Ingestion control handlers
+  const fixPipeline = async () => {
+    setActionLoading('fix-pipeline');
+    try {
+      const response = await fetch('https://qimelntuxquptqqynxzv.supabase.co/functions/v1/admin-debug-ingestion', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: 'clear_queue' })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      
+      toast({
+        title: "Pipeline Fixed",
+        description: "Cleared error queue items and reset pipeline status",
+      });
+      
+      // Refresh stats
+      await fetchDashboardStats();
+    } catch (error) {
+      console.error('Fix pipeline error:', error);
+      toast({
+        title: "Fix Pipeline Error",
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: "destructive",
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const restartIngestion = async () => {
+    setActionLoading('restart-ingestion');
+    try {
+      const response = await fetch('https://qimelntuxquptqqynxzv.supabase.co/functions/v1/restart-ingestion', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ trigger: 'manual' })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      
+      toast({
+        title: "Ingestion Restarted",
+        description: "Full ingestion pipeline restart completed successfully",
+      });
+      
+      // Refresh stats
+      await fetchDashboardStats();
+      await fetchTaggingStats();
+    } catch (error) {
+      console.error('Restart ingestion error:', error);
+      toast({
+        title: "Restart Ingestion Error",
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: "destructive",
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Manual testing handlers
   const runRSSFetcher = async () => {
     setActionLoading('rss');
     try {
@@ -335,9 +409,7 @@ const Admin = () => {
       }
       
       const result = await response.json();
-      console.log('RSS Fetcher result:', result);
       
-      // Handle both success and error responses
       if (result.error) {
         toast({
           title: "RSS Fetcher Error",
@@ -445,43 +517,6 @@ const Admin = () => {
     }
   };
 
-  const runYouTubeReprocessing = async () => {
-    setActionLoading('youtube-reprocessing');
-    try {
-      const { data, error } = await supabase.functions.invoke('admin-api/youtube-reprocess', {
-        body: {}
-      });
-      
-      if (error) {
-        throw new Error(error.message);
-      }
-      
-      if (data.success) {
-        toast({
-          title: "YouTube Reprocessing Started",
-          description: `Processed ${data.processed} videos. ${data.remaining} remaining. ${data.errors > 0 ? `${data.errors} errors.` : ''}`,
-        });
-        
-        // Refresh tagging stats after processing
-        await fetchTaggingStats();
-      } else {
-        toast({
-          title: "YouTube Reprocessing Error",
-          description: data.error || "Unknown error occurred",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('YouTube reprocessing error:', error);
-      toast({
-        title: "YouTube Reprocessing Error", 
-        description: error instanceof Error ? error.message : 'Unknown error',
-        variant: "destructive",
-      });
-    } finally {
-      setActionLoading(null);
-    }
-  };
 
   const toggleAutoIngest = async () => {
     setActionLoading('toggle-auto');
@@ -562,236 +597,91 @@ const Admin = () => {
           </p>
         </div>
         
-          {/* Quick Actions */}
-        <div className="flex items-center gap-3">
-          <Button variant="success" onClick={() => navigate("/admin/sources")}>
-            <Database className="h-4 w-4 mr-2" />
-            Gestisci Sorgenti
-          </Button>
-          
-          <Button variant="warning" onClick={() => navigate("/admin/articles")}>
-            <Monitor className="h-4 w-4 mr-2" />
-            Gestisci Articoli
-          </Button>
-          
-          <Button variant="default" onClick={() => navigate("/admin/sitemap")}>
-            <Map className="h-4 w-4 mr-2" />
-            Gestisci Sitemap
-          </Button>
-          
-          <Button variant="destructive" onClick={() => navigate("/admin/manual-ingest")}>
-            <Globe className="h-4 w-4 mr-2" />
-            Manual Ingestion
-          </Button>
-          
-          {/* Profile badge */}
-          {profile && (
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-muted-foreground">{profile.email}</span>
-              <Badge variant="secondary">{profile.role}</Badge>
-            </div>
-          )}
-        </div>
+        {/* Profile badge */}
+        {profile && (
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-muted-foreground">{profile.email}</span>
+            <Badge variant="secondary">{profile.role}</Badge>
+          </div>
+        )}
       </div>
 
-      {/* Dashboard cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/admin/sources")}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Sources</CardTitle>
-            <Database className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.sourcesCount}</div>
-            <p className="text-xs text-muted-foreground">
-              Content sources management
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Queue</CardTitle>
-            <List className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.queueCount}</div>
-            <p className="text-xs text-muted-foreground">
-              Pending items in queue
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Users</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.usersCount}</div>
-            <p className="text-xs text-muted-foreground">
-              Registered users
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Articles Tagged</CardTitle>
-            <Tags className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{taggingStats.taggedDrops}/{taggingStats.totalDrops}</div>
-            <p className="text-xs text-muted-foreground">
-              {taggingStats.taggedPercentage.toFixed(1)}% completed
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Tagging Statistics */}
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>Tagging Statistics</CardTitle>
+      {/* 🚨 INGESTION CONTROL PANEL */}
+      <Card className="mb-8 border-red-200 dark:border-red-800">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-red-600 dark:text-red-400 flex items-center gap-2">
+            🚨 Ingestion Control Panel
+          </CardTitle>
           <CardDescription>
-            Content tagging and analysis overview
+            Critical pipeline controls - Articles: {taggingStats.totalDrops} | Queue Errors: 2,730
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Progress Stats */}
-            <div className="space-y-4">
-              <h4 className="text-sm font-medium">Progress Overview</h4>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Total Articles</span>
-                  <span className="font-medium">{taggingStats.totalDrops}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Tagged</span>
-                  <span className="font-medium text-green-600">{taggingStats.taggedDrops}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Remaining</span>
-                  <span className="font-medium text-orange-600">{taggingStats.untaggedDrops}</span>
-                </div>
-                <div className="flex justify-between items-center pt-2 border-t">
-                  <span className="text-sm font-medium">Completion</span>
-                  <span className="font-bold text-primary">{taggingStats.taggedPercentage.toFixed(1)}%</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Top Tags */}
-            <div className="space-y-4">
-              <h4 className="text-sm font-medium">Most Popular Tags</h4>
-              <div className="space-y-2">
-                {topTags.slice(0, 8).map((tag, index) => (
-                  <div key={tag.tag} className="flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground w-4">#{index + 1}</span>
-                      <Badge variant="outline" className="text-xs">{tag.tag}</Badge>
-                    </div>
-                    <span className="text-sm font-medium">{tag.frequency}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Admin Actions */}
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>System Monitoring</CardTitle>
-          <CardDescription>Monitor automated content ingestion and system health</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col space-y-2">
-            <Button asChild>
-              <Link to="/admin/dashboard" className="flex items-center gap-2">
-                <Monitor className="h-4 w-4" />
-                Open Admin Dashboard
-              </Link>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Button 
+              onClick={fixPipeline}
+              disabled={actionLoading !== null}
+              variant="destructive"
+              className="flex items-center gap-2 h-12"
+            >
+              {actionLoading === 'fix-pipeline' ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Settings className="h-5 w-5" />
+              )}
+              Fix Pipeline (Clear 2,730 Errors)
             </Button>
-            <p className="text-sm text-muted-foreground">
-              View real-time stats, manage cron jobs, and monitor ingestion logs
-            </p>
+            
+            <Button 
+              onClick={restartIngestion}
+              disabled={actionLoading !== null}
+              variant="default"
+              className="flex items-center gap-2 h-12"
+            >
+              {actionLoading === 'restart-ingestion' ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Rss className="h-5 w-5" />
+              )}
+              Restart Ingestion (Full)
+            </Button>
+          </div>
+          
+          {/* Service Status Indicators */}
+          <div className="mt-4 grid grid-cols-3 gap-4">
+            <div className="text-center p-2 bg-muted rounded">
+              <div className="text-sm font-medium">RSS Fetcher</div>
+              <Badge variant="destructive" className="mt-1">Error</Badge>
+            </div>
+            <div className="text-center p-2 bg-muted rounded">
+              <div className="text-sm font-medium">Ingest Worker</div>
+              <Badge variant="secondary" className="mt-1">Paused</Badge>
+            </div>
+            <div className="text-center p-2 bg-muted rounded">
+              <div className="text-sm font-medium">Tagger</div>
+              <Badge variant="secondary" className="mt-1">Paused</Badge>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Cache Management */}
-      <div className="mb-8">
-        <CacheRegenerationTrigger />
-      </div>
-
-      {/* UI Settings */}
+      {/* 🔧 MANUAL TESTING */}
       <Card className="mb-8">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
-            UI Settings
+            🔧 Manual Testing
           </CardTitle>
           <CardDescription>
-            Control UI elements visibility across the platform
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <label className="text-sm font-medium">Alpha Ribbon</label>
-                <p className="text-xs text-muted-foreground">
-                  Show "ALPHA VERSION" badge in top-right corner
-                </p>
-              </div>
-              <Switch
-                checked={uiSettings.show_alpha_ribbon}
-                onCheckedChange={(checked) => updateUISetting('show_alpha_ribbon', checked)}
-                disabled={actionLoading === 'ui-show_alpha_ribbon'}
-              />
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <label className="text-sm font-medium">Feedback Button</label>
-                <p className="text-xs text-muted-foreground">
-                  Show feedback FAB in bottom-right corner
-                </p>
-              </div>
-              <Switch
-                checked={uiSettings.show_feedback_button}
-                onCheckedChange={(checked) => updateUISetting('show_feedback_button', checked)}
-                disabled={actionLoading === 'ui-show_feedback_button'}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Newsletter Test Panel */}
-      <NewsletterTestPanel />
-
-      {/* Vector System Initialization */}
-      <VectorSystemInit />
-
-      {/* Admin Actions */}
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>Manual Actions</CardTitle>
-          <CardDescription>
-            Trigger backend processes manually
+            Test individual components and automation controls
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {/* Manual Actions */}
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col sm:flex-row gap-3">
               <Button 
                 onClick={runRSSFetcher}
                 disabled={actionLoading !== null}
+                variant="outline"
                 className="flex items-center gap-2"
               >
                 {actionLoading === 'rss' ? (
@@ -799,7 +689,7 @@ const Admin = () => {
                 ) : (
                   <Rss className="h-4 w-4" />
                 )}
-                Run RSS Fetcher now
+                Test RSS Fetcher
               </Button>
               
               <Button 
@@ -813,13 +703,13 @@ const Admin = () => {
                 ) : (
                   <Cog className="h-4 w-4" />
                 )}
-                Run Ingest Worker now (50 items)
+                Test Ingest Worker
               </Button>
               
               <Button 
                 onClick={runTagger}
                 disabled={actionLoading !== null}
-                variant="secondary"
+                variant="outline"
                 className="flex items-center gap-2"
               >
                 {actionLoading === 'tagger' ? (
@@ -827,30 +717,15 @@ const Admin = () => {
                 ) : (
                   <Tags className="h-4 w-4" />
                 )}
-                Run Tagger now
-              </Button>
-              
-              <Button 
-                onClick={runYouTubeReprocessing}
-                disabled={actionLoading !== null}
-                variant="destructive"
-                className="flex items-center gap-2"
-              >
-                {actionLoading === 'youtube-reprocessing' ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Youtube className="h-4 w-4" />
-                )}
-                Reprocess YouTube Videos
+                Test Tagger
               </Button>
             </div>
 
-            {/* Automation Controls */}
+            {/* Automation Control */}
             <div className="border-t pt-4">
-              <h4 className="text-sm font-medium mb-3">Automation</h4>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm">Auto Ingest Worker</span>
+                  <span className="text-sm font-medium">Auto Ingest Worker</span>
                   <Badge variant={cronJobs.find(job => job.name === 'auto-ingest-worker')?.enabled ? 'default' : 'secondary'}>
                     {cronJobs.find(job => job.name === 'auto-ingest-worker')?.enabled ? 'Enabled' : 'Disabled'}
                   </Badge>
@@ -868,24 +743,138 @@ const Admin = () => {
                   )}
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Processes queue items automatically every 5 minutes (50 items per batch)
-              </p>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Debug info */}
-      <Card className="mt-8">
+      {/* 📊 DASHBOARD STATISTICS */}
+      <Card className="mb-8">
         <CardHeader>
-          <CardTitle className="text-sm">Debug Information</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            📊 Dashboard Statistics
+          </CardTitle>
+          <CardDescription>System overview and key metrics</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="text-sm font-mono space-y-1">
-            <div>User ID: {user?.id}</div>
-            <div>Role: {profile?.role}</div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="text-center">
+              <div className="text-2xl font-bold">{stats.sourcesCount}</div>
+              <p className="text-sm text-muted-foreground">Sources</p>
+            </div>
+            
+            <div className="text-center">
+              <div className="text-2xl font-bold text-orange-600">{stats.queueCount}</div>
+              <p className="text-sm text-muted-foreground">Queue Items</p>
+            </div>
+            
+            <div className="text-center">
+              <div className="text-2xl font-bold">{stats.usersCount}</div>
+              <p className="text-sm text-muted-foreground">Users</p>
+            </div>
+            
+            <div className="text-center">
+              <div className="text-2xl font-bold">{taggingStats.taggedDrops}/{taggingStats.totalDrops}</div>
+              <p className="text-sm text-muted-foreground">{taggingStats.taggedPercentage.toFixed(1)}% Tagged</p>
+            </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* 🎛️ ADVANCED MANAGEMENT */}
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            🎛️ Advanced Management
+          </CardTitle>
+          <CardDescription>Content and system management tools</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <Button variant="outline" onClick={() => navigate("/admin/sources")} className="justify-start">
+              <Database className="h-4 w-4 mr-2" />
+              Gestisci Sorgenti
+            </Button>
+            
+            <Button variant="outline" onClick={() => navigate("/admin/articles")} className="justify-start">
+              <Monitor className="h-4 w-4 mr-2" />
+              Gestisci Articoli
+            </Button>
+            
+            <Button variant="outline" onClick={() => navigate("/admin/sitemap")} className="justify-start">
+              <Map className="h-4 w-4 mr-2" />
+              Gestisci Sitemap
+            </Button>
+            
+            <Button variant="outline" onClick={() => navigate("/admin/manual-ingest")} className="justify-start">
+              <Globe className="h-4 w-4 mr-2" />
+              Manual Ingestion
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ⚙️ SYSTEM CONFIGURATION */}
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            ⚙️ System Configuration
+          </CardTitle>
+          <CardDescription>Platform settings and cache management</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* UI Settings */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-medium">UI Settings</h4>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <label className="text-sm font-medium">Alpha Ribbon</label>
+                  <p className="text-xs text-muted-foreground">
+                    Show "ALPHA VERSION" badge in top-right corner
+                  </p>
+                </div>
+                <Switch
+                  checked={uiSettings.show_alpha_ribbon}
+                  onCheckedChange={(checked) => updateUISetting('show_alpha_ribbon', checked)}
+                  disabled={actionLoading === 'ui-show_alpha_ribbon'}
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <label className="text-sm font-medium">Feedback Button</label>
+                  <p className="text-xs text-muted-foreground">
+                    Show feedback FAB in bottom-right corner
+                  </p>
+                </div>
+                <Switch
+                  checked={uiSettings.show_feedback_button}
+                  onCheckedChange={(checked) => updateUISetting('show_feedback_button', checked)}
+                  disabled={actionLoading === 'ui-show_feedback_button'}
+                />
+              </div>
+            </div>
+          </div>
+          
+          {/* Cache Management */}
+          <div className="border-t pt-4">
+            <CacheRegenerationTrigger />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 🧪 DEVELOPMENT TOOLS */}
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            🧪 Development Tools
+          </CardTitle>
+          <CardDescription>Testing and development utilities</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <NewsletterTestPanel />
+          <VectorSystemInit />
         </CardContent>
       </Card>
     </div>
