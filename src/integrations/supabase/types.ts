@@ -1345,6 +1345,10 @@ export type Database = {
         Args: { published_date: string }
         Returns: number
       }
+      cleanup_inactive_sources: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       ensure_profile: {
         Args: Record<PropertyKey, never>
         Returns: undefined
