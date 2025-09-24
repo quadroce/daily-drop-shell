@@ -18,8 +18,10 @@ export function FeedCacheRefresh() {
     return null;
   }
 
-  const refreshUserCache = async () => {
-    if (!user?.id) {
+  const refreshUserCache = async (targetUserId?: string) => {
+    const userIdToRefresh = targetUserId || user?.id;
+    
+    if (!userIdToRefresh) {
       toast({
         title: "Errore",
         description: "Devi essere autenticato per rigenerare la cache",
@@ -31,12 +33,13 @@ export function FeedCacheRefresh() {
     try {
       setIsRefreshing(true);
       
-      console.log('🔄 Rigenerando cache per utente:', user.id);
+      console.log('🔄 Rigenerando cache per utente:', userIdToRefresh);
       
       // Prima prova con content-ranking con refresh_cache=true
       const { data: rankingData, error: rankingError } = await supabase.functions.invoke('content-ranking', {
         body: { 
           refresh_cache: true,
+          user_id: userIdToRefresh,
           limit: 50
         }
       });
@@ -47,7 +50,7 @@ export function FeedCacheRefresh() {
         // Se fallisce, prova con manual-user-cache
         const { data: manualData, error: manualError } = await supabase.functions.invoke('manual-user-cache', {
           body: { 
-            user_id: user.id 
+            user_id: userIdToRefresh 
           }
         });
         
@@ -86,13 +89,21 @@ export function FeedCacheRefresh() {
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-50">
+    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
       <Button 
-        onClick={refreshUserCache}
+        onClick={() => refreshUserCache()}
         disabled={isRefreshing}
         className="bg-primary text-primary-foreground hover:bg-primary/90"
       >
         {isRefreshing ? 'Rigenerando...' : '🔄 Rigenera Feed Personalizzato'}
+      </Button>
+      <Button 
+        onClick={() => refreshUserCache('467eca5f-5fe5-4a71-9b56-df7b31e09b59')}
+        disabled={isRefreshing}
+        variant="outline"
+        size="sm"
+      >
+        {isRefreshing ? 'Rigenerando...' : '🔄 Fix User 467eca5f'}
       </Button>
     </div>
   );

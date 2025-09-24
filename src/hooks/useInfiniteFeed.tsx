@@ -68,6 +68,12 @@ async function fetchPage({
 
     const items = (data ?? []) as FeedItem[];
     
+    // If RPC returns empty array on first page, cache is likely expired - use fallback
+    if (items.length === 0 && !cursor) {
+      console.log('🚨 RPC returned empty array on first page - cache likely expired, using fallback');
+      throw new Error('Empty cache detected, using fallback query');
+    }
+    
     // Filter out non-English/Italian content on frontend as fallback
     const filteredItems = items.filter(item => {
       // Check if title contains Chinese characters
