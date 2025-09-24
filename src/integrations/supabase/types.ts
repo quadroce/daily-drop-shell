@@ -942,7 +942,15 @@ export type Database = {
           updated_at?: string | null
           zero_article_attempts?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_source_health_source_id"
+            columns: ["source_id"]
+            isOneToOne: true
+            referencedRelation: "sources"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sources: {
         Row: {

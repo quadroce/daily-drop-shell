@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { XMLParser } from "npm:fast-xml-parser";
+import { XMLParser } from "fast-xml-parser";
 
 const SUPABASE_URL = "https://qimelntuxquptqqynxzv.supabase.co";
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -335,29 +335,45 @@ serve(async (req) => {
     
     console.log(`Fetching RSS feeds (offset: ${offsetParam}, limit: ${limitParam})${sourceIdParam ? ` for source ${sourceIdParam}` : ' for active sources'}`);
 
-    // Fix: Use separate queries instead of nested query (missing foreign key constraint)
+    // Now that foreign key exists, restore optimized nested query
     let sourcesQuery;
     
     if (sourceIdParam) {
       // Single source query
       sourcesQuery = supabase
         .from('sources')
-        .select('id, name, feed_url')
+        .select(`
+          id, name, feed_url,
+          source_health (
+            zero_article_attempts,
+            last_zero_attempt_at,
+            is_paused,
+            consecutive_errors
+          )
+        `)
         .eq('id', parseInt(sourceIdParam))
         .eq('status', 'active')
         .not('feed_url', 'is', null);
     } else {
-      // Get active sources first
+      // Intelligent prioritization query
       sourcesQuery = supabase
         .from('sources')
-        .select('id, name, feed_url')
+        .select(`
+          id, name, feed_url,
+          source_health (
+            zero_article_attempts,
+            last_zero_attempt_at,
+            is_paused,
+            consecutive_errors
+          )
+        `)
         .eq('status', 'active')
         .not('feed_url', 'is', null)
         .range(offsetParam, offsetParam + limitParam - 1);
     }
 
     const { data: sourcesData, error: sourcesError } = await sourcesQuery;
-    
+
     if (sourcesError) {
       console.error('Error fetching sources:', sourcesError);
       return new Response(JSON.stringify({ 
@@ -382,26 +398,10 @@ serve(async (req) => {
       });
     }
 
-    // Get health data separately for all sources
-    const sourceIds = sourcesData.map(s => s.id);
-    const { data: healthData } = await supabase
-      .from('source_health')
-      .select('source_id, zero_article_attempts, last_zero_attempt_at, is_paused, consecutive_errors')
-      .in('source_id', sourceIds);
-    
-    // Merge health data with sources
-    const sourcesWithHealth = sourcesData.map(source => {
-      const health = healthData?.find(h => h.source_id === source.id);
-      return {
-        ...source,
-        source_health: health ? [health] : []
-      };
-    });
-
     // Intelligent prioritization: 
     // 1. PRIORITY: Sources with 0 articles and <= 3 attempts (give new sources chances)
     // 2. NORMAL: All other active sources (by health)
-    const sources = sourcesWithHealth
+    const sources = sourcesData
       .filter(source => !source.source_health?.[0]?.is_paused)
       .sort((a, b) => {
         const aHealth = a.source_health?.[0];
@@ -472,7 +472,7 @@ serve(async (req) => {
     }
 
     // Determine if there are more sources to process
-    const hasMore = sourcesWithHealth.length === limitParam; // If we got exactly the limit, there might be more
+    const hasMore = sourcesData.length === limitParam; // If we got exactly the limit, there might be more
 
     return new Response(JSON.stringify({
       sources: sources.length,
