@@ -335,45 +335,29 @@ serve(async (req) => {
     
     console.log(`Fetching RSS feeds (offset: ${offsetParam}, limit: ${limitParam})${sourceIdParam ? ` for source ${sourceIdParam}` : ' for active sources'}`);
 
-    // Intelligent source fetching with prioritization
+    // Fix: Use separate queries instead of nested query (missing foreign key constraint)
     let sourcesQuery;
     
     if (sourceIdParam) {
       // Single source query
       sourcesQuery = supabase
         .from('sources')
-        .select(`
-          id, name, feed_url,
-          source_health (
-            zero_article_attempts,
-            last_zero_attempt_at,
-            is_paused,
-            consecutive_errors
-          )
-        `)
+        .select('id, name, feed_url')
         .eq('id', parseInt(sourceIdParam))
         .eq('status', 'active')
         .not('feed_url', 'is', null);
     } else {
-      // Intelligent prioritization query
+      // Get active sources first
       sourcesQuery = supabase
         .from('sources')
-        .select(`
-          id, name, feed_url,
-          source_health (
-            zero_article_attempts,
-            last_zero_attempt_at,
-            is_paused,
-            consecutive_errors
-          )
-        `)
+        .select('id, name, feed_url')
         .eq('status', 'active')
         .not('feed_url', 'is', null)
         .range(offsetParam, offsetParam + limitParam - 1);
     }
 
     const { data: sourcesData, error: sourcesError } = await sourcesQuery;
-
+    
     if (sourcesError) {
       console.error('Error fetching sources:', sourcesError);
       return new Response(JSON.stringify({ 
@@ -398,10 +382,26 @@ serve(async (req) => {
       });
     }
 
+    // Get health data separately for all sources
+    const sourceIds = sourcesData.map(s => s.id);
+    const { data: healthData } = await supabase
+      .from('source_health')
+      .select('source_id, zero_article_attempts, last_zero_attempt_at, is_paused, consecutive_errors')
+      .in('source_id', sourceIds);
+    
+    // Merge health data with sources
+    const sourcesWithHealth = sourcesData.map(source => {
+      const health = healthData?.find(h => h.source_id === source.id);
+      return {
+        ...source,
+        source_health: health ? [health] : []
+      };
+    });
+
     // Intelligent prioritization: 
     // 1. PRIORITY: Sources with 0 articles and <= 3 attempts (give new sources chances)
     // 2. NORMAL: All other active sources (by health)
-    const sources = sourcesData
+    const sources = sourcesWithHealth
       .filter(source => !source.source_health?.[0]?.is_paused)
       .sort((a, b) => {
         const aHealth = a.source_health?.[0];
@@ -472,7 +472,7 @@ serve(async (req) => {
     }
 
     // Determine if there are more sources to process
-    const hasMore = sourcesData.length === limitParam; // If we got exactly the limit, there might be more
+    const hasMore = sourcesWithHealth.length === limitParam; // If we got exactly the limit, there might be more
 
     return new Response(JSON.stringify({
       sources: sources.length,
