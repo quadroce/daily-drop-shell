@@ -172,8 +172,20 @@ async function fetchPage({
     // Apply cursor if provided and not a fallback cursor
     if (cursor && !isFallbackCursor) {
       try {
+        let publishedAt;
         const decoded = atob(cursor);
-        const [score, publishedAt, id] = decoded.split(':');
+        
+        // Try to parse as JSON first (new format)
+        try {
+          const cursorData = JSON.parse(decoded);
+          publishedAt = cursorData.publishedAt;
+        } catch {
+          // Fallback to old format (backwards compatibility)
+          const parts = decoded.split(':');
+          // Rejoin all parts except the first (score) and last (id) to reconstruct timestamp
+          publishedAt = parts.slice(1, -1).join(':');
+        }
+        
         if (publishedAt && publishedAt !== 'null') {
           query = query.lt('published_at', publishedAt);
         }
@@ -238,7 +250,11 @@ async function fetchPage({
     
     const last = items.at(-1);
     const nextCursor = (hasMoreItems && last && last.published_at)
-      ? btoa(`${last.final_score}:${last.published_at}:${last.id}`)
+      ? btoa(JSON.stringify({
+          score: last.final_score,
+          publishedAt: last.published_at,
+          id: last.id
+        }))
       : null;
     
     console.log('✅ Fallback query successful:', { 
