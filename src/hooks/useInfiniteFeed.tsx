@@ -83,6 +83,13 @@ async function fetchPage({
       throw new Error('Empty cache detected, using fallback query');
     }
     
+    // If RPC returns fewer items than limit and we're not at the first page, 
+    // OR if we got fewer than limit on first page, cache might be exhausted - try fallback
+    if ((items.length < limit && cursor) || (items.length < limit && !cursor && items.length > 0)) {
+      console.log('🔄 Cache potentially exhausted, trying fallback for additional items');
+      throw new Error('Cache exhausted, using fallback query for more items');
+    }
+    
     // Filter out non-English/Italian content on frontend as fallback
     const filteredItems = items.filter(item => {
       // Check if title contains Chinese characters
@@ -97,22 +104,35 @@ async function fetchPage({
       return true;
     });
     
-    // For RPC: Use position-based pagination
+    // For RPC: Use position-based pagination and check if we got a full page
     let nextCursor = null;
     if (filteredItems.length >= limit) {
+      // If we got exactly the limit, there might be more items
       // Parse current position from cursor, or start at 1
       const currentPosition = cursor ? 
         (JSON.parse(cursor).position || 1) : 1;
       const nextPosition = currentPosition + filteredItems.length;
       nextCursor = JSON.stringify({ position: nextPosition });
+    } else if (filteredItems.length > 0 && !cursor) {
+      // First page with fewer items than limit - check if there could be more
+      // This handles cases where cache has more items but RPC returned fewer
+      if (filteredItems.length < limit) {
+        // We got fewer items than requested, likely no more available
+        nextCursor = null;
+      } else {
+        // We got exactly what we asked for, might be more
+        nextCursor = JSON.stringify({ position: filteredItems.length + 1 });
+      }
     }
     
     console.log('✅ RPC query successful:', { 
       originalItemsCount: items.length,
       filteredItemsCount: filteredItems.length,
       limit, 
-      nextCursor: !!nextCursor,
+      nextCursor,
       hasMore: !!nextCursor,
+      requestedLimit: limit,
+      gotExactLimit: filteredItems.length === limit,
       personalizedScores: filteredItems.slice(0, 3).map(i => ({ 
         score: i.final_score, 
         reason: i.reason_for_ranking 
