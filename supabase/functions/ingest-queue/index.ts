@@ -79,7 +79,7 @@ async function callScrapeOg(url: string, sourceId: number | null) {
   return result;
 }
 
-async function processQueueItems(limit = 20): Promise<ProcessResult> {
+async function processQueueItems(limit = 100): Promise<ProcessResult> {
   console.log(`Starting queue processing with limit: ${limit}`);
   
   // Fetch pending queue items using REST API
@@ -109,8 +109,8 @@ async function processQueueItems(limit = 20): Promise<ProcessResult> {
 
   const result: ProcessResult = { processed: 0, done: 0, errors: 0, details: [] };
 
-  // Process items in batches of 2 for better rate limiting and controlled concurrency
-  const batchSize = 2;
+  // Process items in batches of 10 for faster throughput while maintaining stability
+  const batchSize = 10;
   for (let i = 0; i < queueItems.length; i += batchSize) {
     const batch = queueItems.slice(i, i + batchSize);
     
@@ -276,9 +276,9 @@ async function processQueueItems(limit = 20): Promise<ProcessResult> {
     // Wait for current batch to complete
     const batchResults = await Promise.allSettled(promises);
     
-    // Add delay between batches to prevent overwhelming servers (1-2 seconds)
+    // Add optimized delay between batches (0.25-0.75 seconds)
     if (i + batchSize < queueItems.length) {
-      const batchDelay = 1000 + Math.random() * 1000;
+      const batchDelay = 250 + Math.random() * 500;
       console.log(`Waiting ${Math.round(batchDelay)}ms before next batch...`);
       await new Promise(resolve => setTimeout(resolve, batchDelay));
     }
@@ -359,14 +359,14 @@ serve(async (req) => {
   }
 
   try {
-    let limit = 20;
+    let limit = 100;
 
     // Parse limit from request body if POST
     if (req.method === 'POST') {
       try {
         const body = await req.json();
         if (body.limit && typeof body.limit === 'number') {
-          limit = Math.min(Math.max(1, body.limit), 100); // Clamp between 1-100
+          limit = Math.min(Math.max(1, body.limit), 200); // Clamp between 1-200
         }
       } catch (e) {
         // Invalid JSON, use default limit
