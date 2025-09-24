@@ -117,8 +117,8 @@ const OnboardingPage: React.FC = () => {
           break;
         case 2:
           track('onboarding_languages_set', { 
-            count: formData.language_prefs?.length || 0,
-            languages: formData.language_prefs || [] 
+            count: formData.selected_language_codes?.length || 0,
+            languages: formData.selected_language_codes || [] 
           });
           track('onboarding_embed_pref_set', { 
             youtube_embed_pref: formData.youtube_embed_pref 
@@ -305,7 +305,7 @@ const OnboardingPage: React.FC = () => {
           {currentStep === 2 && (
             <OnboardingStep2Preferences
               formData={{
-                language_prefs: formData.language_prefs,
+                selected_language_codes: formData.selected_language_codes,
                 youtube_embed_pref: formData.youtube_embed_pref
               }}
               onChange={handleFormChange}

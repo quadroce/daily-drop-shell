@@ -33,9 +33,7 @@ export function AnalyticsProvider({ children }: AnalyticsProviderProps) {
           userProps.subscription_tier = profile.subscription_tier;
         }
         
-        if (profile.language_prefs && profile.language_prefs.length > 0) {
-          userProps.language_prefs = profile.language_prefs;
-        }
+        // Note: Language preferences now come from preferences table via selected_language_ids
         
         if (profile.youtube_embed_pref !== undefined) {
           userProps.youtube_embed_pref = profile.youtube_embed_pref;
@@ -47,7 +45,7 @@ export function AnalyticsProvider({ children }: AnalyticsProviderProps) {
         }
       }
     }
-  }, [user?.id, profile?.subscription_tier, profile?.language_prefs, profile?.youtube_embed_pref]);
+  }, [user?.id, profile?.subscription_tier, profile?.youtube_embed_pref]);
 
   // Track page views on route changes
   useEffect(() => {

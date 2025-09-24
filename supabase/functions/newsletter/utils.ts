@@ -159,20 +159,36 @@ export async function getUserPrefs(userId: string, supabase: any) {
   try {
     const { data: user } = await supabase
       .from('profiles')
-      .select('language_prefs, email, display_name, first_name')
+      .select('email, display_name, first_name')
       .eq('id', userId)
       .single();
     
     const { data: preferences } = await supabase
       .from('preferences')
-      .select('selected_topic_ids')
+      .select('selected_topic_ids, selected_language_ids')
       .eq('user_id', userId)
       .maybeSingle();
+
+    // Get language codes from language IDs
+    let languageCodes: string[] = [];
+    if (preferences?.selected_language_ids?.length > 0) {
+      const { data: languages } = await supabase
+        .from('languages')
+        .select('code')
+        .in('id', preferences.selected_language_ids);
+      
+      languageCodes = languages?.map(lang => lang.code) || [];
+    }
+
+    // Default to English if no languages selected
+    if (languageCodes.length === 0) {
+      languageCodes = ['en'];
+    }
     
     return {
       user,
       preferences,
-      language_prefs: user?.language_prefs || [],
+      language_prefs: languageCodes, // Keep same interface for compatibility
       selected_topic_ids: preferences?.selected_topic_ids || [],
     };
   } catch (error) {
@@ -180,7 +196,7 @@ export async function getUserPrefs(userId: string, supabase: any) {
     return {
       user: null,
       preferences: null,
-      language_prefs: [],
+      language_prefs: ['en'], // Default to English
       selected_topic_ids: [],
     };
   }

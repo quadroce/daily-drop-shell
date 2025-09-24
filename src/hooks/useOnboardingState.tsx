@@ -238,11 +238,27 @@ export function useOnboardingState() {
         lastSavedHashRef.current = currentHash;
       }
 
-      // Transfer selected topics to preferences table
-      console.log('🏷️ completeOnboarding: Processing topics transfer', { topicsCount: state.selected_topics.length });
-      if (state.selected_topics.length > 0) {
-        // Get existing preferences or create new one
-        console.log('🔍 completeOnboarding: Fetching existing preferences');
+      // Transfer selected topics and languages to preferences table
+      console.log('🏷️ completeOnboarding: Processing topics and languages transfer', { 
+        topicsCount: state.selected_topics.length,
+        languageCodes: state.profile_data?.selected_language_codes 
+      });
+      
+      // Get language IDs from language codes if available
+      let languageIds: number[] = [];
+      if (state.profile_data?.selected_language_codes?.length > 0) {
+        console.log('🌐 completeOnboarding: Converting language codes to IDs');
+        const { data: languages, error: langError } = await supabase
+          .from('languages')
+          .select('id, code')
+          .in('code', state.profile_data.selected_language_codes);
+          
+        if (langError) throw langError;
+        languageIds = languages?.map(lang => lang.id) || [];
+        console.log('✅ completeOnboarding: Language IDs fetched', languageIds);
+      } else {
+        // Get existing preferences to preserve languages
+        console.log('🔍 completeOnboarding: No new languages, fetching existing preferences');
         const { data: existingPrefs, error: fetchError } = await supabase
           .from('preferences')
           .select('selected_language_ids')
@@ -250,34 +266,55 @@ export function useOnboardingState() {
           .maybeSingle();
         
         if (fetchError) throw fetchError;
-        console.log('📋 completeOnboarding: Existing preferences fetched', existingPrefs);
-
-        console.log('💿 completeOnboarding: Upserting topic preferences');
-        const { error: upsertError } = await supabase
-          .from('preferences')
-          .upsert({
-            user_id: userId,
-            selected_topic_ids: state.selected_topics,
-            selected_language_ids: existingPrefs?.selected_language_ids || [],
-            updated_at: new Date().toISOString()
-          }, {
-            onConflict: 'user_id'
-          });
-        
-        if (upsertError) throw upsertError;
-        console.log('✅ completeOnboarding: Topics transferred to preferences successfully');
-      } else {
-        console.log('⚠️ completeOnboarding: No topics to transfer');
+        languageIds = existingPrefs?.selected_language_ids || [1]; // Default to English
+        console.log('📋 completeOnboarding: Using existing/default language IDs', languageIds);
       }
 
-      // flag profilo + redirect
-      console.log('🏁 completeOnboarding: Marking onboarding as completed in profile');
-      const { error: profileError } = await supabase.from("profiles").update({ onboarding_completed: true }).eq(
-        "id",
-        userId,
-      );
-      if (profileError) throw profileError;
-      console.log('✅ completeOnboarding: Profile marked as onboarding completed');
+      // Always upsert preferences (topics and languages)
+      console.log('💿 completeOnboarding: Upserting preferences');
+      const { error: upsertError } = await supabase
+        .from('preferences')
+        .upsert({
+          user_id: userId,
+          selected_topic_ids: state.selected_topics,
+          selected_language_ids: languageIds,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
+        });
+      
+      if (upsertError) throw upsertError;
+      console.log('✅ completeOnboarding: Preferences transferred to preferences table successfully');
+
+      // Transfer profile data to profiles table (first_name, last_name, company_role, youtube_embed_pref)
+      console.log('👤 completeOnboarding: Transferring profile data to profiles table');
+      if (state.profile_data) {
+        const profileUpdates: any = { onboarding_completed: true };
+        
+        if (state.profile_data.first_name) profileUpdates.first_name = state.profile_data.first_name;
+        if (state.profile_data.last_name) profileUpdates.last_name = state.profile_data.last_name;
+        if (state.profile_data.company_role) profileUpdates.company_role = state.profile_data.company_role;
+        if (state.profile_data.youtube_embed_pref !== undefined) profileUpdates.youtube_embed_pref = state.profile_data.youtube_embed_pref;
+        
+        console.log('💾 completeOnboarding: Updating profile with', profileUpdates);
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .update(profileUpdates)
+          .eq("id", userId);
+          
+        if (profileError) throw profileError;
+        console.log('✅ completeOnboarding: Profile data transferred successfully');
+      } else {
+        // Still mark onboarding as completed even if no profile data
+        console.log('🏁 completeOnboarding: Marking onboarding as completed (no profile data to transfer)');
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .update({ onboarding_completed: true })
+          .eq("id", userId);
+          
+        if (profileError) throw profileError;
+        console.log('✅ completeOnboarding: Profile marked as onboarding completed');
+      }
 
       // Refresh profile cache to trigger ProtectedRoute redirect
       console.log('🔄 completeOnboarding: Refreshing profile cache');

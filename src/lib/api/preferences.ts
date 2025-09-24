@@ -38,18 +38,7 @@ export const saveAllUserPreferences = async (preferences: {
       languageCodes: languagesToSave
     });
 
-    // Update profiles table (for backward compatibility)
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .update({
-        language_prefs: languagesToSave
-      })
-      .eq('id', user.id);
-
-    if (profileError) {
-      console.error('Error updating profile languages:', profileError);
-      throw new Error(`Failed to update profile: ${profileError.message}`);
-    }
+    // Note: No longer updating profiles.language_prefs - using only preferences.selected_language_ids
 
     // Update preferences table (main source of truth)
     const { error: prefsError } = await supabase
@@ -136,28 +125,7 @@ export const fetchAllUserPreferences = async (): Promise<{
       };
     }
 
-    // Fallback to profile data if no preferences found
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('language_prefs')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    if (profile?.language_prefs?.length > 0) {
-      // Get language IDs for consistency
-      const { data: languages } = await supabase
-        .from('languages')
-        .select('id, code')
-        .in('code', profile.language_prefs);
-      
-      const selectedLanguageIds = languages?.map(lang => lang.id) || [];
-
-      return {
-        selectedTopicIds: [],
-        selectedLanguageIds,
-        languageCodes: profile.language_prefs
-      };
-    }
+    // Note: No longer using profiles.language_prefs as fallback - preferences table is source of truth
 
     // No preferences found anywhere - provide defaults
     return {

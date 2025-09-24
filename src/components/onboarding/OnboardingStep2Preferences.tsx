@@ -10,7 +10,7 @@ import { fetchAvailableLanguages } from "@/lib/api/profile";
 
 interface OnboardingStep2Props {
   formData: {
-    language_prefs?: string[];
+    selected_language_codes?: string[];
     youtube_embed_pref?: boolean;
   };
   onChange: (field: string, value: any) => void;
@@ -42,7 +42,7 @@ export const OnboardingStep2Preferences: React.FC<OnboardingStep2Props> = ({
     loadLanguages();
   }, []);
   const handleLanguageToggle = (languageCode: string, checked: boolean) => {
-    let newLanguages = [...(formData.language_prefs || [])];
+    let newLanguages = [...(formData.selected_language_codes || [])];
     
     if (checked) {
       if (newLanguages.length < 3) {
@@ -52,11 +52,11 @@ export const OnboardingStep2Preferences: React.FC<OnboardingStep2Props> = ({
       newLanguages = newLanguages.filter(lang => lang !== languageCode);
     }
     
-    onChange('language_prefs', newLanguages);
+    onChange('selected_language_codes', newLanguages);
   };
 
-  const canAddLanguage = (formData.language_prefs || []).length < 3;
-  const hasMinLanguages = (formData.language_prefs || []).length >= 1;
+  const canAddLanguage = (formData.selected_language_codes || []).length < 3;
+  const hasMinLanguages = (formData.selected_language_codes || []).length >= 1;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,7 +83,7 @@ export const OnboardingStep2Preferences: React.FC<OnboardingStep2Props> = ({
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium">Languages</h3>
               <Badge variant="outline">
-                {(formData.language_prefs || []).length}/3 selected
+                {(formData.selected_language_codes || []).length}/3 selected
               </Badge>
             </div>
             
@@ -106,7 +106,7 @@ export const OnboardingStep2Preferences: React.FC<OnboardingStep2Props> = ({
                 </div>
               ) : (
                 availableLanguages.map((language) => {
-                const isSelected = (formData.language_prefs || []).includes(language.code);
+                const isSelected = (formData.selected_language_codes || []).includes(language.code);
                 const isDisabled = !isSelected && !canAddLanguage;
                 
                 return (

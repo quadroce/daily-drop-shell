@@ -8,7 +8,7 @@ export interface OnboardingProfile {
   first_name?: string;
   last_name?: string;
   company_role?: string;
-  language_prefs: string[];
+  selected_language_codes: string[];
   youtube_embed_pref: boolean;
 }
 
@@ -30,8 +30,38 @@ export async function saveProfile(payload: OnboardingProfile): Promise<Profile> 
   }
 
   // Validate language preferences (max 3)
-  if (payload.language_prefs.length > 3) {
+  if (payload.selected_language_codes.length > 3) {
     throw new Error("Maximum 3 languages allowed");
+  }
+
+  // Get language IDs from language codes
+  const { data: languages, error: langError } = await supabase
+    .from('languages')
+    .select('id, code')
+    .in('code', payload.selected_language_codes);
+
+  if (langError) {
+    console.error('Error fetching languages:', langError);
+    throw new Error(`Failed to fetch languages: ${langError.message}`);
+  }
+
+  const languageIds = languages?.map(lang => lang.id) || [];
+
+  // Update preferences table with language IDs
+  const { error: prefsError } = await supabase
+    .from('preferences')
+    .upsert({
+      user_id: user.id,
+      selected_language_ids: languageIds,
+      updated_at: new Date().toISOString()
+    }, {
+      onConflict: 'user_id',
+      ignoreDuplicates: false
+    });
+
+  if (prefsError) {
+    console.error('Error updating preferences:', prefsError);
+    throw new Error(`Failed to update preferences: ${prefsError.message}`);
   }
 
   const { data, error } = await supabase
@@ -40,7 +70,6 @@ export async function saveProfile(payload: OnboardingProfile): Promise<Profile> 
       first_name: payload.first_name,
       last_name: payload.last_name,
       company_role: payload.company_role,
-      language_prefs: payload.language_prefs,
       youtube_embed_pref: payload.youtube_embed_pref,
     })
     .eq('id', user.id)
@@ -198,7 +227,7 @@ export async function getCurrentProfile(): Promise<Profile | null> {
  * Update user preferences (languages and YouTube embed)
  */
 export const updateUserPreferences = async (preferences: { 
-  language_prefs: string[]; 
+  selected_language_codes: string[]; 
   youtube_embed_pref: boolean; 
 }): Promise<Profile> => {
   const { data: { user } } = await supabase.auth.getUser();
@@ -211,7 +240,7 @@ export const updateUserPreferences = async (preferences: {
   const { data: languages, error: langError } = await supabase
     .from('languages')
     .select('id, code')
-    .in('code', preferences.language_prefs);
+    .in('code', preferences.selected_language_codes);
 
   if (langError) {
     console.error('Error fetching languages:', langError);
@@ -220,23 +249,7 @@ export const updateUserPreferences = async (preferences: {
 
   const languageIds = languages?.map(lang => lang.id) || [];
 
-  // Update profiles table for youtube_embed_pref
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .update({
-      language_prefs: preferences.language_prefs,
-      youtube_embed_pref: preferences.youtube_embed_pref
-    })
-    .eq('id', user.id)
-    .select('*')
-    .single();
-
-  if (profileError) {
-    console.error('Error updating profile:', profileError);
-    throw new Error(`Failed to update profile: ${profileError.message}`);
-  }
-
-  // Also update the preferences table for consistency
+  // Update preferences table with language IDs
   const { error: prefsError } = await supabase
     .from('preferences')
     .upsert({
@@ -250,7 +263,22 @@ export const updateUserPreferences = async (preferences: {
 
   if (prefsError) {
     console.error('Error updating preferences table:', prefsError);
-    // Don't throw here - profile was updated successfully
+    throw new Error(`Failed to update preferences: ${prefsError.message}`);
+  }
+
+  // Update profiles table for youtube_embed_pref only
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .update({
+      youtube_embed_pref: preferences.youtube_embed_pref
+    })
+    .eq('id', user.id)
+    .select('*')
+    .single();
+
+  if (profileError) {
+    console.error('Error updating profile:', profileError);
+    throw new Error(`Failed to update profile: ${profileError.message}`);
   }
 
   if (!profile) {

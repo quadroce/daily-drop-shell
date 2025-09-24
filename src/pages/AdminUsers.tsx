@@ -32,7 +32,7 @@ interface User {
   last_name: string;
   subscription_tier: 'free' | 'premium' | 'sponsor' | 'corporate';
   role: 'user' | 'editor' | 'admin';
-  language_prefs: string[];
+  selected_language_codes: string[];
   youtube_embed_pref: boolean;
   onboarding_completed: boolean;
   created_at: string;
@@ -600,7 +600,7 @@ const AdminUsers = () => {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        {user.language_prefs?.slice(0, 2).map((code) => {
+                        {user.selected_language_codes?.slice(0, 2).map((code) => {
                           const lang = languages.find(l => l.code === code);
                           return (
                             <Badge key={code} variant="outline" className="text-xs">
@@ -608,9 +608,9 @@ const AdminUsers = () => {
                             </Badge>
                           );
                         })}
-                        {user.language_prefs?.length > 2 && (
+                        {user.selected_language_codes?.length > 2 && (
                           <Badge variant="outline" className="text-xs">
-                            +{user.language_prefs.length - 2}
+                            +{user.selected_language_codes.length - 2}
                           </Badge>
                         )}
                       </div>
@@ -758,7 +758,7 @@ const UserEditorDrawer = ({
     company_role: "",
     subscription_tier: "free" as 'free' | 'premium' | 'sponsor' | 'corporate',
     role: "user" as 'user' | 'editor' | 'admin',
-    language_prefs: [] as string[],
+    selected_language_codes: [] as string[],
     youtube_embed_pref: true,
     onboarding_completed: false,
     is_active: true
@@ -775,7 +775,7 @@ const UserEditorDrawer = ({
         company_role: user.company_role || "",
         subscription_tier: user.subscription_tier,
         role: user.role,
-        language_prefs: user.language_prefs || [],
+        selected_language_codes: user.selected_language_codes || [],
         youtube_embed_pref: user.youtube_embed_pref,
         onboarding_completed: user.onboarding_completed,
         is_active: user.is_active
@@ -791,7 +791,7 @@ const UserEditorDrawer = ({
         company_role: "",
         subscription_tier: "free" as 'free' | 'premium' | 'sponsor' | 'corporate',
         role: "user" as 'user' | 'editor' | 'admin',
-        language_prefs: [],
+        selected_language_codes: [],
         youtube_embed_pref: true,
         onboarding_completed: false,
         is_active: true
@@ -953,21 +953,21 @@ const UserEditorDrawer = ({
                   <div key={lang.code} className="flex items-center space-x-2">
                     <Checkbox
                       id={`lang-${lang.code}`}
-                      checked={formData.language_prefs.includes(lang.code)}
+                      checked={formData.selected_language_codes.includes(lang.code)}
                       onCheckedChange={(checked) => {
-                        if (checked && formData.language_prefs.length < 3) {
+                        if (checked && formData.selected_language_codes.length < 3) {
                           setFormData(f => ({ 
                             ...f, 
-                            language_prefs: [...f.language_prefs, lang.code] 
+                            selected_language_codes: [...f.selected_language_codes, lang.code] 
                           }));
                         } else if (!checked) {
                           setFormData(f => ({ 
                             ...f, 
-                            language_prefs: f.language_prefs.filter(code => code !== lang.code) 
+                            selected_language_codes: f.selected_language_codes.filter(code => code !== lang.code) 
                           }));
                         }
                       }}
-                      disabled={!formData.language_prefs.includes(lang.code) && formData.language_prefs.length >= 3}
+                      disabled={!formData.selected_language_codes.includes(lang.code) && formData.selected_language_codes.length >= 3}
                     />
                     <Label htmlFor={`lang-${lang.code}`} className="text-sm">
                       {lang.label}
@@ -976,7 +976,7 @@ const UserEditorDrawer = ({
                 ))}
               </div>
               <p className="text-sm text-muted-foreground">
-                Selected: {formData.language_prefs.length}/3
+                Selected: {formData.selected_language_codes.length}/3
               </p>
             </div>
 

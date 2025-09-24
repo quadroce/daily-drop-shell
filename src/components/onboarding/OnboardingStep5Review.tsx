@@ -11,7 +11,7 @@ interface OnboardingStep5Props {
     first_name?: string;
     last_name?: string;
     company_role?: string;
-    language_prefs?: string[];
+    selected_language_codes?: string[];
     youtube_embed_pref?: boolean;
   };
   selectedTopics: number[];
@@ -97,12 +97,12 @@ export const OnboardingStep5Review: React.FC<OnboardingStep5Props> = ({
             <Globe className="h-4 w-4" />
             <h3 className="font-medium">Languages</h3>
             <Badge variant="outline">
-              {(formData.language_prefs || []).length}/3
+              {(formData.selected_language_codes || []).length}/3
             </Badge>
           </div>
           <div className="pl-6">
             <div className="flex flex-wrap gap-2">
-              {getLanguageLabels(formData.language_prefs || []).map((label, index) => (
+              {getLanguageLabels(formData.selected_language_codes || []).map((label, index) => (
                 <Badge key={index} variant="secondary">
                   {label}
                 </Badge>
