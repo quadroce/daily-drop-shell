@@ -524,19 +524,38 @@ const Admin = () => {
       const currentJob = cronJobs.find(job => job.name === 'auto-ingest-worker');
       const newStatus = !currentJob?.enabled;
       
+      // Use upsert to handle both creating and updating the record
       const { error } = await supabase
         .from('cron_jobs')
-        .update({ enabled: newStatus, updated_at: new Date().toISOString() })
-        .eq('name', 'auto-ingest-worker');
+        .upsert({ 
+          name: 'auto-ingest-worker',
+          enabled: newStatus, 
+          updated_at: new Date().toISOString(),
+          created_at: new Date().toISOString()
+        });
 
       if (error) throw error;
 
-      // Update local state
-      setCronJobs(prev => prev.map(job => 
-        job.name === 'auto-ingest-worker' 
-          ? { ...job, enabled: newStatus }
-          : job
-      ));
+      // Update local state - handle both existing and new records
+      setCronJobs(prev => {
+        const existingJobIndex = prev.findIndex(job => job.name === 'auto-ingest-worker');
+        if (existingJobIndex >= 0) {
+          // Update existing record
+          return prev.map(job => 
+            job.name === 'auto-ingest-worker' 
+              ? { ...job, enabled: newStatus }
+              : job
+          );
+        } else {
+          // Add new record
+          return [...prev, {
+            name: 'auto-ingest-worker',
+            enabled: newStatus,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }];
+        }
+      });
 
       toast({
         title: `Auto Ingest Worker ${newStatus ? 'Enabled' : 'Disabled'}`,
