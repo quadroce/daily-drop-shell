@@ -1,450 +1,181 @@
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { Mail, User, Clock, Loader2, Send, Search } from "lucide-react";
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { Loader2, Mail, RefreshCw, User } from 'lucide-react';
 
-interface User {
-  id: string;
-  email: string;
-  display_name: string | null;
-  username: string | null;
-  subscription_tier: string;
-  created_at: string;
-}
-
-interface NewsletterSubscription {
-  user_id: string;
-  slot?: string;
-  confirmed?: boolean;
-  active?: boolean;
-  cadence?: string;
-}
-
-export const NewsletterTestPanel = () => {
-  const [users, setUsers] = useState<User[]>([]);
-  const [subscriptions, setSubscriptions] = useState<NewsletterSubscription[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState<string>("");
-  const [cadence, setCadence] = useState<string>("daily");
-  const [slot, setSlot] = useState<string>("morning");
-  const [loading, setLoading] = useState(false);
-  const [loadingUsers, setLoadingUsers] = useState(true);
-  const [searchEmail, setSearchEmail] = useState("");
-  const [manualSendLoading, setManualSendLoading] = useState(false);
-  const [lastNewsletterSent, setLastNewsletterSent] = useState<string | null>(null);
-  const [loadingLastSent, setLoadingLastSent] = useState(false);
+export function NewsletterTestPanel() {
   const { toast } = useToast();
+  const [isTestingNewsletter, setIsTestingNewsletter] = useState(false);
+  const [isRefreshingCache, setIsRefreshingCache] = useState(false);
+  const [testUserId, setTestUserId] = useState('637fc77f-93aa-488a-a0e1-ebd00826d4b3');
+  const [testResults, setTestResults] = useState<any>(null);
 
-  useEffect(() => {
-    fetchUsers();
-    fetchSubscriptions();
-    fetchLastNewsletterSent();
-  }, []);
-
-  // Add refresh function for after creating subscriptions
-  const refreshData = () => {
-    fetchUsers();
-    fetchSubscriptions();
-  };
-
-  const fetchUsers = async () => {
+  const refreshUserCache = async () => {
     try {
-      setLoadingUsers(true);
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, email, display_name, username, subscription_tier, created_at')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false })
-        .limit(100);
+      setIsRefreshingCache(true);
+      
+      const { data, error } = await supabase.functions.invoke('manual-user-cache', {
+        body: { user_id: testUserId }
+      });
 
       if (error) throw error;
-      setUsers(data || []);
-    } catch (error) {
-      console.error('Error fetching users:', error);
+
       toast({
-        title: "Error",
-        description: "Failed to fetch users list",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingUsers(false);
-    }
-  };
-
-  const fetchSubscriptions = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('newsletter_subscriptions')
-        .select('*')
-        .limit(5);
-
-      if (error) {
-        console.error('Error fetching subscriptions:', error);
-        // If table doesn't exist or has different schema, just set empty array
-        setSubscriptions([]);
-        return;
-      }
-      
-      console.log('Newsletter subscriptions sample:', data);
-      setSubscriptions(data || []);
-    } catch (error) {
-      console.error('Error fetching subscriptions:', error);
-      setSubscriptions([]);
-    }
-  };
-
-  const fetchLastNewsletterSent = async () => {
-    try {
-      setLoadingLastSent(true);
-      const { data, error } = await supabase
-        .from('delivery_log')
-        .select('sent_at')
-        .not('dedup_key', 'ilike', '%test%') // Exclude test newsletters
-        .eq('status', 'delivered')
-        .order('sent_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching last newsletter:', error);
-        return;
-      }
-      
-      setLastNewsletterSent(data?.sent_at || null);
-    } catch (error) {
-      console.error('Error fetching last newsletter:', error);
-      setLastNewsletterSent(null);
-    } finally {
-      setLoadingLastSent(false);
-    }
-  };
-
-  const sendNewsletterManually = async () => {
-    setManualSendLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('send-newsletters', {
-        body: { manual: true }
+        title: "Cache aggiornata",
+        description: `Cache rigenerata per utente ${testUserId}`,
       });
 
-      if (error) throw error;
-
-      if (data?.success) {
-        toast({
-          title: "Newsletter inviata con successo",
-          description: `Newsletter inviata a ${data.processed || 0} utenti`,
-        });
-        
-        // Refresh last sent data
-        fetchLastNewsletterSent();
-      } else {
-        throw new Error(data?.error || 'Failed to send newsletter');
-      }
+      console.log('Cache refresh result:', data);
     } catch (error) {
-      console.error('Error sending manual newsletter:', error);
+      console.error('Error refreshing cache:', error);
       toast({
         title: "Errore",
-        description: error instanceof Error ? error.message : 'Errore nell\'invio della newsletter',
+        description: error.message || "Errore nella rigenerazione della cache",
         variant: "destructive",
       });
     } finally {
-      setManualSendLoading(false);
+      setIsRefreshingCache(false);
     }
   };
 
-  const sendTestNewsletter = async () => {
-    if (!selectedUserId) {
-      toast({
-        title: "Error",
-        description: "Please select a user first",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoading(true);
+  const testNewsletter = async () => {
     try {
-      // First, build the digest for this user
-      const { data: digestData, error: digestError } = await supabase.functions.invoke('build-digest', {
+      setIsTestingNewsletter(true);
+      
+      console.log(`🧪 Testing newsletter for user: ${testUserId}`);
+      
+      // Step 1: Build digest
+      const { data: buildData, error: buildError } = await supabase.functions.invoke('build-digest', {
         body: {
-          userId: selectedUserId,
-          cadence: cadence,
-          slot: slot,
+          userId: testUserId,
+          cadence: 'daily',
+          slot: 'morning',
           testMode: true
         }
       });
 
-      if (digestError) throw digestError;
+      if (buildError) throw new Error(`Build digest failed: ${buildError.message}`);
+      if (!buildData?.success) throw new Error(`Build digest failed: ${buildData?.error}`);
 
-      if (!digestData || !digestData.success) {
-        throw new Error(digestData?.error || 'Failed to build digest');
-      }
+      console.log('✅ Build digest successful:', buildData);
 
-      // Then send the newsletter
-      const { data: emailData, error: emailError } = await supabase.functions.invoke('send-email-digest', {
+      // Step 2: Send email
+      const { data: sendData, error: sendError } = await supabase.functions.invoke('send-email-digest', {
         body: {
-          userId: selectedUserId,
-          digestContent: digestData.digestContent,
+          userId: testUserId,
+          digestContent: buildData.digestContent,
           testMode: true
         }
       });
 
-      if (emailError) throw emailError;
+      if (sendError) throw new Error(`Send email failed: ${sendError.message}`);
+      if (!sendData?.success) throw new Error(`Send email failed: ${sendData?.error}`);
 
-      if (emailData?.success) {
-        toast({
-          title: "Newsletter Sent Successfully",
-          description: `Test newsletter sent to user ${selectedUserId}. Email: ${emailData.emailSent}`,
-        });
-        
-        // Refresh data to show updated subscription status
-        refreshData();
-      } else {
-        throw new Error(emailData?.error || 'Failed to send newsletter');
-      }
-    } catch (error) {
-      console.error('Error sending test newsletter:', error);
+      console.log('✅ Send email successful:', sendData);
+
+      setTestResults({
+        buildResult: buildData,
+        sendResult: sendData,
+        success: true
+      });
+
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : 'Failed to send test newsletter',
+        title: "Newsletter Test Completato",
+        description: `Newsletter di test inviata con successo a ${testUserId}`,
+      });
+
+    } catch (error) {
+      console.error('❌ Newsletter test failed:', error);
+      
+      setTestResults({
+        error: error.message,
+        success: false
+      });
+
+      toast({
+        title: "Errore nel Test Newsletter",
+        description: error.message || "Test della newsletter fallito",
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setIsTestingNewsletter(false);
     }
   };
-
-  const filteredUsers = users.filter(user => 
-    user.email.toLowerCase().includes(searchEmail.toLowerCase()) ||
-    (user.display_name && user.display_name.toLowerCase().includes(searchEmail.toLowerCase())) ||
-    (user.username && user.username.toLowerCase().includes(searchEmail.toLowerCase()))
-  );
-
-  const selectedUser = users.find(u => u.id === selectedUserId);
-  const userSubscription = subscriptions.find(s => s.user_id === selectedUserId);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+    <Card className="p-6">
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
           <Mail className="h-5 w-5" />
-          Newsletter Test Panel
-        </CardTitle>
-        <CardDescription>
-          Send test newsletters to specific users for testing purposes
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* User Selection */}
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="search">Search Users</Label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <h3 className="text-lg font-semibold">Newsletter Test Panel</h3>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <label className="text-sm font-medium mb-2 block">User ID per Test:</label>
+            <div className="flex gap-2">
               <Input
-                id="search"
-                placeholder="Search by email, username, or display name..."
-                value={searchEmail}
-                onChange={(e) => setSearchEmail(e.target.value)}
-                className="pl-10"
+                value={testUserId}
+                onChange={(e) => setTestUserId(e.target.value)}
+                placeholder="UUID utente"
+                className="font-mono text-sm"
               />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Select User</Label>
-            {loadingUsers ? (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Loading users...
-              </div>
-            ) : (
-              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a user to send test newsletter" />
-                </SelectTrigger>
-                <SelectContent className="max-h-60">
-                  {filteredUsers.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4" />
-                        <span>{user.email}</span>
-                        {user.display_name && (
-                          <Badge variant="secondary" className="text-xs">
-                            {user.display_name}
-                          </Badge>
-                        )}
-                        <Badge variant="outline" className="text-xs">
-                          {user.subscription_tier}
-                        </Badge>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-
-          {/* Selected User Info */}
-          {selectedUser && (
-            <Card className="bg-muted/50">
-              <CardContent className="pt-4">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4" />
-                    <span className="font-medium">{selectedUser.email}</span>
-                    <Badge>{selectedUser.subscription_tier}</Badge>
-                  </div>
-                  {selectedUser.display_name && (
-                    <div className="text-sm text-muted-foreground">
-                      Display Name: {selectedUser.display_name}
-                    </div>
-                  )}
-                  {selectedUser.username && (
-                    <div className="text-sm text-muted-foreground">
-                      Username: {selectedUser.username}
-                    </div>
-                  )}
-                  <div className="text-sm text-muted-foreground">
-                    Member since: {new Date(selectedUser.created_at).toLocaleDateString()}
-                  </div>
-                  
-                  {/* Newsletter Subscription Status */}
-                  {userSubscription ? (
-                    <div className="flex items-center gap-2 mt-3 pt-3 border-t">
-                      <Badge variant={userSubscription.active ? "default" : "secondary"}>
-                        {userSubscription.active ? "Subscribed" : "Inactive"}
-                      </Badge>
-                      {userSubscription.slot && (
-                        <Badge variant="outline">
-                          {userSubscription.slot}
-                        </Badge>
-                      )}
-                      {userSubscription.confirmed !== undefined && (
-                        userSubscription.confirmed ? (
-                          <Badge variant="default">Confirmed</Badge>
-                        ) : (
-                          <Badge variant="destructive">Unconfirmed</Badge>
-                        )
-                      )}
-                    </div>
-                  ) : (
-                    <div className="mt-3 pt-3 border-t">
-                      <Badge variant="secondary">No Newsletter Subscription</Badge>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        {/* Newsletter Configuration */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label>Newsletter Cadence</Label>
-            <Select value={cadence} onValueChange={setCadence}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="daily">Daily</SelectItem>
-                <SelectItem value="weekly">Weekly</SelectItem>
-                <SelectItem value="monthly">Monthly</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Time Slot</Label>
-            <Select value={slot} onValueChange={setSlot}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="morning">Morning</SelectItem>
-                <SelectItem value="afternoon">Afternoon</SelectItem>
-                <SelectItem value="evening">Evening</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Send Button */}
-        <Button 
-          onClick={sendTestNewsletter} 
-          disabled={!selectedUserId || loading}
-          className="w-full"
-          size="lg"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              Sending Test Newsletter...
-            </>
-          ) : (
-            <>
-              <Send className="h-4 w-4 mr-2" />
-              Send Test Newsletter
-            </>
-          )}
-        </Button>
-
-        {/* Manual Newsletter Send Section */}
-        <div className="space-y-4 pt-6 border-t">
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-            <Button 
-              onClick={sendNewsletterManually} 
-              disabled={manualSendLoading}
-              variant="outline"
-              size="lg"
-              className="flex-shrink-0"
-            >
-              {manualSendLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Invio in corso...
-                </>
-              ) : (
-                <>
-                  <Send className="h-4 w-4 mr-2" />
-                  Send Newsletter Manually
-                </>
-              )}
-            </Button>
-            
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span>
-                Ultima newsletter: {' '}
-                {loadingLastSent ? (
-                  <Loader2 className="h-3 w-3 animate-spin inline" />
-                ) : lastNewsletterSent ? (
-                  <span className="font-medium text-foreground">
-                    {new Date(lastNewsletterSent).toLocaleString('it-IT')}
-                  </span>
+              <Button
+                onClick={refreshUserCache}
+                disabled={isRefreshingCache}
+                variant="outline"
+                size="sm"
+              >
+                {isRefreshingCache ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <span className="italic">Mai inviata</span>
+                  <RefreshCw className="h-4 w-4" />
                 )}
-              </span>
+                Cache
+              </Button>
             </div>
           </div>
-        </div>
 
-        <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
-          <div className="flex items-start gap-2">
-            <Clock className="h-4 w-4 mt-0.5" />
-            <div>
-              <strong>Test Mode:</strong> This will send a real newsletter email to the selected user with test content. 
-              Make sure to use a test email address or notify the user before sending.
+          <Button
+            onClick={testNewsletter}
+            disabled={isTestingNewsletter || !testUserId}
+            className="w-full"
+          >
+            {isTestingNewsletter ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Testando Newsletter...
+              </>
+            ) : (
+              <>
+                <Mail className="mr-2 h-4 w-4" />
+                Test Newsletter Completo
+              </>
+            )}
+          </Button>
+
+          {testResults && (
+            <div className="mt-4 p-4 bg-muted rounded-lg">
+              <h4 className="font-medium mb-2">Risultati Test:</h4>
+              {testResults.success ? (
+                <div className="space-y-2 text-sm">
+                  <div className="text-green-600">✅ Test completato con successo</div>
+                  <div>📊 Articoli nel digest: {testResults.buildResult?.itemCount || 0}</div>
+                  <div>🎯 Algoritmo usato: {testResults.buildResult?.algorithmSource || 'unknown'}</div>
+                  <div>📧 Email inviata: {testResults.sendResult ? 'Sì' : 'No'}</div>
+                </div>
+              ) : (
+                <div className="text-red-600 text-sm">
+                  ❌ Errore: {testResults.error}
+                </div>
+              )}
             </div>
-          </div>
+          )}
         </div>
-      </CardContent>
+      </div>
     </Card>
   );
-};
+}

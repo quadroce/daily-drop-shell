@@ -1007,8 +1007,9 @@ const Admin = () => {
           </div>
           
           {/* Cache Management */}
-          <div className="border-t pt-4">
+          <div className="border-t pt-4 space-y-4">
             <CacheRegenerationTrigger />
+            <NewsletterTestPanel />
           </div>
         </CardContent>
       </Card>
