@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { VectorSystemInit } from "@/components/VectorSystemInit";
 import { NewsletterTestPanel } from "@/components/admin/NewsletterTestPanel";
+import SystemMonitorPanel from '@/components/admin/SystemMonitorPanel';
 import { CacheRegenerationTrigger } from "@/components/admin/CacheRegenerationTrigger";
 import { ServiceStatusIndicators } from "@/components/admin/ServiceStatusIndicators";
 import { Loader2, Users, Database, List, ArrowLeft, Rss, Cog, Tags, Monitor, Map, Globe, Youtube, Settings, Mail } from "lucide-react";
@@ -413,32 +414,61 @@ const Admin = () => {
   const fixPipeline = async () => {
     setActionLoading('fix-pipeline');
     try {
-      const response = await fetch('https://qimelntuxquptqqynxzv.supabase.co/functions/v1/admin-debug-ingestion', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ action: 'clear_queue' })
+      // Step 1: Fix SQL ambiguity issues
+      toast({
+        title: "Phase 1/4",
+        description: "Fixing SQL ambiguity issues...",
       });
       
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
+      const { data: sqlFix, error: sqlError } = await supabase.functions.invoke('fix-sql-ambiguity');
+      if (sqlError) throw sqlError;
+      console.log('SQL fix result:', sqlFix);
       
-      const result = await response.json();
+      // Step 2: Clean ingestion queue
+      toast({
+        title: "Phase 2/4", 
+        description: "Cleaning problematic queue items...",
+      });
+      
+      const { data: queueClean, error: queueError } = await supabase.functions.invoke('cleanup-ingestion-queue');
+      if (queueError) throw queueError;
+      console.log('Queue cleanup result:', queueClean);
+      
+      // Step 3: Optimize RSS feeds
+      toast({
+        title: "Phase 3/4",
+        description: "Analyzing RSS feed performance...",
+      });
+      
+      const { data: rssAnalysis, error: rssError } = await supabase.functions.invoke('optimize-rss-feeds', {
+        body: { action: 'analyze' }
+      });
+      if (rssError) throw rssError;
+      console.log('RSS analysis result:', rssAnalysis);
+      
+      // Step 4: System health check
+      toast({
+        title: "Phase 4/4",
+        description: "Running system health check...",
+      });
+      
+      const { data: healthCheck, error: healthError } = await supabase.functions.invoke('system-monitor');
+      if (healthError) throw healthError;
+      console.log('Health check result:', healthCheck);
       
       toast({
-        title: "Pipeline Fixed",
-        description: "Cleared error queue items and reset pipeline status",
+        title: "✅ Pipeline Corrected!",
+        description: `Fixed ${sqlFix?.fixed || 0} SQL issues, cleaned ${queueClean?.cleaned || 0} queue items`,
       });
       
       // Refresh stats
       await fetchDashboardStats();
       await fetchSystemStatus();
+      
     } catch (error) {
       console.error('Fix pipeline error:', error);
       toast({
-        title: "Fix Pipeline Error",
+        title: "Pipeline Fix Failed",
         description: error instanceof Error ? error.message : 'Unknown error',
         variant: "destructive",
       });
@@ -1005,6 +1035,8 @@ const Admin = () => {
               </div>
             </div>
           </div>
+          
+          <SystemMonitorPanel />
           
           {/* Cache Management */}
           <div className="border-t pt-4 space-y-4">
