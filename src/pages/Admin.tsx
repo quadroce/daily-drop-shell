@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { VectorSystemInit } from "@/components/VectorSystemInit";
 import { NewsletterTestPanel } from "@/components/admin/NewsletterTestPanel";
 import { CacheRegenerationTrigger } from "@/components/admin/CacheRegenerationTrigger";
+import { ServiceStatusIndicators } from "@/components/admin/ServiceStatusIndicators";
 import { Loader2, Users, Database, List, ArrowLeft, Rss, Cog, Tags, Monitor, Map, Globe, Youtube, Settings, Mail } from "lucide-react";
 
 interface Profile {
@@ -44,6 +45,12 @@ interface CronJob {
 interface UISettings {
   show_alpha_ribbon: boolean;
   show_feedback_button: boolean;
+}
+
+interface ServiceStatus {
+  rss_fetcher: 'active' | 'error' | 'idle';
+  ingest_worker: 'active' | 'paused' | 'idle';
+  tagger: 'active' | 'paused' | 'idle';
 }
 
 const Admin = () => {
