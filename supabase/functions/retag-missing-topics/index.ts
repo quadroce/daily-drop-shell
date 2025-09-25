@@ -103,9 +103,10 @@ serve(async (req) => {
         }
       } catch (batchError) {
         console.error(`Exception processing batch starting at index ${i}:`, batchError);
+        const batchErrorObj = batchError instanceof Error ? batchError : new Error(String(batchError));
         results.push({
           batch: Math.floor(i / batchSize) + 1,
-          error: batchError.message,
+          error: batchErrorObj.message,
           drop_ids: dropIds
         });
       }
@@ -129,10 +130,11 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in retag-missing-topics:', error);
+    const errorObj = error instanceof Error ? error : new Error(String(error));
     return new Response(
       JSON.stringify({ 
         error: 'Internal server error', 
-        details: error.message 
+        details: errorObj.message
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

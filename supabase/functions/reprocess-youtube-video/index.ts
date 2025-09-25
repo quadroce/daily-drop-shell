@@ -172,10 +172,11 @@ Deno.serve(async (req) => {
     
   } catch (error) {
     console.error('Test failed:', error);
+    const errorObj = error instanceof Error ? error : new Error(String(error));
     return new Response(JSON.stringify({
       success: false,
-      error: error.message,
-      stack: error.stack
+      error: errorObj.message,
+      stack: errorObj.stack
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500

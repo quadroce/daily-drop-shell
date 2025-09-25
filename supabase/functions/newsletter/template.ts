@@ -1,16 +1,6 @@
 // Enhanced newsletter template with conditional rendering
 import { DigestPayload } from './payload.ts';
-
-interface TransformedItem {
-  id: number;
-  title: string;
-  url: string;
-  summary?: string;
-  image_url?: string;
-  published_at: string;
-  tags: string[];
-  type: string;
-}
+import { TransformedItem } from './utils.ts';
 
 export function renderNewsletterTemplate(content: DigestPayload): string {
   const { user, digest, testMode, unsubscribeUrl, preferencesUrl } = content;

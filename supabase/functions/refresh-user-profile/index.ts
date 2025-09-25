@@ -146,10 +146,10 @@ Deno.serve(async (req) => {
 
     console.log(`🎉 Step 6: Found ${engagementEvents.length} engagement events`);
     console.log(`  ↳ Actions breakdown:`);
-    const actionCounts = engagementEvents.reduce((acc, event) => {
+    const actionCounts = engagementEvents.reduce((acc: Record<string, number>, event) => {
       acc[event.action] = (acc[event.action] || 0) + 1;
       return acc;
-    }, {});
+    }, {} as Record<string, number>);
     Object.entries(actionCounts).forEach(([action, count]) => {
       console.log(`    ↳ ${action}: ${count}`);
     });
@@ -216,7 +216,7 @@ Deno.serve(async (req) => {
     console.log(`🔗 Step 12: Combining engagement events with embeddings`);
     console.log(`  ↳ Processing ${engagementEvents.length} engagement events`);
     
-    const feedbackData = [];
+    const feedbackData: any[] = [];
     let matchedCount = 0;
     let unmatchedCount = 0;
     
@@ -480,9 +480,10 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('💥 UNEXPECTED ERROR: Caught in main try-catch');
     console.error(`  ↳ Error type: ${typeof error}`);
-    console.error(`  ↳ Error name: ${error?.name || 'Unknown'}`);
-    console.error(`  ↳ Error message: ${error?.message || 'No message'}`);
-    console.error(`  ↳ Error stack:`, error?.stack || 'No stack trace');
+    const errorObj = error instanceof Error ? error : new Error(String(error));
+    console.error(`  ↳ Error name: ${errorObj.name}`);
+    console.error(`  ↳ Error message: ${errorObj.message}`);
+    console.error(`  ↳ Error stack:`, errorObj.stack || 'No stack trace');
     console.error(`  ↳ Full error object:`, error);
     console.error('=== PROFILE REFRESH FAILED WITH UNEXPECTED ERROR ===');
     return new Response(

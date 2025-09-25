@@ -148,11 +148,12 @@ serve(async (req) => {
           }
         }
       } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
         result.errors.push({
           drop_id: drop.id,
-          error: error.message
+          error: errorMsg
         });
-        console.error(`Error processing drop ${drop.id}: ${error.message}`);
+        console.error(`Error processing drop ${drop.id}: ${errorMsg}`);
       }
     }
 
@@ -164,8 +165,9 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in retag-existing-content function:', error);
+    const errorObj = error instanceof Error ? error : new Error(String(error));
     return new Response(JSON.stringify({ 
-      error: error.message,
+      error: errorObj.message,
       total_processed: 0,
       skipped_compliant: 0,
       retagged_count: 0,
@@ -188,7 +190,7 @@ async function getCurrentTopicIds(supabase: any, dropId: number): Promise<number
     return [];
   }
 
-  return data?.map(ct => ct.topic_id) || [];
+  return data?.map((ct: any) => ct.topic_id) || [];
 }
 
 async function isCompliant(topicIds: number[], topics: Topic[]): Promise<boolean> {
@@ -269,7 +271,7 @@ async function generateCompliantTags(
   // Find level 1 parent for selected level 2
   let selectedLevel1: Topic | null = null;
   if (selectedLevel2) {
-    selectedLevel1 = level1Topics.find(t => t.id === selectedLevel2.parent_id);
+    selectedLevel1 = level1Topics.find(t => t.id === selectedLevel2.parent_id) || null;
   }
 
   // If no level 1 found, use default
