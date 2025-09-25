@@ -2,7 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const SUPABASE_URL = "https://qimelntuxquptqqynxzv.supabase.co";
-const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -24,7 +24,8 @@ interface SourceWithHealth {
   name: string;
   feed_url: string;
   status: string;
-  health?: SourceHealth;
+  source_health?: SourceHealth[];
+  health?: SourceHealth[];
 }
 
 interface HealthReport {
@@ -105,7 +106,7 @@ async function generateHealthReport(): Promise<HealthReport> {
   };
 
   for (const source of sources) {
-    const health = source.health?.[0]; // source_health is an array due to join
+    const health = (source.source_health || source.health)?.[0]; // source_health is an array due to join
     
     if (!health) {
       // No health record means it's healthy (new source)
@@ -259,7 +260,7 @@ serve(async (req) => {
         let resumedCount = 0;
 
         for (const source of sources) {
-          const health = source.health?.[0];
+          const health = (source.source_health || source.health)?.[0];
           if (health?.is_paused && health.paused_until) {
             const pauseEndTime = new Date(health.paused_until);
             if (now > pauseEndTime) {

@@ -168,7 +168,7 @@ async function classifyDrop(drop: Drop, topics: Topic[], params: { max_l3?: numb
       // Normalize and validate
       parsed.l1 = String(parsed.l1 || "").toLowerCase();
       parsed.l2 = String(parsed.l2 || "").toLowerCase();
-      parsed.l3 = Array.isArray(parsed.l3) ? parsed.l3.map(String).map(s => s.toLowerCase()) : [];
+      parsed.l3 = Array.isArray(parsed.l3) ? parsed.l3.map(String).map((s: string) => s.toLowerCase()) : [];
       if (parsed.language) parsed.language = String(parsed.language).slice(0, 5);
       
       console.log(`Parsed classification for drop ${drop.id}:`, parsed);

@@ -80,13 +80,13 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
     
-  } catch (error) {
-    console.error('Failed to start YouTube reprocessing:', error);
-    return new Response(JSON.stringify({
-      success: false,
-      error: error.message,
-      stack: error.stack
-    }), {
+    } catch (error) {
+      console.error('Failed to start YouTube reprocessing:', error);
+      return new Response(JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500
     });

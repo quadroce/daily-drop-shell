@@ -31,7 +31,7 @@ serve(async (req) => {
     }
 
     // Verify token
-    const tokenData = verifyUnsubscribeToken(token);
+    const tokenData = await verifyUnsubscribeToken(token);
     if (!tokenData) {
       return new Response(
         generateErrorPage('Invalid Token', 'The unsubscribe link is invalid or has expired.'),
@@ -90,7 +90,7 @@ serve(async (req) => {
       tokenData.email, 
       tokenData.cadence, 
       isResubscribe,
-      generateUnsubscribeToken(tokenData.userId, tokenData.email, tokenData.cadence)
+      await generateUnsubscribeToken(tokenData.userId, tokenData.email, tokenData.cadence)
     );
 
     return new Response(

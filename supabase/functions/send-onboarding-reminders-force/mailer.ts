@@ -259,7 +259,7 @@ export async function sendOnboardingReminderEmail(emailData: EmailData): Promise
     console.error(`❌ Failed to send email to ${emailData.email}:`, error);
     return {
       success: false,
-      error: error.message || 'Unknown email error'
+      error: error instanceof Error ? error.message : 'Unknown email error'
     };
   }
 }

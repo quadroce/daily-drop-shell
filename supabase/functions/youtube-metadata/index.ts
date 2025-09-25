@@ -160,7 +160,7 @@ Deno.serve(async (req) => {
         break;
       } catch (error) {
         retries--;
-        console.error(`YouTube API attempt failed:`, error.message);
+        console.error(`YouTube API attempt failed:`, error instanceof Error ? error.message : 'Unknown error');
         
         if (retries === 0) {
           throw error;
@@ -233,7 +233,7 @@ Deno.serve(async (req) => {
     console.error('Error in youtube-metadata function:', error);
     
     return new Response(JSON.stringify({ 
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Unknown error',
       videoId: null
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

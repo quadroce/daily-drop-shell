@@ -98,7 +98,7 @@ async function generateTopicsArchiveSitemap(supabase: any, baseUrl: string): Pro
     if (drops && drops.length > 0) {
       // Group by date and create archive URLs
       const dateSet = new Set();
-      drops.forEach(drop => {
+      drops.forEach((drop: any) => {
         if (drop.published_at) {
           const date = drop.published_at.split('T')[0];
           dateSet.add(date);

@@ -88,13 +88,13 @@ serve(async (req) => {
   } catch (error) {
     console.error('=== TEST FAILED ===');
     console.error('Error:', error);
-    console.error('Error message:', error.message);
-    console.error('Error stack:', error.stack);
+    console.error('Error message:', error instanceof Error ? error.message : 'Unknown error');
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
     
     return new Response(JSON.stringify({
       success: false,
-      error: error.message,
-      stack: error.stack,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
       openai_key_present: !!Deno.env.get('OPENAI_API_KEY'),
       service_key_present: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
     }), {

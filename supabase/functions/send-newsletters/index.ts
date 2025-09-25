@@ -13,6 +13,14 @@ interface BatchProcessResult {
   errors: Array<{ userId: string; error: string }>;
 }
 
+interface NewsletterTarget {
+  user_id: string;
+  cadence: string;
+  confirmed: boolean;
+  email: string;
+  subscription_tier: 'free' | 'premium' | 'corporate' | 'sponsor';
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -55,7 +63,7 @@ serve(async (req) => {
     }
 
     // Filter users based on tier and day
-    const eligibleUsers = users?.filter((user: any) => {
+    const eligibleUsers = users?.filter((user: NewsletterTarget) => {
       const tier = user.subscription_tier;
       const cadence = user.cadence;
       
@@ -79,8 +87,8 @@ serve(async (req) => {
       return false;
     }) || [];
 
-    const premiumCount = eligibleUsers.filter(u => u.subscription_tier === 'premium' || u.subscription_tier === 'corporate' || u.subscription_tier === 'sponsor').length;
-    const freeCount = eligibleUsers.filter(u => u.subscription_tier === 'free').length;
+    const premiumCount = eligibleUsers.filter((u: NewsletterTarget) => u.subscription_tier === 'premium' || u.subscription_tier === 'corporate' || u.subscription_tier === 'sponsor').length;
+    const freeCount = eligibleUsers.filter((u: NewsletterTarget) => u.subscription_tier === 'free').length;
     
     console.log(`✅ ${eligibleUsers.length} users eligible for today's newsletters`);
     console.log(`   - Premium/Corporate/Sponsor users: ${premiumCount}`);
