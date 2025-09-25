@@ -216,7 +216,7 @@ function extractPublishedDate(html: string, url: string): string | null {
     ];
     
     for (const selector of metaSelectors) {
-      const element = doc.querySelector(selector);
+      const element = doc?.querySelector(selector);
       if (element) {
         const content = element.getAttribute('content');
         if (content) {
@@ -227,9 +227,9 @@ function extractPublishedDate(html: string, url: string): string | null {
     }
     
     // Try time elements with datetime attribute
-    const timeElements = doc.querySelectorAll('time[datetime]');
+    const timeElements = doc?.querySelectorAll('time[datetime]') || [];
     for (const timeEl of timeElements) {
-      const datetime = timeEl.getAttribute('datetime');
+      const datetime = (timeEl as Element).getAttribute('datetime');
       if (datetime) {
         const date = parseDate(datetime);
         if (date) return date;
@@ -238,7 +238,7 @@ function extractPublishedDate(html: string, url: string): string | null {
     
     // For Medium articles, try specific selectors
     if (url.includes('medium.com')) {
-      const mediumTime = doc.querySelector('time')?.getAttribute('datetime');
+      const mediumTime = doc?.querySelector('time')?.getAttribute('datetime');
       if (mediumTime) {
         const date = parseDate(mediumTime);
         if (date) return date;
@@ -329,7 +329,7 @@ serve(async (req) => {
         signal: AbortSignal.timeout(30000), // 30 second timeout
       });
     } catch (error) {
-      if (error.name === 'AbortError') {
+      if (error instanceof Error && error.name === 'AbortError') {
         throw new Error('Request timeout after 30 seconds');
       }
       throw error;
@@ -401,7 +401,7 @@ serve(async (req) => {
           
         } catch (error) {
           lastError = error as Error;
-          console.error(`[Scrape-OG] YouTube metadata attempt ${attempt}/${maxRetries} failed:`, error.message);
+          console.error(`[Scrape-OG] YouTube metadata attempt ${attempt}/${maxRetries} failed:`, (error as Error).message);
           
           // Wait before retrying
           if (attempt < maxRetries) {
@@ -422,12 +422,12 @@ serve(async (req) => {
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
         
-        const ogTitle = doc.querySelector('meta[property="og:title"]')?.getAttribute('content');
-        const titleElement = doc.querySelector('title')?.textContent;
+        const ogTitle = doc?.querySelector('meta[property="og:title"]')?.getAttribute('content');
+        const titleElement = doc?.querySelector('title')?.textContent;
         title = ogTitle || titleElement || 'YouTube Video';
         
-        const ogDescription = doc.querySelector('meta[property="og:description"]')?.getAttribute('content');
-        const metaDescription = doc.querySelector('meta[name="description"]')?.getAttribute('content');
+        const ogDescription = doc?.querySelector('meta[property="og:description"]')?.getAttribute('content');
+        const metaDescription = doc?.querySelector('meta[name="description"]')?.getAttribute('content');
         summary = ogDescription || metaDescription || '';
 
         // Use YouTube thumbnail with fallback
@@ -440,15 +440,15 @@ serve(async (req) => {
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
       
-      const ogTitle = doc.querySelector('meta[property="og:title"]')?.getAttribute('content');
-      const titleElement = doc.querySelector('title')?.textContent;
+      const ogTitle = doc?.querySelector('meta[property="og:title"]')?.getAttribute('content');
+      const titleElement = doc?.querySelector('title')?.textContent;
       title = ogTitle || titleElement || 'Untitled';
       
-      const ogDescription = doc.querySelector('meta[property="og:description"]')?.getAttribute('content');
-      const metaDescription = doc.querySelector('meta[name="description"]')?.getAttribute('content');
+      const ogDescription = doc?.querySelector('meta[property="og:description"]')?.getAttribute('content');
+      const metaDescription = doc?.querySelector('meta[name="description"]')?.getAttribute('content');
       summary = ogDescription || metaDescription || '';
 
-      const ogImageElement = doc.querySelector('meta[property="og:image"]');
+      const ogImageElement = doc?.querySelector('meta[property="og:image"]');
       const ogImage = ogImageElement?.getAttribute('content');
       if (ogImage) {
         image_url = resolveUrl(url, ogImage);
