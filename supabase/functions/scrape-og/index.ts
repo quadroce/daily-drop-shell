@@ -229,7 +229,7 @@ function extractPublishedDate(html: string, url: string): string | null {
     // Try time elements with datetime attribute
     const timeElements = doc?.querySelectorAll('time[datetime]') || [];
     for (const timeEl of timeElements) {
-      const datetime = (timeEl as Element).getAttribute('datetime');
+      const datetime = (timeEl as any).getAttribute('datetime');
       if (datetime) {
         const date = parseDate(datetime);
         if (date) return date;
@@ -347,9 +347,9 @@ serve(async (req) => {
     const html = await fetchResponse.text();
     console.log('HTML fetched successfully, parsing...');
 
-    let type: string;
-    let title: string;
-    let summary: string;
+    let type: string = 'article';
+    let title: string = 'Untitled';
+    let summary: string = '';
     let image_url: string | null = null;
 
     // Check if it's a YouTube URL
@@ -465,7 +465,7 @@ serve(async (req) => {
 
     // Calculate quality scores
     const qualityMetrics = await calculateQualityScore(title.trim(), summary.trim(), image_url, type);
-    const authorityScore = await calculateAuthorityScore(source_id, canonical);
+    const authorityScore = await calculateAuthorityScore(source_id || null, canonical);
     
     // Use YouTube view count for popularity if available, otherwise fallback to default calculation
     let popularityScore;

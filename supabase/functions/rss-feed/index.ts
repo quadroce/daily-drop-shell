@@ -90,7 +90,7 @@ serve(async (req) => {
     // Build RSS feed
     const rssItems = (articles || []).map(article => {
       const pubDate = new Date(article.published_at || article.created_at).toUTCString();
-      const description = article.summary || `Article from ${article.sources?.name || 'Unknown Source'}`;
+      const description = article.summary || `Article from Unknown Source`;
       
       return `
     <item>
