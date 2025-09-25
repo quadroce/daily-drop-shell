@@ -238,58 +238,49 @@ export const FeedCard = ({
 
             <div className="flex items-center justify-between gap-2 mt-auto">
               <div className="flex gap-1 flex-wrap min-w-0 flex-1">
-                {/* L1 Topic Badge/Link */}
+                {/* L1 Topic - Always clickable */}
                 {l1Topic && (() => {
                   const slug = getTopicSlug(l1Topic);
-                  return slug ? (
+                  const linkTo = slug ? `/topics/${slug}` : `/search?q=${encodeURIComponent(l1Topic)}`;
+                  return (
                     <ChipLink 
-                      to={`/topics/${slug}`} 
+                      to={linkTo} 
                       variant="tag-l1" 
                       className="text-xs py-0 px-2 truncate"
                     >
                       {l1Topic}
                     </ChipLink>
-                  ) : (
-                    <Badge variant="tag-l1" className="text-xs py-0 px-2 truncate">
-                      {l1Topic}
-                    </Badge>
                   );
                 })()}
                 
-                {/* L2 Topic Badge/Link */}
+                {/* L2 Topic - Always clickable */}
                 {l2Topic && (() => {
                   const slug = getTopicSlug(l2Topic);
-                  return slug ? (
+                  const linkTo = slug ? `/topics/${slug}` : `/search?q=${encodeURIComponent(l2Topic)}`;
+                  return (
                     <ChipLink 
-                      to={`/topics/${slug}`} 
+                      to={linkTo} 
                       variant="tag-l2" 
                       className="text-xs py-0 px-2 truncate"
                     >
                       {l2Topic}
                     </ChipLink>
-                  ) : (
-                    <Badge variant="tag-l2" className="text-xs py-0 px-2 truncate">
-                      {l2Topic}
-                    </Badge>
                   );
                 })()}
                 
-                {/* L3 Tags - Link if topic exists, Badge otherwise */}
+                {/* L3 Tags - Always link to search */}
                 {tags.slice(0, l1Topic || l2Topic ? 1 : 2).map((tag, index) => {
                   const slug = getTopicSlug(tag);
-                  return slug ? (
+                  const linkTo = slug ? `/topics/${slug}` : `/search?q=${encodeURIComponent(tag)}`;
+                  return (
                     <ChipLink 
                       key={`l3-${index}`}
-                      to={`/topics/${slug}`} 
+                      to={linkTo} 
                       variant="tag-l3" 
                       className="text-xs py-0 px-2 truncate"
                     >
                       {tag}
                     </ChipLink>
-                  ) : (
-                    <Badge key={`l3-${index}`} variant="tag-l3" className="text-xs py-0 px-2 truncate">
-                      {tag}
-                    </Badge>
                   );
                 })}
                 
