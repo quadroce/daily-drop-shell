@@ -79,7 +79,7 @@ async function callScrapeOg(url: string, sourceId: number | null) {
   return result;
 }
 
-async function processQueueItems(limit = 100): Promise<ProcessResult> {
+async function processQueueItems(limit = 50): Promise<ProcessResult> {
   console.log(`Starting queue processing with limit: ${limit}`);
   
   // Fetch pending queue items using REST API
@@ -109,8 +109,8 @@ async function processQueueItems(limit = 100): Promise<ProcessResult> {
 
   const result: ProcessResult = { processed: 0, done: 0, errors: 0, details: [] };
 
-  // Process items in batches of 10 for faster throughput while maintaining stability
-  const batchSize = 10;
+  // Process items in smaller batches to prevent WORKER_LIMIT errors
+  const batchSize = 5;
   for (let i = 0; i < queueItems.length; i += batchSize) {
     const batch = queueItems.slice(i, i + batchSize);
     
@@ -276,9 +276,9 @@ async function processQueueItems(limit = 100): Promise<ProcessResult> {
     // Wait for current batch to complete
     const batchResults = await Promise.allSettled(promises);
     
-    // Add optimized delay between batches (0.25-0.75 seconds)
+    // Increased delay between batches to prevent WORKER_LIMIT errors (0.8-1.5 seconds)
     if (i + batchSize < queueItems.length) {
-      const batchDelay = 250 + Math.random() * 500;
+      const batchDelay = 800 + Math.random() * 700;
       console.log(`Waiting ${Math.round(batchDelay)}ms before next batch...`);
       await new Promise(resolve => setTimeout(resolve, batchDelay));
     }
@@ -366,7 +366,7 @@ serve(async (req) => {
       try {
         const body = await req.json();
         if (body.limit && typeof body.limit === 'number') {
-          limit = Math.min(Math.max(1, body.limit), 200); // Clamp between 1-200
+          limit = Math.min(Math.max(1, body.limit), 100); // Reduced max from 200 to 100 to prevent resource limits
         }
       } catch (e) {
         // Invalid JSON, use default limit

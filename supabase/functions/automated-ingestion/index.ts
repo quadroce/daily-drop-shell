@@ -142,7 +142,7 @@ async function runAutomatedIngestion(): Promise<ProcessingStats> {
   try {
     console.log("📡 Step 1: Fetching RSS in batches...");
     let offset = 0;
-    const limit = 40;
+    const limit = 25; // Reduced from 40 to 25 to prevent WORKER_LIMIT errors
     let hasMore = true;
     let batch = 1;
 
@@ -161,7 +161,7 @@ async function runAutomatedIngestion(): Promise<ProcessingStats> {
         if (hasMore) {
           offset += limit;
           batch += 1;
-          await sleep(1500);
+          await sleep(2000); // Increased from 1500ms to 2000ms to reduce resource pressure
         }
       } catch (e: any) {
         console.error(`❌ RSS batch ${batch} failed:`, e);
@@ -187,10 +187,7 @@ async function runAutomatedIngestion(): Promise<ProcessingStats> {
     console.log("🔄 Step 2: Process ingestion queue...");
     const res = await callEdgeFunction("ingest-queue", {
       body: {
-        trigger: "automated",
-        batch_size: 150,
-        timeout_minutes: 15,
-        concurrent_processes: 3,
+        limit: 50, // Reduced from 150 to 50 to match ingest-queue optimization
       },
     });
     stats.ingestion_processed = Number(res?.processed ?? 0);
@@ -207,10 +204,9 @@ async function runAutomatedIngestion(): Promise<ProcessingStats> {
     console.log("🏷️ Step 3: Tagging articles...");
     const res = await callEdgeFunction("tag-drops", {
       body: {
-        trigger: "automated",
-        batch_size: 80,
-        max_articles: 200,
-        concurrent_requests: 5,
+        batch_size: 50, // Reduced from 80 to 50 to prevent WORKER_LIMIT errors
+        max_articles: 150, // Reduced from 200 to 150
+        concurrent_requests: 3, // Reduced from 5 to 3 concurrent requests
       },
     });
     stats.articles_tagged = Number(res?.tagged ?? 0);

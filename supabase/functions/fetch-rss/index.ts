@@ -330,9 +330,9 @@ serve(async (req) => {
     const url = new URL(req.url);
     const sourceIdParam = url.searchParams.get('source_id');
     
-    // Increased pagination parameters for better performance
+    // Optimized pagination parameters to reduce WORKER_LIMIT errors
     const offsetParam = parseInt(url.searchParams.get('offset') || '0', 10);
-    const limitParam = parseInt(url.searchParams.get('limit') || '80', 10); // Increased from 50 to 80
+    const limitParam = parseInt(url.searchParams.get('limit') || '25', 10); // Reduced from 80 to 25 to prevent resource limits
     
     console.log(`Fetching RSS feeds (offset: ${offsetParam}, limit: ${limitParam})${sourceIdParam ? ` for source ${sourceIdParam}` : ' for active sources'}`);
 
@@ -440,8 +440,8 @@ serve(async (req) => {
       });
     }
 
-    // Process feeds in optimized batches
-    const BATCH_SIZE = 5; // Increased from 3 to 5 sources at a time
+    // Process feeds in conservative batches to prevent WORKER_LIMIT errors
+    const BATCH_SIZE = 3; // Reduced from 5 to 3 sources at a time to reduce resource usage
     const results: FeedResult[] = [];
     
     console.log(`Processing ${sources.length} sources in batches of ${BATCH_SIZE}`);
@@ -456,9 +456,9 @@ serve(async (req) => {
       
       results.push(...batchResults);
       
-      // Reduced delay between batches for faster processing
+      // Increased delay between batches to prevent WORKER_LIMIT errors
       if (i + BATCH_SIZE < sources.length) {
-        await new Promise(resolve => setTimeout(resolve, 500)); // Reduced from 200ms to 500ms
+        await new Promise(resolve => setTimeout(resolve, 1200)); // Increased from 500ms to 1200ms to reduce resource pressure
       }
     }
 
