@@ -71,6 +71,11 @@ const Admin = () => {
     show_alpha_ribbon: true,
     show_feedback_button: true,
   });
+  const [systemStatus, setSystemStatus] = useState({
+    rssFetcher: 'checking',
+    ingestWorker: 'checking', 
+    tagger: 'checking'
+  });
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -110,6 +115,7 @@ const Admin = () => {
           await fetchCronJobs();
           await fetchTaggingStats();
           await fetchUISettings();
+          await fetchSystemStatus();
         }
         
         setLoading(false);
@@ -319,6 +325,83 @@ const Admin = () => {
     }
   };
 
+  const fetchSystemStatus = async () => {
+    try {
+      // Check RSS Fetcher status by looking at recent executions
+      const { data: recentCronLogs } = await supabase
+        .from('cron_execution_log')
+        .select('success, executed_at, job_name')
+        .eq('job_name', 'restart-ingestion')
+        .order('executed_at', { ascending: false })
+        .limit(1);
+
+      // Check queue errors count
+      const { count: errorCount } = await supabase
+        .from('ingestion_queue')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'error');
+
+      // Check queue pending/processing count
+      const { count: activeCount } = await supabase
+        .from('ingestion_queue')
+        .select('*', { count: 'exact', head: true })
+        .in('status', ['pending', 'processing']);
+
+      // Check recent successful drops
+      const { count: recentDrops } = await supabase
+        .from('drops')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+
+      // Determine statuses based on data
+      let rssFetcherStatus = 'paused';
+      let ingestWorkerStatus = 'paused';
+      let taggerStatus = 'paused';
+
+      // RSS Fetcher: Check if recent runs were successful
+      if (recentCronLogs && recentCronLogs[0]) {
+        const recentExecution = recentCronLogs[0];
+        const timeSinceExecution = Date.now() - new Date(recentExecution.executed_at).getTime();
+        
+        if (timeSinceExecution < 10 * 60 * 1000) { // Last 10 minutes
+          rssFetcherStatus = recentExecution.success ? 'active' : 'error';
+        } else if (timeSinceExecution < 60 * 60 * 1000) { // Last hour
+          rssFetcherStatus = 'idle';
+        }
+      }
+
+      // Ingest Worker: Active if processing items, error if many errors, idle otherwise
+      if (activeCount && activeCount > 0) {
+        ingestWorkerStatus = 'active';
+      } else if (errorCount && errorCount > 100) {
+        ingestWorkerStatus = 'error';
+      } else {
+        ingestWorkerStatus = 'idle';
+      }
+
+      // Tagger: Active if recent drops, idle if some recent activity
+      if (recentDrops && recentDrops > 10) {
+        taggerStatus = 'active';
+      } else if (recentDrops && recentDrops > 0) {
+        taggerStatus = 'idle';
+      }
+
+      setSystemStatus({
+        rssFetcher: rssFetcherStatus,
+        ingestWorker: ingestWorkerStatus,
+        tagger: taggerStatus
+      });
+
+    } catch (error) {
+      console.error('Error fetching system status:', error);
+      setSystemStatus({
+        rssFetcher: 'error',
+        ingestWorker: 'error',
+        tagger: 'error'
+      });
+    }
+  };
+
   // Ingestion control handlers
   const fixPipeline = async () => {
     setActionLoading('fix-pipeline');
@@ -344,6 +427,7 @@ const Admin = () => {
       
       // Refresh stats
       await fetchDashboardStats();
+      await fetchSystemStatus();
     } catch (error) {
       console.error('Fix pipeline error:', error);
       toast({
@@ -381,6 +465,7 @@ const Admin = () => {
       // Refresh stats
       await fetchDashboardStats();
       await fetchTaggingStats();
+      await fetchSystemStatus();
     } catch (error) {
       console.error('Restart ingestion error:', error);
       toast({
@@ -456,6 +541,7 @@ const Admin = () => {
       
       // Refresh stats after processing
       await fetchDashboardStats();
+      await fetchSystemStatus();
     } catch (error) {
       console.error('Ingest Worker error:', error);
       toast({
@@ -504,6 +590,7 @@ const Admin = () => {
         
         // Refresh tagging stats after processing
         await fetchTaggingStats();
+        await fetchSystemStatus();
       }
     } catch (error) {
       console.error('Tagger error:', error);
@@ -632,7 +719,7 @@ const Admin = () => {
             🚨 Ingestion Control Panel
           </CardTitle>
           <CardDescription>
-            Critical pipeline controls - Articles: {taggingStats.totalDrops} | Queue Errors: 2,730
+            Critical pipeline controls - Articles: {taggingStats.totalDrops} | Queue Errors: {stats.queueCount}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -648,7 +735,7 @@ const Admin = () => {
               ) : (
                 <Settings className="h-5 w-5" />
               )}
-              Fix Pipeline (Clear 2,730 Errors)
+              Fix Pipeline (Clear {stats.queueCount} Errors)
             </Button>
             
             <Button 
@@ -670,15 +757,51 @@ const Admin = () => {
           <div className="mt-4 grid grid-cols-3 gap-4">
             <div className="text-center p-2 bg-muted rounded">
               <div className="text-sm font-medium">RSS Fetcher</div>
-              <Badge variant="destructive" className="mt-1">Error</Badge>
+              <Badge 
+                variant={
+                  systemStatus.rssFetcher === 'active' ? 'default' :
+                  systemStatus.rssFetcher === 'error' ? 'destructive' :
+                  systemStatus.rssFetcher === 'idle' ? 'outline' : 'secondary'
+                } 
+                className="mt-1"
+              >
+                {systemStatus.rssFetcher === 'active' ? 'Active' :
+                 systemStatus.rssFetcher === 'error' ? 'Error' :
+                 systemStatus.rssFetcher === 'idle' ? 'Idle' : 
+                 systemStatus.rssFetcher === 'checking' ? 'Checking...' : 'Paused'}
+              </Badge>
             </div>
             <div className="text-center p-2 bg-muted rounded">
               <div className="text-sm font-medium">Ingest Worker</div>
-              <Badge variant="secondary" className="mt-1">Paused</Badge>
+              <Badge 
+                variant={
+                  systemStatus.ingestWorker === 'active' ? 'default' :
+                  systemStatus.ingestWorker === 'error' ? 'destructive' :
+                  systemStatus.ingestWorker === 'idle' ? 'outline' : 'secondary'
+                } 
+                className="mt-1"
+              >
+                {systemStatus.ingestWorker === 'active' ? 'Active' :
+                 systemStatus.ingestWorker === 'error' ? 'Error' :
+                 systemStatus.ingestWorker === 'idle' ? 'Idle' :
+                 systemStatus.ingestWorker === 'checking' ? 'Checking...' : 'Paused'}
+              </Badge>
             </div>
             <div className="text-center p-2 bg-muted rounded">
               <div className="text-sm font-medium">Tagger</div>
-              <Badge variant="secondary" className="mt-1">Paused</Badge>
+              <Badge 
+                variant={
+                  systemStatus.tagger === 'active' ? 'default' :
+                  systemStatus.tagger === 'error' ? 'destructive' :
+                  systemStatus.tagger === 'idle' ? 'outline' : 'secondary'
+                } 
+                className="mt-1"
+              >
+                {systemStatus.tagger === 'active' ? 'Active' :
+                 systemStatus.tagger === 'error' ? 'Error' :
+                 systemStatus.tagger === 'idle' ? 'Idle' :
+                 systemStatus.tagger === 'checking' ? 'Checking...' : 'Paused'}
+              </Badge>
             </div>
           </div>
         </CardContent>
