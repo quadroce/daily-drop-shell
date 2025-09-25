@@ -1,4 +1,5 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.56.1'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.56.1';
+import { env } from "../_shared/env.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -98,7 +99,7 @@ async function generateTopicsArchiveSitemap(supabase: any, baseUrl: string): Pro
     if (drops && drops.length > 0) {
       // Group by date and create archive URLs
       const dateSet = new Set();
-      drops.forEach((drop: any) => {
+      drops.forEach((drop: { id: string; published_at?: string | null }) => {
         if (drop.published_at) {
           const date = drop.published_at.split('T')[0];
           dateSet.add(date);
@@ -145,8 +146,8 @@ Deno.serve(async (req) => {
   console.log('Serving topics archive sitemap request...');
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseUrl = env('SUPABASE_URL');
+    const supabaseServiceKey = env('SUPABASE_SERVICE_ROLE_KEY');
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const baseUrl = 'https://dailydrops.cloud';

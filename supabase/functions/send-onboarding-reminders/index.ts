@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.56.1';
 import { sendOnboardingReminderEmail } from './mailer.ts';
+import { env } from "../_shared/env.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -25,8 +26,8 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('🚀 Starting onboarding reminders process...');
 
     // Initialize Supabase client with service role
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseUrl = env('SUPABASE_URL');
+    const supabaseServiceKey = env('SUPABASE_SERVICE_ROLE_KEY');
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -234,12 +235,13 @@ const handler = async (req: Request): Promise<Response> => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error occurred';
     console.error('💥 Fatal error in onboarding reminders:', error);
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error occurred' 
+        error: message 
       }),
       {
         status: 500,

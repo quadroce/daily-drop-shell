@@ -1,8 +1,9 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { env } from "../_shared/env.ts";
 
 const SUPABASE_URL = "https://qimelntuxquptqqynxzv.supabase.co";
-const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const SERVICE_ROLE_KEY = env('SUPABASE_SERVICE_ROLE_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -49,11 +50,11 @@ async function getSourcesWithHealth(): Promise<SourceWithHealth[]> {
   const sourcesResponse = await fetch(
     `${SUPABASE_URL}/rest/v1/sources?status=eq.active&feed_url=not.is.null&select=id,name,feed_url,status,source_health(*)`,
     {
-      headers: {
-        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-        'apikey': SERVICE_ROLE_KEY,
-        'Content-Type': 'application/json',
-      },
+        headers: {
+          'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+          'apikey': SERVICE_ROLE_KEY,
+          'Content-Type': 'application/json',
+        } as Record<string, string>,
     }
   );
 
@@ -74,7 +75,7 @@ async function resumeSource(sourceId: number): Promise<boolean> {
           'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
           'apikey': SERVICE_ROLE_KEY,
           'Content-Type': 'application/json',
-        },
+        } as Record<string, string>,
         body: JSON.stringify({
           is_paused: false,
           paused_until: null,
@@ -106,7 +107,7 @@ async function generateHealthReport(): Promise<HealthReport> {
   };
 
   for (const source of sources) {
-    const health = (source.source_health || source.health)?.[0]; // source_health is an array due to join
+    const health = (source as SourceWithHealth).source_health?.[0] || (source as SourceWithHealth).health?.[0]; // source_health is an array due to join
     
     if (!health) {
       // No health record means it's healthy (new source)
@@ -260,7 +261,7 @@ serve(async (req) => {
         let resumedCount = 0;
 
         for (const source of sources) {
-          const health = (source.source_health || source.health)?.[0];
+          const health = (source as SourceWithHealth).source_health?.[0] || (source as SourceWithHealth).health?.[0];
           if (health?.is_paused && health.paused_until) {
             const pauseEndTime = new Date(health.paused_until);
             if (now > pauseEndTime) {
@@ -290,11 +291,12 @@ serve(async (req) => {
         });
     }
 
-  } catch (error) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Internal server error';
     console.error('Error in source-health-monitor:', error);
     
     return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : 'Internal server error',
+      error: message,
       timestamp: new Date().toISOString()
     }), {
       status: 500,

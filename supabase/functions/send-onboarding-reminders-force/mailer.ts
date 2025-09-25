@@ -1,6 +1,7 @@
 import { Resend } from "https://esm.sh/resend@4.0.0";
+import { env } from "../_shared/env.ts";
 
-const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
+const resend = new Resend(env('RESEND_API_KEY'));
 
 interface EmailData {
   email: string;
@@ -255,11 +256,12 @@ export async function sendOnboardingReminderEmail(emailData: EmailData): Promise
       messageId: emailResponse.data?.id
     };
 
-  } catch (error) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown email error';
     console.error(`❌ Failed to send email to ${emailData.email}:`, error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown email error'
+      error: message
     };
   }
 }

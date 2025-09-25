@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { env } from "../_shared/env.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -31,8 +32,8 @@ serve(async (req) => {
   
   try {
     // Initialize Supabase client with service role
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseUrl = env('SUPABASE_URL');
+    const supabaseServiceKey = env('SUPABASE_SERVICE_ROLE_KEY');
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get current date info - Use UTC to ensure consistent timezone
@@ -188,7 +189,7 @@ serve(async (req) => {
   }
 });
 
-async function processBatch(users: any[], supabase: any, todayStr: string): Promise<BatchProcessResult> {
+async function processBatch(users: NewsletterTarget[], supabase: any, todayStr: string): Promise<BatchProcessResult> {
   const result: BatchProcessResult = {
     processed: 0,
     sent: 0,
@@ -248,7 +249,7 @@ async function processBatch(users: any[], supabase: any, todayStr: string): Prom
 }
 
 async function sendNewsletterWithRetry(
-  user: any, 
+  user: NewsletterTarget, 
   cadence: string, 
   slot: string, 
   supabase: any, 
