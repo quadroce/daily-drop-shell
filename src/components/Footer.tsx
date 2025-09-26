@@ -35,9 +35,21 @@ const Footer = () => {
         </div>
         
         <div className="text-center mt-6 pt-6 border-t border-muted">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground mb-4">
             Daily curated AI and tech news, delivered every morning.
           </p>
+          <a 
+            href="https://huzzler.so/products/29QjS1ILLt/dailydrops?utm_source=huzzler_product_website&utm_medium=badge&utm_campaign=badge" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="inline-block"
+          >
+            <img 
+              alt="Huzzler Embed Badge" 
+              src="https://huzzler.so/assets/images/embeddable-badges/featured.png" 
+              className="h-8 opacity-75 hover:opacity-100 transition-opacity"
+            />
+          </a>
         </div>
       </div>
     </footer>
