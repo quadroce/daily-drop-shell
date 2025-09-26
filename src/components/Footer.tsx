@@ -38,18 +38,32 @@ const Footer = () => {
           <p className="text-xs text-muted-foreground mb-4">
             Daily curated AI and tech news, delivered every morning.
           </p>
-          <a 
-            href="https://huzzler.so/products/29QjS1ILLt/dailydrops?utm_source=huzzler_product_website&utm_medium=badge&utm_campaign=badge" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="inline-block"
-          >
-            <img 
-              alt="Huzzler Embed Badge" 
-              src="https://huzzler.so/assets/images/embeddable-badges/featured.png" 
-              className="h-8 opacity-75 hover:opacity-100 transition-opacity"
-            />
-          </a>
+          <div className="flex items-center justify-center gap-4 flex-wrap">
+            <a 
+              href="https://huzzler.so/products/29QjS1ILLt/dailydrops?utm_source=huzzler_product_website&utm_medium=badge&utm_campaign=badge" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-block"
+            >
+              <img 
+                alt="Huzzler Embed Badge" 
+                src="https://huzzler.so/assets/images/embeddable-badges/featured.png" 
+                className="h-8 opacity-75 hover:opacity-100 transition-opacity"
+              />
+            </a>
+            <a 
+              href="https://tinylaunch.com" 
+              target="_blank" 
+              rel="noopener"
+              className="inline-block"
+            >
+              <img 
+                src="https://tinylaunch.com/tinylaunch_badge_featured_on.svg" 
+                alt="TinyLaunch Badge" 
+                className="h-8 opacity-75 hover:opacity-100 transition-opacity"
+              />
+            </a>
+          </div>
         </div>
       </div>
     </footer>
