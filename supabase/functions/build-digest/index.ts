@@ -163,15 +163,17 @@ serve(async (req) => {
     } else {
       console.log(`No valid cache found (error: ${cacheError?.message || 'none'}, items: ${cachedDrops?.length || 0}), falling back to legacy algorithm...`);
       
-      // FALLBACK: Use legacy logic from original build-digest
+      // FALLBACK: Use legacy logic with proper date filtering 
       let dropsQuery = supabase
         .from('drops')
-        .select('id, title, url, summary, image_url, published_at, tags, lang_code, type')
+        .select('id, title, url, summary, image_url, published_at, created_at, tags, lang_code, type')
         .eq('tag_done', true)
         .order('published_at', { ascending: false });
 
       if (timeWindow) {
-        dropsQuery = dropsQuery.gte('published_at', timeWindow);
+        // CRITICAL FIX: Use COALESCE to handle null published_at like drops_email_ready view
+        dropsQuery = dropsQuery.gte('created_at', timeWindow)
+          .or(`published_at.gte.${timeWindow},published_at.is.null`);
       }
 
       // Filter by language preferences first (up to 3 languages)
@@ -205,12 +207,14 @@ serve(async (req) => {
         
         let fallbackQuery = supabase
           .from('drops')
-          .select('id, title, url, summary, image_url, published_at, tags, lang_code, type')
+          .select('id, title, url, summary, image_url, published_at, created_at, tags, lang_code, type')
           .eq('tag_done', true)
           .order('published_at', { ascending: false });
 
         if (timeWindow) {
-          fallbackQuery = fallbackQuery.gte('published_at', timeWindow);
+          // CRITICAL FIX: Use same date logic as above for consistency
+          fallbackQuery = fallbackQuery.gte('created_at', timeWindow)
+            .or(`published_at.gte.${timeWindow},published_at.is.null`);
         }
 
         // Still filter by topics if available
@@ -251,12 +255,14 @@ serve(async (req) => {
     if (!drops || drops.length === 0) {
       console.log('No content found for user preferences, trying without filters...');
       
-      // Last resort: get any recent content
+      // Last resort: get any recent content (last 7 days to avoid old articles)
+      const recentCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
       const { data: anyDrops } = await supabase
         .from('drops')
-        .select('id, title, url, summary, image_url, published_at, tags, lang_code, type')
+        .select('id, title, url, summary, image_url, published_at, created_at, tags, lang_code, type')
         .eq('tag_done', true)
-        .order('published_at', { ascending: false })
+        .gte('created_at', recentCutoff)
+        .order('created_at', { ascending: false })
         .limit(testMode ? 3 : 5);
       
       drops = anyDrops || [];

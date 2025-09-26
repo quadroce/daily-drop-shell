@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { VectorSystemInit } from "@/components/VectorSystemInit";
 import { NewsletterTestPanel } from "@/components/admin/NewsletterTestPanel";
+import { NewsletterFixPanel } from "@/components/admin/NewsletterFixPanel";
 import SystemMonitorPanel from '@/components/admin/SystemMonitorPanel';
 import { CacheRegenerationTrigger } from "@/components/admin/CacheRegenerationTrigger";
 import { ServiceStatusIndicators } from "@/components/admin/ServiceStatusIndicators";
@@ -1041,7 +1042,9 @@ const Admin = () => {
           {/* Cache Management */}
           <div className="border-t pt-4 space-y-4">
             <CacheRegenerationTrigger />
-            <NewsletterTestPanel />
+          <NewsletterTestPanel />
+          
+          <NewsletterFixPanel />
           </div>
         </CardContent>
       </Card>
