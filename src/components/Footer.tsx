@@ -72,7 +72,7 @@ const Footer = () => {
               <img
                 src="https://peerlist.io/api/v1/projects/embed/PRJHP6L997BKJEALJC6QE66LB79JDJ?showUpvote=false&theme=light"
                 alt="DailyDrops – Curated AI, Tech News"
-                className="h-18 opacity-75 hover:opacity-100 transition-opacity"
+                className="h-8 opacity-75 hover:opacity-100 transition-opacity"
               />
             </a>
           </div>
