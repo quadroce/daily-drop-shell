@@ -75,6 +75,17 @@ const Footer = () => {
                 className="h-8 opacity-75 hover:opacity-100 transition-opacity"
               />
             </a>
+            <a 
+              href="https://startupfa.me/s/dropdaily?utm_source=dailydrops.cloud" 
+              target="_blank"
+              className="inline-block"
+            >
+              <img 
+                src="https://startupfa.me/badges/featured/default.webp" 
+                alt="Featured on Startup Fame" 
+                className="h-8 opacity-75 hover:opacity-100 transition-opacity"
+              />
+            </a>
           </div>
         </div>
       </div>
