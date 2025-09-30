@@ -79,7 +79,7 @@ serve(async (req) => {
     // Get user info including language preferences
     const { data: user, error: userError } = await supabase
       .from('profiles')
-      .select('email, display_name, first_name, subscription_tier, language_prefs')
+      .select('email, first_name, last_name, subscription_tier, language_prefs')
       .eq('id', userId)
       .single();
 
@@ -278,7 +278,7 @@ serve(async (req) => {
     // Format content for email template
     const digestContent = {
       user: {
-        name: user.display_name || user.first_name || user.email.split('@')[0],
+        name: [user.first_name?.trim(), user.last_name?.trim()].filter(Boolean).join(' '),
         email: user.email,
         subscription_tier: user.subscription_tier,
       },

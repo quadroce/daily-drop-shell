@@ -159,7 +159,7 @@ export async function getUserPrefs(userId: string, supabase: any) {
   try {
     const { data: user } = await supabase
       .from('profiles')
-      .select('email, display_name, first_name')
+      .select('email, first_name, last_name, subscription_tier')
       .eq('id', userId)
       .single();
     
@@ -302,12 +302,17 @@ export async function selectDirectFromDrops(
   }
 }
 
-// Generate safe user greeting name
+// Generate safe user greeting name from first_name + last_name
+// Returns empty string if no names available (no fallback to email/username)
 export function getUserGreeting(user: any): string {
-  if (!user) return 'there';
+  if (!user) return '';
   
-  return user.display_name?.trim() || 
-         user.first_name?.trim() || 
-         user.email?.split('@')[0] || 
-         'there';
+  const firstName = user.first_name?.trim();
+  const lastName = user.last_name?.trim();
+  
+  // Build full name from available parts
+  const nameParts = [firstName, lastName].filter(Boolean);
+  
+  // Return joined name or empty string (no fallbacks)
+  return nameParts.length > 0 ? nameParts.join(' ') : '';
 }

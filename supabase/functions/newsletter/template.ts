@@ -299,49 +299,79 @@ export function renderNewsletterTemplate(content: DigestPayload): string {
         </style>
       </head>
       <body>
-        <div class="container">
-          ${testMode ? '<div class="test-banner">🧪 TEST MODE - This is a test newsletter</div>' : ""}
-          
-          <!-- Header with Logo -->
-          <div class="header">
-            <div class="logo-container">
-              <svg class="logo-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2.69L13.09 8.36L18.77 7.24L15.77 12L18.77 16.76L13.09 15.64L12 21.31L10.91 15.64L5.23 16.76L8.23 12L5.23 7.24L10.91 8.36L12 2.69Z" fill="white"/>
-                <circle cx="12" cy="12" r="2" fill="#2b91f7"/>
-                <circle cx="8" cy="8" r="1.5" fill="white" opacity="0.7"/>
-                <circle cx="16" cy="16" r="1" fill="white" opacity="0.5"/>
-              </svg>
-              <h1 class="logo-text">DailyDrops</h1>
-            </div>
-          </div>
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#fbfcff;">
+          <tr>
+            <td align="center" style="padding:0;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" class="container" style="max-width:600px; background:#ffffff; margin:0 auto;">
+                ${testMode ? `
+                <tr>
+                  <td style="background:#fef3c7; color:#92400e; padding:16px 24px; text-align:center; font-weight:600; border-bottom:1px solid #fcd34d;">
+                    🧪 TEST MODE - This is a test newsletter
+                  </td>
+                </tr>
+                ` : ""}
+                
+                <!-- White Header with Logo -->
+                <tr>
+                  <td align="center" style="background:#ffffff; padding:24px 0 20px 0;">
+                    <img src="https://dailydrops.cloud/email/dailydrops-logo.png" 
+                         width="120" 
+                         height="auto" 
+                         alt="DailyDrops" 
+                         style="display:block; border:0; outline:none; text-decoration:none; height:auto; line-height:100%;">
+                  </td>
+                </tr>
 
-          <!-- Greeting -->
-          <div class="greeting">
-            <h1>Hi ${user.name}! 👋</h1>
-            <p>Here's your personalized ${digest.cadence} digest${digest.items.length > 0 ? ` with ${digest.items.length} articles curated just for you.` : '.'}</p>
-          </div>
+                ${user.name ? `
+                <!-- Greeting (only if name exists) -->
+                <tr>
+                  <td style="background:#ffffff; padding:0 24px 8px 24px;">
+                    <h1 style="margin:0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size:24px; line-height:1.3; color:#111827; font-weight:700;">
+                      Hi ${user.name}! 👋
+                    </h1>
+                  </td>
+                </tr>
+                ` : ''}
+                
+                <!-- Subtitle -->
+                <tr>
+                  <td style="background:#ffffff; padding:${user.name ? '8px' : '0'} 24px 24px 24px;">
+                    <p style="margin:0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size:16px; color:#64748b;">
+                      Here's your personalized ${digest.cadence} digest${digest.items.length > 0 ? ` with ${digest.items.length} articles curated just for you.` : '.'}
+                    </p>
+                  </td>
+                </tr>
 
-          <!-- Stats -->
-          <div class="digest-stats">
-            📅 ${formatDate(digest.date)} • ${digest.slot} edition
-          </div>
+                <!-- Stats -->
+                <tr>
+                  <td style="background:#f1f5f9; padding:16px 24px; border-bottom:1px solid #e2e8f0; text-align:center; color:#475569; font-size:14px; font-weight:500; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;">
+                    📅 ${formatDate(digest.date)} • ${digest.slot} edition
+                  </td>
+                </tr>
 
-          <!-- Articles or Empty State -->
-          ${digest.items.length > 0 ? renderArticles(digest.items) : renderEmptyState()}
+                <!-- Articles or Empty State -->
+                ${digest.items.length > 0 ? renderArticles(digest.items) : renderEmptyState()}
 
-          <!-- Footer -->
-          <div class="footer">
-            <div class="footer-brand">
-              <h3>DailyDrops</h3>
-              <p class="footer-tagline">Curated content for curious minds</p>
-            </div>
-            <div class="footer-tier">${user.subscription_tier.toUpperCase()} member</div>
-            <div class="footer-links">
-              <a href="${preferencesUrl || "#"}">Manage preferences</a> • 
-              <a href="${unsubscribeUrl || "#"}">Unsubscribe</a>
-            </div>
-          </div>
-        </div>
+                <!-- Footer -->
+                <tr>
+                  <td style="background:#f8faff; text-align:center; padding:32px 24px; border-top:1px solid #e2e8f0; color:#64748b; font-size:14px; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;">
+                    <div style="margin-bottom:16px;">
+                      <h3 style="margin:0 0 4px 0; font-size:18px; color:#1e293b; font-weight:600;">DailyDrops</h3>
+                      <p style="color:#64748b; margin:0 0 16px 0;">Curated content for curious minds</p>
+                    </div>
+                    <div style="margin:0 0 16px 0; padding:8px 16px; background:#2b91f7; color:white; border-radius:20px; display:inline-block; font-weight:500; font-size:13px;">
+                      ${user.subscription_tier.toUpperCase()} member
+                    </div>
+                    <div>
+                      <a href="${preferencesUrl || "#"}" style="color:#64748b; text-decoration:none; font-weight:500;">Manage preferences</a> • 
+                      <a href="${unsubscribeUrl || "#"}" style="color:#64748b; text-decoration:none; font-weight:500;">Unsubscribe</a>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
       </body>
     </html>
   `;
@@ -349,23 +379,27 @@ export function renderNewsletterTemplate(content: DigestPayload): string {
 
 function renderArticles(items: TransformedItem[]): string {
   return `
-    <div class="content">
-      ${items.map(renderArticle).join('')}
-    </div>
+    <tr>
+      <td style="padding:24px;">
+        ${items.map(renderArticle).join('')}
+      </td>
+    </tr>
   `;
 }
 
 function renderArticle(item: TransformedItem): string {
   return `
-    <article class="article">
-      ${item.image ? `<img src="${item.image}" alt="${item.title}" class="article-image" />` : ''}
-      <div class="article-content">
-        <h2><a href="${item.url}" target="_blank">${item.title}</a></h2>
-        ${item.summary ? `<p class="article-summary">${item.summary}</p>` : ''}
+    <div style="margin-bottom:24px; border:1px solid #e2e8f0; border-radius:12px; background:#ffffff; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+      ${item.image ? `<img src="${item.image}" alt="${item.title}" style="width:100%; height:200px; object-fit:cover; display:block;" />` : ''}
+      <div style="padding:20px;">
+        <h2 style="margin:0 0 12px 0; font-size:18px; color:#1e293b; font-weight:600; line-height:1.4; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;">
+          <a href="${item.url}" target="_blank" style="color:#1e293b; text-decoration:none;">${item.title}</a>
+        </h2>
+        ${item.summary ? `<p style="color:#475569; font-size:15px; line-height:1.5; margin:0 0 16px 0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;">${item.summary}</p>` : ''}
         ${renderTags(item.tags)}
         ${item.showDate ? renderArticleMeta(item.date) : ''}
       </div>
-    </article>
+    </div>
   `;
 }
 
@@ -373,8 +407,8 @@ function renderTags(tags: string[]): string {
   if (!tags || tags.length === 0) return '';
   
   return `
-    <div class="tags">
-      ${tags.map(tag => `<span class="tag">#${tag}</span>`).join('')}
+    <div style="margin:16px 0;">
+      ${tags.map(tag => `<span style="display:inline-block; padding:4px 12px; background:#eff6ff; color:#1e40af; border-radius:16px; font-size:12px; font-weight:500; border:1px solid #dbeafe; margin-right:6px; margin-bottom:6px;">#${tag}</span>`).join('')}
     </div>
   `;
 }
@@ -383,24 +417,20 @@ function renderArticleMeta(date: Date | null): string {
   if (!date) return '';
   
   return `
-    <div class="article-meta">
-      <svg class="meta-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M8 2V5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        <path d="M16 2V5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
-        <path d="M3 10H21" stroke="currentColor" stroke-width="2"/>
-      </svg>
-      <span>Published ${formatArticleDate(date)}</span>
+    <div style="display:inline-block; color:#94a3b8; font-size:13px; padding-top:12px; border-top:1px solid #f1f5f9; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;">
+      Published ${formatArticleDate(date)}
     </div>
   `;
 }
 
 function renderEmptyState(): string {
   return `
-    <div class="empty-state">
-      <h3>No new content today</h3>
-      <p>We couldn't find any new articles matching your preferences. Try expanding your topic selections or check back later!</p>
-    </div>
+    <tr>
+      <td style="padding:48px 24px; text-align:center; color:#64748b; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;">
+        <h3 style="margin:0 0 12px 0; color:#1e293b;">No new content today</h3>
+        <p style="margin:0;">We couldn't find any new articles matching your preferences. Try expanding your topic selections or check back later!</p>
+      </td>
+    </tr>
   `;
 }
 
