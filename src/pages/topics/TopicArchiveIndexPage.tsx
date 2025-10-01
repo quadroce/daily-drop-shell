@@ -14,6 +14,7 @@ import { useEffect } from "react";
 import { breadcrumbJsonLd, collectionPageJsonLd, itemListJsonLd } from "@/lib/seo";
 import { Link } from "react-router-dom";
 import { format, parseISO } from "date-fns";
+import { SignupStickyBar } from "@/components/SignupStickyBar";
 
 export const TopicArchiveIndexPage = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -225,6 +226,8 @@ export const TopicArchiveIndexPage = () => {
           </div>
         </div>
       </div>
+
+      <SignupStickyBar scrollThreshold={400} utmSource="archive" utmCampaign="sticky_bar" />
     </>
   );
 };

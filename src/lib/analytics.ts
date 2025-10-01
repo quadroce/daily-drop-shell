@@ -44,6 +44,11 @@ export type AnalyticsEvent =
   | 'rss_subscribed_topic'
   | 'share_topic_clicked'
   | 'signup_from_topic_page'
+  | 'tag_clicked'
+  // CTA Events
+  | 'cta_shown'
+  | 'cta_clicked'
+  | 'cta_dismissed'
   // Monetization Events
   | 'begin_checkout'
   | 'purchase'

@@ -13,7 +13,7 @@ import { useTopicsMap } from "@/hooks/useTopicsMap";
 import { ChipLink } from "@/components/ChipLink";
 import { useAuth } from "@/hooks/useAuth";
 import { HomePreview } from "@/components/HomePreview";
-import { StickyCtaBar } from "@/components/StickyCtaBar";
+import { SignupStickyBar } from "@/components/SignupStickyBar";
 
 // Types for our data
 type Topic = {
@@ -444,7 +444,7 @@ const Index = () => {
         </section>
       </main>
 
-      <StickyCtaBar />
+      <SignupStickyBar utmSource="home" utmCampaign="sticky_bar" />
     </div>
   );
 };

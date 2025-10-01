@@ -8,7 +8,8 @@ import { FeedCard } from "@/components/FeedCard";
 import { TopicHeader } from "@/components/TopicHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { InfiniteArticlesList } from "@/components/InfiniteArticlesList";
+import { InfiniteArticlesListWithPromo } from "@/components/InfiniteArticlesListWithPromo";
+import { SignupStickyBar } from "@/components/SignupStickyBar";
 import {
   buildBreadcrumb,
   getChildren,
@@ -176,7 +177,7 @@ export const TopicLandingPage = () => {
                     <Link to={`/topics/${slug}/archive`}>View Archive</Link>
                   </Button>
                 </div>
-                <InfiniteArticlesList topicSlug={slug} />
+                <InfiniteArticlesListWithPromo topicSlug={slug} utmSource="topics" />
               </section>
             </>
           )
@@ -190,7 +191,7 @@ export const TopicLandingPage = () => {
                     Latest from {topic.label}
                   </h2>
                 </div>
-                <InfiniteArticlesList topicSlug={slug} />
+                <InfiniteArticlesListWithPromo topicSlug={slug} utmSource="topics" />
               </section>
 
               {/* Children Topics — now SECOND for L3 */}
@@ -219,6 +220,8 @@ export const TopicLandingPage = () => {
             </>
           )}
       </div>
+
+      <SignupStickyBar scrollThreshold={400} utmSource="topics" utmCampaign="sticky_bar" />
     </>
   );
 };
