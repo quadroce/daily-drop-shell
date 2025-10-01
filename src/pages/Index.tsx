@@ -204,7 +204,7 @@ const Index = () => {
               Your daily dose of AI, Tech & Business insights
             </h1>
             <p className="text-xl md:text-2xl text-muted-foreground mb-16 max-w-3xl mx-auto">
-              Cut through the noise. Stay updated in minutes.
+              Cut through the noise. Stay updated.
             </p>
             
             <div className="flex justify-center">
