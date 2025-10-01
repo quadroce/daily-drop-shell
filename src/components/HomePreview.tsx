@@ -36,11 +36,12 @@ export const HomePreview = () => {
         const { data, error } = await supabase
           .from('drops')
           .select(`
-            id, title, summary, image_url, url, type, published_at, tags,
+            id, title, summary, image_url, url, type, published_at, created_at, tags,
             youtube_video_id, youtube_thumbnail_url,
             sources:source_id(name)
           `)
           .eq('tag_done', true)
+          .not('published_at', 'is', null)
           .order('published_at', { ascending: false })
           .limit(18);
 
@@ -54,7 +55,7 @@ export const HomePreview = () => {
           url: drop.url,
           type: drop.type,
           source_name: drop.sources?.name || 'Unknown Source',
-          published_at: drop.published_at,
+          published_at: drop.published_at || drop.created_at,
           tags: drop.tags || [],
           youtube_video_id: drop.youtube_video_id,
           youtube_thumbnail_url: drop.youtube_thumbnail_url,
@@ -173,23 +174,25 @@ export const HomePreview = () => {
                   {drop.summary}
                 </p>
               )}
-              <div className="flex gap-1 flex-wrap">
-                {drop.tags.slice(0, 3).map((tag, index) => (
-                  <ChipLink 
-                    key={index}
-                    to={`/search?q=${encodeURIComponent(tag)}`} 
-                    variant="secondary" 
-                    className="text-xs py-0 px-2"
-                  >
-                    {tag}
-                  </ChipLink>
-                ))}
-                {drop.tags.length > 3 && (
-                  <Badge variant="secondary" className="text-xs py-0 px-2">
-                    +{drop.tags.length - 3}
-                  </Badge>
-                )}
-              </div>
+              {drop.tags && drop.tags.length > 0 && (
+                <div className="flex gap-1 flex-wrap">
+                  {drop.tags.slice(0, 3).map((tag, index) => (
+                    <ChipLink 
+                      key={index}
+                      to={`/search?q=${encodeURIComponent(tag)}`} 
+                      variant="secondary" 
+                      className="text-xs py-0 px-2"
+                    >
+                      {tag}
+                    </ChipLink>
+                  ))}
+                  {drop.tags.length > 3 && (
+                    <Badge variant="secondary" className="text-xs py-0 px-2">
+                      +{drop.tags.length - 3}
+                    </Badge>
+                  )}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
