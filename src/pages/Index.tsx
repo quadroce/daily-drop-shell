@@ -12,6 +12,8 @@ import { getYouTubeThumbnailFromUrl, getYouTubeFallbackThumbnail } from "@/lib/y
 import { useTopicsMap } from "@/hooks/useTopicsMap";
 import { ChipLink } from "@/components/ChipLink";
 import { useAuth } from "@/hooks/useAuth";
+import { HomePreview } from "@/components/HomePreview";
+import { StickyCtaBar } from "@/components/StickyCtaBar";
 
 // Types for our data
 type Topic = {
@@ -218,6 +220,9 @@ const Index = () => {
       </header>
 
       <main>
+        {/* Home Preview Section */}
+        <HomePreview />
+
         {/* SEO Intro Section */}
         <section className="container mx-auto px-4 py-20">
           <div className="max-w-2xl mx-auto text-center">
@@ -438,6 +443,8 @@ const Index = () => {
           </div>
         </section>
       </main>
+
+      <StickyCtaBar />
     </div>
   );
 };
