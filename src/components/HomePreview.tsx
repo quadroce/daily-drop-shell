@@ -8,6 +8,7 @@ import { PreviewModal } from "./PreviewModal";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { ChipLink } from "./ChipLink";
 
 type Drop = {
   id: number;
@@ -18,6 +19,9 @@ type Drop = {
   type: string;
   source_name: string | null;
   published_at: string;
+  tags: string[];
+  youtube_video_id: string | null;
+  youtube_thumbnail_url: string | null;
 };
 
 export const HomePreview = () => {
@@ -32,7 +36,8 @@ export const HomePreview = () => {
         const { data, error } = await supabase
           .from('drops')
           .select(`
-            id, title, summary, image_url, url, type, published_at,
+            id, title, summary, image_url, url, type, published_at, tags,
+            youtube_video_id, youtube_thumbnail_url,
             sources:source_id(name)
           `)
           .eq('tag_done', true)
@@ -50,6 +55,9 @@ export const HomePreview = () => {
           type: drop.type,
           source_name: drop.sources?.name || 'Unknown Source',
           published_at: drop.published_at,
+          tags: drop.tags || [],
+          youtube_video_id: drop.youtube_video_id,
+          youtube_thumbnail_url: drop.youtube_thumbnail_url,
         })) || [];
 
         setDrops(formattedDrops);
@@ -76,8 +84,13 @@ export const HomePreview = () => {
     const [imageError, setImageError] = useState(false);
 
     useEffect(() => {
+      // Priority: image_url > youtube_thumbnail_url > extract from URL > fallback
       if (drop.image_url) {
         setImageSrc(drop.image_url);
+      } else if (drop.youtube_thumbnail_url) {
+        setImageSrc(drop.youtube_thumbnail_url);
+      } else if (drop.type === 'video' && drop.youtube_video_id) {
+        setImageSrc(`https://img.youtube.com/vi/${drop.youtube_video_id}/maxresdefault.jpg`);
       } else if (drop.type === 'video') {
         const thumbnail = getYouTubeThumbnailFromUrl(drop.url);
         if (thumbnail) {
@@ -88,10 +101,16 @@ export const HomePreview = () => {
 
     const handleImageError = () => {
       if (!imageError && drop.type === 'video') {
-        const fallbackThumbnail = getYouTubeFallbackThumbnail(drop.url);
-        if (fallbackThumbnail) {
-          setImageSrc(fallbackThumbnail);
+        // Try fallback thumbnail
+        if (drop.youtube_video_id) {
+          setImageSrc(`https://img.youtube.com/vi/${drop.youtube_video_id}/hqdefault.jpg`);
           setImageError(true);
+        } else {
+          const fallbackThumbnail = getYouTubeFallbackThumbnail(drop.url);
+          if (fallbackThumbnail) {
+            setImageSrc(fallbackThumbnail);
+            setImageError(true);
+          }
         }
       }
     };
@@ -137,6 +156,14 @@ export const HomePreview = () => {
                 <span className="text-xs text-muted-foreground">
                   {drop.source_name}
                 </span>
+                <span className="text-xs text-muted-foreground">•</span>
+                <time dateTime={drop.published_at} className="text-xs text-muted-foreground">
+                  {new Date(drop.published_at).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                  })}
+                </time>
               </div>
               <h3 className="font-semibold text-foreground mb-2 line-clamp-2 leading-snug">
                 {drop.title}
@@ -146,12 +173,22 @@ export const HomePreview = () => {
                   {drop.summary}
                 </p>
               )}
-              <div className="text-xs text-muted-foreground">
-                {new Date(drop.published_at).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric'
-                })}
+              <div className="flex gap-1 flex-wrap">
+                {drop.tags.slice(0, 3).map((tag, index) => (
+                  <ChipLink 
+                    key={index}
+                    to={`/search?q=${encodeURIComponent(tag)}`} 
+                    variant="secondary" 
+                    className="text-xs py-0 px-2"
+                  >
+                    {tag}
+                  </ChipLink>
+                ))}
+                {drop.tags.length > 3 && (
+                  <Badge variant="secondary" className="text-xs py-0 px-2">
+                    +{drop.tags.length - 3}
+                  </Badge>
+                )}
               </div>
             </div>
           </CardContent>
