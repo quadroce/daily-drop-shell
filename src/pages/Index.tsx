@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { ArrowRight, Brain, Building, Palette, TrendingUp, Globe, Heart, Users, ExternalLink, HelpCircle } from "lucide-react";
+import { ArrowRight, Brain, Building, Palette, TrendingUp, Globe, Heart, Users, ExternalLink, CircleHelp as HelpCircle } from "lucide-react";
 import { Seo } from "@/components/Seo";
 import { useIndexNow } from "@/lib/indexnow";
 import React, { useEffect, useState } from "react";
