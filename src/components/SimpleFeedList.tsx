@@ -19,9 +19,10 @@ interface SimpleDropCardProps {
   topicsLoading: boolean;
   getState: (dropId: string) => any;
   isLoading: (dropId: string) => boolean;
+  topicsMap: { l1: Map<number, { label: string; slug: string }>; l2: Map<number, { label: string; slug: string }>; l3: Map<string, string> };
 }
 
-const SimpleDropCard = ({ drop, updateEngagement, getTopicSlug, topicsLoading, getState, isLoading }: SimpleDropCardProps) => {
+const SimpleDropCard = ({ drop, updateEngagement, getTopicSlug, topicsLoading, getState, isLoading, topicsMap }: SimpleDropCardProps) => {
   console.log('🎯 Rendering SimpleDropCard for drop:', drop.id, drop.title);
   
   const [imageError, setImageError] = useState(false);
@@ -161,21 +162,54 @@ const SimpleDropCard = ({ drop, updateEngagement, getTopicSlug, topicsLoading, g
             </p>
           )}
 
-          {/* Tags */}
-          {drop.tags && drop.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1 mb-3">
-              {drop.tags.slice(0, 2).map((tag, index) => (
-                <ChipLink key={tag} to={`/topics/${getTopicSlug(tag)}`} position={index} variant="outline">
+          {/* Tags: L1, L2, L3 */}
+          <div className="flex flex-wrap gap-1 mb-3">
+            {/* L1 Topic */}
+            {drop.l1_topic_id && topicsMap.l1.get(drop.l1_topic_id) && (
+              <ChipLink
+                to={`/topics/${topicsMap.l1.get(drop.l1_topic_id)!.slug}`}
+                position={0}
+                variant="secondary"
+                className="bg-blue-600 text-white hover:bg-blue-700 text-xs"
+              >
+                {topicsMap.l1.get(drop.l1_topic_id)!.label}
+              </ChipLink>
+            )}
+            
+            {/* L2 Topic */}
+            {drop.l2_topic_id && topicsMap.l2.get(drop.l2_topic_id) && (
+              <ChipLink
+                to={`/topics/${topicsMap.l2.get(drop.l2_topic_id)!.slug}`}
+                position={1}
+                variant="secondary"
+                className="bg-green-500 text-white hover:bg-green-600 text-xs"
+              >
+                {topicsMap.l2.get(drop.l2_topic_id)!.label}
+              </ChipLink>
+            )}
+            
+            {/* L3 Tags */}
+            {drop.tags && drop.tags.slice(0, 1).map((tag, index) => {
+              const slug = topicsMap.l3.get(tag);
+              return slug ? (
+                <ChipLink
+                  key={tag}
+                  to={`/topics/${slug}`}
+                  position={2 + index}
+                  variant="outline"
+                  className="bg-orange-400 text-white hover:bg-orange-500 text-xs"
+                >
                   {tag}
                 </ChipLink>
-              ))}
-              {drop.tags.length > 2 && (
-                <span className="text-xs text-muted-foreground self-center">
-                  +{drop.tags.length - 2}
-                </span>
-              )}
-            </div>
-          )}
+              ) : null;
+            })}
+            
+            {drop.tags && drop.tags.length > 1 && (
+              <span className="text-xs text-muted-foreground self-center">
+                +{drop.tags.length - 1}
+              </span>
+            )}
+          </div>
 
           {/* Actions */}
           <div className="flex items-center gap-1 pt-2 mt-auto border-t">
@@ -257,6 +291,49 @@ export function SimpleFeedList({ items, load, hasMore, loading, error, onRetry }
   const sentinelRef = useRef<HTMLDivElement>(null);
   const { updateEngagement, getState, isLoading, initializeStates } = useEngagementState();
   const { getTopicSlug, isLoading: topicsLoading } = useTopicsMap();
+  const [topicsMap, setTopicsMap] = useState<{ 
+    l1: Map<number, { label: string; slug: string }>; 
+    l2: Map<number, { label: string; slug: string }>;
+    l3: Map<string, string>;
+  }>({
+    l1: new Map(),
+    l2: new Map(),
+    l3: new Map()
+  });
+
+  // Load all topics map (L1, L2, L3)
+  useEffect(() => {
+    const loadTopicsMap = async () => {
+      try {
+        const { data: topics } = await supabase
+          .from('topics')
+          .select('id, label, slug, level')
+          .in('level', [1, 2, 3]);
+        
+        if (topics) {
+          const l1Map = new Map<number, { label: string; slug: string }>();
+          const l2Map = new Map<number, { label: string; slug: string }>();
+          const l3Map = new Map<string, string>();
+          
+          topics.forEach(topic => {
+            if (topic.level === 1) {
+              l1Map.set(topic.id, { label: topic.label, slug: topic.slug });
+            } else if (topic.level === 2) {
+              l2Map.set(topic.id, { label: topic.label, slug: topic.slug });
+            } else if (topic.level === 3) {
+              l3Map.set(topic.label, topic.slug);
+            }
+          });
+          
+          setTopicsMap({ l1: l1Map, l2: l2Map, l3: l3Map });
+        }
+      } catch (error) {
+        console.error('Failed to load topics map:', error);
+      }
+    };
+
+    loadTopicsMap();
+  }, []);
 
   console.log('🎯 SimpleFeedList render:', {
     itemsCount: items.length,
@@ -349,6 +426,7 @@ export function SimpleFeedList({ items, load, hasMore, loading, error, onRetry }
             topicsLoading={topicsLoading}
             getState={getState}
             isLoading={isLoading}
+            topicsMap={topicsMap}
           />
         ))}
       </div>
