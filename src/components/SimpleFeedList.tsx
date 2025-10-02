@@ -1,321 +1,69 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, RefreshCw, Heart, Bookmark, X, Share2, ExternalLink } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEngagementState } from "@/hooks/useEngagementState";
 import { useTopicsMap } from "@/hooks/useTopicsMap";
 import { FeedItem } from "@/hooks/useInfiniteFeed";
 import { supabase } from "@/integrations/supabase/client";
-
-// Import the existing DropCard component
-import { Card, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { ChipLink } from "@/components/ChipLink";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
-  Bookmark,
-  ExternalLink,
-  Heart,
-  Image,
-  Play,
-  X,
-} from "lucide-react";
-import { ShareButton } from "@/components/ShareButton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { track } from "@/lib/analytics";
-import {
-  getYouTubeFallbackThumbnail,
-  getYouTubeThumbnailFromUrl,
-} from "@/lib/youtube";
+import { format } from "date-fns";
 
-// Helper function for getting image URLs
-const getImageUrl = (drop: FeedItem) => {
-  if (drop.type === "video" && drop.url) {
-    const thumbnailUrl = getYouTubeThumbnailFromUrl(drop.url);
-    if (thumbnailUrl) return thumbnailUrl;
-  }
-  return drop.image_url;
-};
-
-// Simple DropCard component (no virtualization)
-const SimpleDropCard = ({ 
-  drop, 
-  updateEngagement, 
-  getTopicSlug, 
-  topicsLoading, 
-  getState, 
-  isLoading,
-  topicsMap 
-}: {
+interface SimpleDropCardProps {
   drop: FeedItem;
   updateEngagement: (dropId: string, action: string) => Promise<boolean>;
   getTopicSlug: (label: string) => string;
   topicsLoading: boolean;
   getState: (dropId: string) => any;
   isLoading: (dropId: string) => boolean;
-  topicsMap: { l1: Map<number, string>; l2: Map<number, string> };
-}) => {
-  const imageUrl = getImageUrl(drop);
-  const dropId = drop.id.toString();
-  const engagementState = getState(dropId);
-  const loadingState = isLoading(dropId);
+}
 
+const SimpleDropCard = ({ drop, updateEngagement, getTopicSlug, topicsLoading, getState, isLoading }: SimpleDropCardProps) => {
   console.log('🎯 Rendering SimpleDropCard for drop:', drop.id, drop.title);
+  
+  const [imageError, setImageError] = useState(false);
+  const state = getState(drop.id.toString());
+  const loading = isLoading(drop.id.toString());
+
+  const imageUrl = drop.image_url || drop.youtube_thumbnail_url;
+  const showBadges = drop.reason_for_ranking && drop.reason_for_ranking !== 'Relevant content';
+
+  const handleAction = async (action: 'like' | 'save' | 'dismiss') => {
+    await updateEngagement(drop.id.toString(), action);
+    track(`${action}_item`, {
+      drop_id: drop.id,
+      content_id: drop.id,
+      source: drop.source_name,
+      topic: drop.tags?.[0],
+    });
+  };
+
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: drop.title,
+        url: drop.url,
+      }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(drop.url);
+    }
+    track('share_item', {
+      drop_id: drop.id,
+      content_id: drop.id,
+      source: drop.source_name,
+      topic: drop.tags?.[0],
+    });
+  };
 
   return (
     <TooltipProvider>
-      <Card className="group hover:bg-card-hover transition-all duration-200 mb-4">
-        <div className="flex">
-          {/* Content Section - Left */}
-          <div className="flex-1 p-4">
-            <div className="flex items-start justify-between gap-3 mb-3">
-              <div className="flex-1 min-w-0">
-                <CardTitle className="text-base leading-tight group-hover:text-primary transition-colors">
-                  <a
-                    href={drop.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:underline"
-                  >
-                    {drop.title}
-                  </a>
-                </CardTitle>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-muted-foreground truncate">
-                    {drop.source_name || "Unknown Source"}
-                  </span>
-                  <span className="text-xs text-muted-foreground">•</span>
-                  <time className="text-xs text-muted-foreground whitespace-nowrap">
-                    {drop.published_at
-                      ? new Date(drop.published_at).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })
-                      : new Date().toLocaleDateString("en-US", {
-                          month: "short", 
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                  </time>
-                </div>
-
-                {/* Ranking reason with score */}
-                {drop.reason_for_ranking && (
-                  <div className="mt-1 flex items-center gap-2">
-                    <Badge
-                      variant="outline"
-                      className="text-xs bg-primary/5 text-primary/80 border-primary/20"
-                    >
-                      {drop.l1_topic_id && topicsMap.l1.get(drop.l1_topic_id) 
-                        ? `${topicsMap.l1.get(drop.l1_topic_id)} • ${drop.reason_for_ranking}`
-                        : drop.reason_for_ranking}
-                    </Badge>
-                  </div>
-                )}
-              </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0 h-6 w-6"
-                    onClick={() => {
-                      track("content_click", {
-                        drop_id: drop.id,
-                        content_id: drop.id,
-                        source: drop.source_name,
-                        topic: drop.tags?.[0],
-                      });
-                      window.open(drop.url, "_blank");
-                    }}
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Open link</TooltipContent>
-              </Tooltip>
-            </div>
-
-            {/* Synopsis */}
-            <div className="mb-3">
-              <p className="text-xs text-muted-foreground line-clamp-2">
-                {drop.summary || "No summary available."}
-              </p>
-            </div>
-
-            {/* Tags and Actions */}
-            <div className="flex items-center justify-between">
-              <div className="flex flex-wrap gap-1">
-                {/* L1 Topic */}
-                {drop.l1_topic_id && topicsMap.l1.get(drop.l1_topic_id) && (
-                  <Badge
-                    key={`l1-${drop.l1_topic_id}`}
-                    variant="secondary"
-                    className="text-xs py-0 px-2 bg-blue-600 text-white"
-                  >
-                    {topicsMap.l1.get(drop.l1_topic_id)}
-                  </Badge>
-                )}
-                
-                {/* L2 Topic */}
-                {drop.l2_topic_id && topicsMap.l2.get(drop.l2_topic_id) && (
-                  <Badge
-                    key={`l2-${drop.l2_topic_id}`}
-                    variant="secondary"
-                    className="text-xs py-0 px-2 bg-green-400 text-white"
-                  >
-                    {topicsMap.l2.get(drop.l2_topic_id)}
-                  </Badge>
-                )}
-                
-                {/* L3 Tags - Show available tags */}
-                {drop.tags?.filter((tag) => tag && tag.trim()).map((tag: string) => (
-                  topicsLoading || !getTopicSlug(tag) ? (
-                    <Badge
-                      key={`l3-${tag}`}
-                      variant="outline"
-                      className="text-xs py-0 px-1 bg-orange-400 text-white"
-                    >
-                      {tag}
-                    </Badge>
-                  ) : (
-                    <ChipLink
-                      key={`l3-${tag}`}
-                      to={`/topics/${getTopicSlug(tag)}`}
-                      variant="outline"
-                      className="text-xs py-0 px-1 bg-orange-400 text-white hover:bg-orange-500"
-                    >
-                      {tag}
-                    </ChipLink>
-                  )
-                ))}
-              </div>
-
-              <div className="flex items-center gap-1">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={`h-6 w-6 ${
-                        engagementState.isLiked
-                          ? "bg-success/20 text-success hover:bg-success/30"
-                          : "hover:bg-success/10 hover:text-success"
-                      }`}
-                      disabled={loadingState}
-                      aria-pressed={engagementState.isLiked}
-                      onClick={async () => {
-                        const success = await updateEngagement(dropId, "like");
-                        if (success) {
-                          track("like_item", {
-                            drop_id: drop.id,
-                            content_id: drop.id,
-                            source: drop.source_name,
-                            topic: drop.tags?.[0],
-                          });
-                        }
-                      }}
-                    >
-                      <Heart
-                        className={`h-3 w-3 ${
-                          engagementState.isLiked ? "fill-current" : ""
-                        }`}
-                      />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {engagementState.isLiked ? "Unlike" : "Like"}
-                  </TooltipContent>
-                </Tooltip>
-
-                {!engagementState.isLiked && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={`h-6 w-6 ${
-                          engagementState.isSaved
-                            ? "bg-success/20 text-success hover:bg-success/30"
-                            : "hover:bg-success/10 hover:text-success"
-                        }`}
-                        disabled={loadingState}
-                        aria-pressed={engagementState.isSaved}
-                        onClick={async () => {
-                          const success = await updateEngagement(dropId, "save");
-                          if (success) {
-                            track("save_item", {
-                              drop_id: drop.id,
-                              content_id: drop.id,
-                              source: drop.source_name,
-                              topic: drop.tags?.[0],
-                            });
-                          }
-                        }}
-                      >
-                        <Bookmark
-                          className={`h-3 w-3 ${
-                            engagementState.isSaved ? "fill-current" : ""
-                          }`}
-                        />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {engagementState.isSaved ? "Unsave" : "Save"}
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-
-                <ShareButton
-                  dropId={dropId}
-                  title={drop.title}
-                  url={drop.url}
-                  disabled={loadingState}
-                  className="h-6 w-6"
-                />
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={`h-6 w-6 ${
-                        engagementState.isDismissed
-                          ? "bg-destructive/20 text-destructive hover:bg-destructive/30"
-                          : "hover:bg-destructive/10 hover:text-destructive"
-                      }`}
-                      disabled={loadingState}
-                      aria-pressed={engagementState.isDismissed}
-                      onClick={async () => {
-                        const success = await updateEngagement(dropId, "dismiss");
-                        if (success) {
-                          track("dismiss_item", {
-                            drop_id: drop.id,
-                            content_id: drop.id,
-                            source: drop.source_name,
-                            topic: drop.tags?.[0],
-                          });
-                        }
-                      }}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {engagementState.isDismissed ? "Undismiss" : "Dismiss"}
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            </div>
-          </div>
-
-          {/* Image Section - Right - Clickable */}
-          <div className="relative w-28 h-28 m-4 overflow-hidden rounded-lg flex-shrink-0 cursor-pointer"
+      <Card className="group hover:shadow-md transition-shadow h-full flex flex-col">
+        <CardContent className="p-4 flex flex-col h-full">
+          {/* Image on top */}
+          <div className="w-full aspect-video relative mb-3 cursor-pointer"
                onClick={() => {
                  track("content_click", {
                    drop_id: drop.id,
@@ -325,58 +73,172 @@ const SimpleDropCard = ({
                  });
                  window.open(drop.url, "_blank");
                }}>
-            {imageUrl ? (
+            {imageUrl && !imageError ? (
               <div className="relative w-full h-full">
                 <img
                   src={imageUrl}
                   alt={drop.title}
-                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
-                  onError={(e) => {
-                    // Try fallback for YouTube videos
-                    if (drop.type === "video" && drop.url) {
-                      const fallbackUrl = getYouTubeFallbackThumbnail(drop.url);
-                      if (fallbackUrl && e.currentTarget.src !== fallbackUrl) {
-                        e.currentTarget.src = fallbackUrl;
-                        return;
-                      }
-                    }
-
-                    // Hide image and show placeholder
-                    e.currentTarget.style.display = "none";
-                    const placeholder = e.currentTarget.closest(".relative")
-                      ?.querySelector("[data-placeholder]");
-                    placeholder?.classList.remove("hidden");
-                  }}
+                  className="w-full h-full object-cover rounded hover:scale-105 transition-transform duration-200"
+                  onError={() => setImageError(true)}
+                  loading="lazy"
                 />
-                {drop.type === "video" && (
-                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                    <div className="bg-black/60 rounded-full p-1">
-                      <Play className="h-3 w-3 text-white fill-white" />
+                {drop.type === 'video' && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded">
+                    <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center">
+                      <div className="w-0 h-0 border-l-[14px] border-l-primary border-t-[9px] border-t-transparent border-b-[9px] border-b-transparent ml-1" />
                     </div>
                   </div>
                 )}
-                <div className="absolute inset-0 bg-black/10 group-hover:bg-black/5 transition-colors" />
-
-                <div
-                  data-placeholder
-                  className="hidden absolute inset-0 bg-muted flex items-center justify-center"
-                >
-                  <div className="text-center text-muted-foreground">
-                    <Image className="h-4 w-4 mx-auto mb-1" />
-                    <p className="text-xs">No image</p>
-                  </div>
-                </div>
               </div>
             ) : (
-              <div className="w-full h-full bg-muted flex items-center justify-center">
-                <div className="text-center text-muted-foreground">
-                  <Image className="h-4 w-4 mx-auto mb-1" />
-                  <p className="text-xs">No image</p>
-                </div>
+              <div className="w-full h-full bg-gradient-to-br from-primary/10 to-primary/5 rounded flex items-center justify-center">
+                <span className="text-4xl opacity-50">
+                  {drop.type === 'video' ? '🎥' : '📰'}
+                </span>
               </div>
             )}
           </div>
-        </div>
+
+          {/* Badges */}
+          {showBadges && (
+            <div className="flex flex-wrap gap-1 mb-2">
+              {drop.reason_for_ranking?.includes('Fresh') && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-700 dark:text-green-400">
+                  ✨ Fresh
+                </span>
+              )}
+              {drop.reason_for_ranking?.includes('interest') && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-400">
+                  🎯 Match
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Source and date */}
+          {(drop.source_name || drop.published_at) && (
+            <div className="text-xs text-muted-foreground flex items-center gap-1 mb-2">
+              {drop.source_name && (
+                <span className="font-medium truncate">{drop.source_name}</span>
+              )}
+              {drop.published_at && (
+                <>
+                  <span>•</span>
+                  <time dateTime={drop.published_at} className="truncate">
+                    {format(new Date(drop.published_at), "MMM d")}
+                  </time>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Title with link */}
+          <a
+            href={drop.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group/link block mb-2"
+            onClick={(e) => {
+              e.stopPropagation();
+              track("content_click", {
+                drop_id: drop.id,
+                content_id: drop.id,
+                source: drop.source_name,
+                topic: drop.tags?.[0],
+              });
+            }}
+          >
+            <h3 className="font-semibold text-sm text-foreground group-hover/link:text-primary transition-colors line-clamp-2 flex items-start gap-1">
+              {drop.title}
+              <ExternalLink className="h-3 w-3 opacity-0 group-hover/link:opacity-100 transition-opacity flex-shrink-0 mt-0.5" />
+            </h3>
+          </a>
+
+          {/* Summary */}
+          {drop.summary && (
+            <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
+              {drop.summary}
+            </p>
+          )}
+
+          {/* Tags */}
+          {drop.tags && drop.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-3">
+              {drop.tags.slice(0, 2).map((tag, index) => (
+                <ChipLink key={tag} to={`/topics/${getTopicSlug(tag)}`} position={index} variant="outline">
+                  {tag}
+                </ChipLink>
+              ))}
+              {drop.tags.length > 2 && (
+                <span className="text-xs text-muted-foreground self-center">
+                  +{drop.tags.length - 2}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex items-center gap-1 pt-2 mt-auto border-t">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleAction('like')}
+                  disabled={loading}
+                  className={state?.isLiked ? "text-red-500" : ""}
+                >
+                  <Heart className={`h-4 w-4 ${state?.isLiked ? "fill-current" : ""}`} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Like</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleAction('save')}
+                  disabled={loading}
+                  className={state?.isSaved ? "text-blue-500" : ""}
+                >
+                  <Bookmark className={`h-4 w-4 ${state?.isSaved ? "fill-current" : ""}`} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Save</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleShare}
+                  disabled={loading}
+                >
+                  <Share2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Share</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleAction('dismiss')}
+                  disabled={loading}
+                  className="ml-auto text-muted-foreground hover:text-destructive"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Dismiss</TooltipContent>
+            </Tooltip>
+          </div>
+        </CardContent>
       </Card>
     </TooltipProvider>
   );
@@ -395,41 +257,6 @@ export function SimpleFeedList({ items, load, hasMore, loading, error, onRetry }
   const sentinelRef = useRef<HTMLDivElement>(null);
   const { updateEngagement, getState, isLoading, initializeStates } = useEngagementState();
   const { getTopicSlug, isLoading: topicsLoading } = useTopicsMap();
-  const [topicsMap, setTopicsMap] = useState<{ l1: Map<number, string>; l2: Map<number, string> }>({
-    l1: new Map(),
-    l2: new Map()
-  });
-
-  // Load L1 and L2 topics map
-  useEffect(() => {
-    const loadTopicsMap = async () => {
-      try {
-        const { data: topics } = await supabase
-          .from('topics')
-          .select('id, label, level')
-          .in('level', [1, 2]);
-        
-        if (topics) {
-          const l1Map = new Map<number, string>();
-          const l2Map = new Map<number, string>();
-          
-          topics.forEach(topic => {
-            if (topic.level === 1) {
-              l1Map.set(topic.id, topic.label);
-            } else if (topic.level === 2) {
-              l2Map.set(topic.id, topic.label);
-            }
-          });
-          
-          setTopicsMap({ l1: l1Map, l2: l2Map });
-        }
-      } catch (error) {
-        console.error('Failed to load topics map:', error);
-      }
-    };
-
-    loadTopicsMap();
-  }, []);
 
   console.log('🎯 SimpleFeedList render:', {
     itemsCount: items.length,
@@ -448,11 +275,11 @@ export function SimpleFeedList({ items, load, hasMore, loading, error, onRetry }
     }
   }, [items, initializeStates]);
 
-  // Intersection Observer for infinite loading with better logging
+  // Intersection Observer for infinite loading
   useEffect(() => {
     console.log('🔍 Setting up intersection observer:', { hasMore, loading });
     if (!hasMore) {
-      console.log('❌ Intersection observer blocked - no more items:', { hasMore });
+      console.log('❌ Intersection observer blocked - no more items');
       return;
     }
     
@@ -467,17 +294,10 @@ export function SimpleFeedList({ items, load, hasMore, loading, error, onRetry }
         entries.forEach((entry) => {
           if (entry.isIntersecting && !loading && hasMore) {
             console.log('🔄 Intersection Observer triggered - loading more items');
-            console.log('🔍 Current state when triggered:', { hasMore, loading, itemsCount: items.length });
-            
-            // Use a timeout to ensure state updates are processed
             setTimeout(() => {
               console.log('⏰ Triggering load after timeout');
               load();
             }, 100);
-          } else if (entry.isIntersecting && loading) {
-            console.log('⏳ Intersection Observer triggered but loading already in progress');
-          } else if (entry.isIntersecting && !hasMore) {
-            console.log('🏁 Intersection Observer triggered but no more items available');
           }
         });
       },
@@ -490,16 +310,14 @@ export function SimpleFeedList({ items, load, hasMore, loading, error, onRetry }
       console.log('🧹 Cleaning up intersection observer');
       io.disconnect();
     };
-  }, [hasMore, loading]);
+  }, [hasMore, loading, load]);
 
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
         <AlertCircle className="h-12 w-12 text-destructive mb-4" />
         <h3 className="text-lg font-semibold mb-2">Error loading feed</h3>
-        <p className="text-muted-foreground mb-4 max-w-md">
-          {error}
-        </p>
+        <p className="text-muted-foreground mb-4 max-w-md">{error}</p>
         <Button onClick={onRetry} variant="outline">
           <RefreshCw className="h-4 w-4 mr-2" />
           Try Again
@@ -510,69 +328,54 @@ export function SimpleFeedList({ items, load, hasMore, loading, error, onRetry }
 
   return (
     <div>
-      {/* Render all items directly (no virtualization) */}
-      <div className="space-y-4">
-        {items.map((item) => (
+      {items.length === 0 && !loading && !error && (
+        <div className="text-center py-16 space-y-4">
+          <div className="text-6xl">📭</div>
+          <h3 className="text-xl font-semibold text-foreground">No drops yet</h3>
+          <p className="text-muted-foreground max-w-md mx-auto">
+            Your personalized feed is being prepared. Check back soon!
+          </p>
+        </div>
+      )}
+
+      {/* Grid 3 columns */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {items.map((drop) => (
           <SimpleDropCard
-            key={item.id}
-            drop={item}
+            key={drop.id}
+            drop={drop}
             updateEngagement={updateEngagement}
             getTopicSlug={getTopicSlug}
             topicsLoading={topicsLoading}
             getState={getState}
             isLoading={isLoading}
-            topicsMap={topicsMap}
           />
         ))}
       </div>
 
       {/* Sentinel for infinite scroll */}
-      <div 
-        ref={sentinelRef} 
-        className="h-20 flex items-center justify-center"
-        style={{ minHeight: '80px' }}
-      >
-        {hasMore && !loading && (
-          <div className="text-xs text-muted-foreground">
-            Scroll to load more content...
-          </div>
-        )}
-      </div>
+      <div ref={sentinelRef} className="h-4 mt-6" />
 
-      {/* Loading skeletons */}
       {loading && (
-        <div className="space-y-4 p-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="flex gap-4 p-4 border rounded-lg">
-              <div className="flex-1 space-y-2">
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-3 w-1/2" />
-                <Skeleton className="h-3 w-full" />
-                <Skeleton className="h-3 w-2/3" />
-              </div>
-              <Skeleton className="w-28 h-28 rounded-lg" />
-            </div>
+            <Card key={i}>
+              <CardContent className="p-4">
+                <div className="space-y-3">
+                  <Skeleton className="w-full aspect-video rounded" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                  <Skeleton className="h-3 w-full" />
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}
 
-      {/* End of feed message */}
       {!hasMore && items.length > 0 && (
-        <div className="py-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            You're all caught up! 🎉
-          </p>
-        </div>
-      )}
-
-      {/* Empty state */}
-      {!loading && items.length === 0 && !error && (
-        <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-          <div className="text-6xl mb-4">📰</div>
-          <h3 className="text-lg font-semibold mb-2">No articles found</h3>
-          <p className="text-muted-foreground mb-4">
-            Try adjusting your preferences or check back later.
-          </p>
+        <div className="text-center py-8 text-muted-foreground">
+          <p>You've reached the end of your feed</p>
         </div>
       )}
     </div>

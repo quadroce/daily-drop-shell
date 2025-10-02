@@ -244,14 +244,30 @@ const Feed = () => {
           )}
         </div>
 
-        <SimpleFeedList
-          items={items}
-          load={load}
-          hasMore={hasMore}
-          loading={loading}
-          error={error}
-          onRetry={reset}
-        />
+        {/* Show hero for first item if available */}
+        {items.length > 0 && (
+          <div className="mb-8">
+            <SimpleFeedList
+              items={items}
+              load={load}
+              hasMore={hasMore}
+              loading={loading}
+              error={error}
+              onRetry={reset}
+            />
+          </div>
+        )}
+        
+        {items.length === 0 && !loading && !error && (
+          <SimpleFeedList
+            items={items}
+            load={load}
+            hasMore={hasMore}
+            loading={loading}
+            error={error}
+            onRetry={reset}
+          />
+        )}
         
         {/* Debug: Pulsante per rigenerare cache personalizzata */}
         <FeedCacheRefresh />
