@@ -67,11 +67,20 @@ const SimpleDropCard = ({ drop, updateEngagement, getTopicSlug, topicsLoading, g
           {/* Image/Video on top */}
           <div className="w-full aspect-video relative mb-3">
             {drop.type === 'video' && drop.youtube_video_id ? (
-              <div className="w-full h-full rounded overflow-hidden">
+              <div className="w-full h-full rounded overflow-hidden relative">
+                {imageUrl && !imageError && (
+                  <img
+                    src={imageUrl}
+                    alt={drop.title}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    onError={() => setImageError(true)}
+                    loading="lazy"
+                  />
+                )}
                 <YouTubePlayer
                   videoId={drop.youtube_video_id}
                   contentId={drop.id.toString()}
-                  className="w-full h-full"
+                  className="relative w-full h-full z-10"
                   isPremium={true}
                   lazy={true}
                 />
@@ -195,7 +204,7 @@ const SimpleDropCard = ({ drop, updateEngagement, getTopicSlug, topicsLoading, g
             )}
             
             {/* L3 Tags */}
-            {drop.tags && drop.tags.slice(0, 1).map((tag, index) => {
+            {drop.tags && drop.tags.map((tag, index) => {
               const slug = topicsMap.l3.get(tag);
               return slug ? (
                 <ChipLink
@@ -209,12 +218,6 @@ const SimpleDropCard = ({ drop, updateEngagement, getTopicSlug, topicsLoading, g
                 </ChipLink>
               ) : null;
             })}
-            
-            {drop.tags && drop.tags.length > 1 && (
-              <span className="text-xs text-muted-foreground self-center">
-                +{drop.tags.length - 1}
-              </span>
-            )}
           </div>
 
           {/* Actions */}

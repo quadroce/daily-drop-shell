@@ -85,11 +85,19 @@ export const FeedHeroCarousel = ({
                       {/* Image/Video Section */}
                       <div className="relative aspect-video md:aspect-square bg-muted">
                         {item.type === 'video' && item.youtube_video_id ? (
-                          <div className="w-full h-full">
+                          <div className="w-full h-full relative">
+                            {imageUrl && !hasImageError && (
+                              <img
+                                src={imageUrl}
+                                alt={item.title}
+                                className="absolute inset-0 w-full h-full object-cover"
+                                onError={() => handleImageError(item.id.toString())}
+                              />
+                            )}
                             <YouTubePlayer
                               videoId={item.youtube_video_id}
                               contentId={item.id.toString()}
-                              className="w-full h-full"
+                              className="relative w-full h-full z-10"
                               isPremium={true}
                               lazy={false}
                             />
@@ -193,7 +201,7 @@ export const FeedHeroCarousel = ({
                           )}
                           
                           {/* L3 Tags */}
-                          {item.tags && item.tags.slice(0, 3).map((tag, index) => {
+                          {item.tags && item.tags.map((tag, index) => {
                             const slug = topicsMap.l3.get(tag);
                             return slug ? (
                               <ChipLink
@@ -206,12 +214,6 @@ export const FeedHeroCarousel = ({
                               </ChipLink>
                             ) : null;
                           })}
-                          
-                          {item.tags && item.tags.length > 3 && (
-                            <span className="text-sm text-muted-foreground self-center">
-                              +{item.tags.length - 3}
-                            </span>
-                          )}
                         </div>
 
                         {/* Actions */}
