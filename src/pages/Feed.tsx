@@ -14,6 +14,8 @@ import { FeedCacheRefresh } from "@/components/admin/FeedCacheRefresh";
 import { useEngagementState } from "@/hooks/useEngagementState";
 import { track } from "@/lib/analytics";
 
+// Feed page component
+
 const Feed = () => {
   const navigate = useNavigate();
   const { profile: userProfile } = useUserProfile();
