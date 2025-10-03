@@ -7,9 +7,12 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { Seo } from "@/components/Seo";
 import { useInfiniteFeed } from "@/hooks/useInfiniteFeed";
 import { SimpleFeedList } from "@/components/SimpleFeedList";
+import { FeedHeroCarousel } from "@/components/FeedHeroCarousel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { FeedCacheRefresh } from "@/components/admin/FeedCacheRefresh";
+import { useEngagementState } from "@/hooks/useEngagementState";
+import { track } from "@/lib/analytics";
 
 const Feed = () => {
   const navigate = useNavigate();
@@ -20,6 +23,16 @@ const Feed = () => {
     languageCodes: string[];
   } | null>(null);
   const [preferencesLoading, setPreferencesLoading] = useState(true);
+  const { updateEngagement, getState, isLoading: engagementLoading, initializeStates } = useEngagementState();
+  const [topicsMap, setTopicsMap] = useState<{ 
+    l1: Map<number, { label: string; slug: string }>; 
+    l2: Map<number, { label: string; slug: string }>;
+    l3: Map<string, string>;
+  }>({
+    l1: new Map(),
+    l2: new Map(),
+    l3: new Map()
+  });
 
   // Load user preferences
   useEffect(() => {
@@ -123,6 +136,48 @@ const Feed = () => {
     error
   });
 
+  // Load topics map for tags
+  useEffect(() => {
+    const loadTopicsMap = async () => {
+      try {
+        const { data: topics } = await supabase
+          .from('topics')
+          .select('id, label, slug, level')
+          .in('level', [1, 2, 3]);
+        
+        if (topics) {
+          const l1Map = new Map<number, { label: string; slug: string }>();
+          const l2Map = new Map<number, { label: string; slug: string }>();
+          const l3Map = new Map<string, string>();
+          
+          topics.forEach(topic => {
+            if (topic.level === 1) {
+              l1Map.set(topic.id, { label: topic.label, slug: topic.slug });
+            } else if (topic.level === 2) {
+              l2Map.set(topic.id, { label: topic.label, slug: topic.slug });
+            } else if (topic.level === 3) {
+              l3Map.set(topic.label, topic.slug);
+            }
+          });
+          
+          setTopicsMap({ l1: l1Map, l2: l2Map, l3: l3Map });
+        }
+      } catch (error) {
+        console.error('Failed to load topics map:', error);
+      }
+    };
+
+    loadTopicsMap();
+  }, []);
+
+  // Initialize engagement states when items change
+  useEffect(() => {
+    if (items.length > 0) {
+      const dropIds = items.map(item => item.id.toString());
+      initializeStates(dropIds);
+    }
+  }, [items, initializeStates]);
+
   // Manual trigger to ensure feed loads when user profile becomes available
   useEffect(() => {
     if (userProfile?.id && !loading && !initialLoading && items.length === 0 && hasMore) {
@@ -137,6 +192,25 @@ const Feed = () => {
   useEffect(() => {
     requireSession();
   }, []);
+
+  const handleShare = (id: string) => {
+    const item = items.find(i => i.id.toString() === id);
+    if (!item) return;
+    
+    if (navigator.share) {
+      navigator.share({
+        title: item.title,
+        url: item.url,
+      }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(item.url);
+    }
+    track('share_item', {
+      drop_id: item.id,
+      content_id: item.id,
+      source: item.source_name,
+    });
+  };
 
   // Initial loading state (including preferences loading)
   if (initialLoading || preferencesLoading) {
@@ -244,18 +318,30 @@ const Feed = () => {
           )}
         </div>
 
-        {/* Show hero for first item if available */}
+        {/* Hero Carousel - top 5 items */}
         {items.length > 0 && (
-          <div className="mb-8">
-            <SimpleFeedList
-              items={items}
-              load={load}
-              hasMore={hasMore}
-              loading={loading}
-              error={error}
-              onRetry={reset}
-            />
-          </div>
+          <FeedHeroCarousel
+            items={items}
+            onLike={(id) => updateEngagement(id, 'like')}
+            onSave={(id) => updateEngagement(id, 'save')}
+            onDismiss={(id) => updateEngagement(id, 'dismiss')}
+            onShare={handleShare}
+            getState={getState}
+            isLoading={engagementLoading}
+            topicsMap={topicsMap}
+          />
+        )}
+
+        {/* Feed grid - all items except hero */}
+        {items.length > 0 && (
+          <SimpleFeedList
+            items={items.slice(5)} 
+            load={load}
+            hasMore={hasMore}
+            loading={loading}
+            error={error}
+            onRetry={reset}
+          />
         )}
         
         {items.length === 0 && !loading && !error && (

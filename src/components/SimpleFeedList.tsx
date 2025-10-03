@@ -11,6 +11,7 @@ import { ChipLink } from "@/components/ChipLink";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { track } from "@/lib/analytics";
 import { format } from "date-fns";
+import YouTubePlayer from "@/components/YouTubePlayer";
 
 interface SimpleDropCardProps {
   drop: FeedItem;
@@ -63,19 +64,31 @@ const SimpleDropCard = ({ drop, updateEngagement, getTopicSlug, topicsLoading, g
     <TooltipProvider>
       <Card className="group hover:shadow-md transition-shadow h-full flex flex-col">
         <CardContent className="p-4 flex flex-col h-full">
-          {/* Image on top */}
-          <div className="w-full aspect-video relative mb-3 cursor-pointer"
-               onClick={() => {
-                 track("content_click", {
-                   drop_id: drop.id,
-                   content_id: drop.id,
-                   source: drop.source_name,
-                   topic: drop.tags?.[0],
-                 });
-                 window.open(drop.url, "_blank");
-               }}>
-            {imageUrl && !imageError ? (
-              <div className="relative w-full h-full">
+          {/* Image/Video on top */}
+          <div className="w-full aspect-video relative mb-3">
+            {drop.type === 'video' && drop.youtube_video_id ? (
+              <div className="w-full h-full rounded overflow-hidden">
+                <YouTubePlayer
+                  videoId={drop.youtube_video_id}
+                  contentId={drop.id.toString()}
+                  className="w-full h-full"
+                  isPremium={true}
+                  lazy={true}
+                />
+              </div>
+            ) : imageUrl && !imageError ? (
+              <div 
+                className="relative w-full h-full cursor-pointer"
+                onClick={() => {
+                  track("content_click", {
+                    drop_id: drop.id,
+                    content_id: drop.id,
+                    source: drop.source_name,
+                    topic: drop.tags?.[0],
+                  });
+                  window.open(drop.url, "_blank");
+                }}
+              >
                 <img
                   src={imageUrl}
                   alt={drop.title}
@@ -83,13 +96,6 @@ const SimpleDropCard = ({ drop, updateEngagement, getTopicSlug, topicsLoading, g
                   onError={() => setImageError(true)}
                   loading="lazy"
                 />
-                {drop.type === 'video' && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded">
-                    <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center">
-                      <div className="w-0 h-0 border-l-[14px] border-l-primary border-t-[9px] border-t-transparent border-b-[9px] border-b-transparent ml-1" />
-                    </div>
-                  </div>
-                )}
               </div>
             ) : (
               <div className="w-full h-full bg-gradient-to-br from-primary/10 to-primary/5 rounded flex items-center justify-center">

@@ -22,8 +22,7 @@ export default function YouTubePlayer({ videoId, contentId, className, isPremium
   const playerRef = useRef<any>(null);
 
   useEffect(() => {
-    if (!isPremium) return; // Only load for premium users
-
+    // Load for all users now, not just premium
     if (!window.YT) {
       const tag = document.createElement('script');
       tag.src = 'https://www.youtube.com/iframe_api';
@@ -133,12 +132,7 @@ export default function YouTubePlayer({ videoId, contentId, className, isPremium
         playerRef.current.destroy();
       }
     };
-  }, [videoId, contentId, isPremium]);
-
-  // For non-premium users or when lazy loading, return a simple div
-  if (!isPremium) {
-    return null;
-  }
+  }, [videoId, contentId]);
 
   return <div ref={ref} className={className} />;
 }
