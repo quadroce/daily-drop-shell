@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { track } from "@/lib/analytics";
 import { format } from "date-fns";
 import YouTubePlayer from "@/components/YouTubePlayer";
+import { getYouTubeVideoId, getYouTubeThumbnailFromUrl } from "@/lib/youtube";
 
 interface SimpleDropCardProps {
   drop: FeedItem;
@@ -30,7 +31,13 @@ const SimpleDropCard = ({ drop, updateEngagement, getTopicSlug, topicsLoading, g
   const state = getState(drop.id.toString());
   const loading = isLoading(drop.id.toString());
 
-  const imageUrl = drop.image_url || drop.youtube_thumbnail_url;
+  // Extract video ID from URL if not in database
+  const videoId = drop.youtube_video_id || (drop.type === 'video' ? getYouTubeVideoId(drop.url) : null);
+  
+  // Generate thumbnail from URL if not in database
+  const imageUrl = drop.image_url || 
+                   drop.youtube_thumbnail_url || 
+                   (drop.type === 'video' ? getYouTubeThumbnailFromUrl(drop.url) : null);
   const showBadges = drop.reason_for_ranking && drop.reason_for_ranking !== 'Relevant content';
 
   const handleAction = async (action: 'like' | 'save' | 'dismiss') => {
@@ -66,7 +73,7 @@ const SimpleDropCard = ({ drop, updateEngagement, getTopicSlug, topicsLoading, g
         <CardContent className="p-4 flex flex-col h-full">
           {/* Image/Video on top */}
           <div className="w-full aspect-video relative mb-3">
-            {drop.type === 'video' && drop.youtube_video_id ? (
+            {drop.type === 'video' && videoId ? (
               <div className="w-full h-full rounded overflow-hidden relative">
                 {imageUrl && !imageError && (
                   <img
@@ -78,7 +85,7 @@ const SimpleDropCard = ({ drop, updateEngagement, getTopicSlug, topicsLoading, g
                   />
                 )}
                 <YouTubePlayer
-                  videoId={drop.youtube_video_id}
+                  videoId={videoId}
                   contentId={drop.id.toString()}
                   className="relative w-full h-full z-10"
                   isPremium={true}

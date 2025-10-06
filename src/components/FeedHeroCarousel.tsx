@@ -15,6 +15,7 @@ import {
 import { FeedItem } from "@/hooks/useInfiniteFeed";
 import YouTubePlayer from "@/components/YouTubePlayer";
 import { track } from "@/lib/analytics";
+import { getYouTubeVideoId, getYouTubeThumbnailFromUrl } from "@/lib/youtube";
 
 interface FeedHeroCarouselProps {
   items: FeedItem[];
@@ -73,7 +74,15 @@ export const FeedHeroCarousel = ({
           {heroItems.map((item) => {
             const state = getState(item.id.toString());
             const loading = isLoading(item.id.toString());
-            const imageUrl = item.image_url || item.youtube_thumbnail_url;
+            
+            // Extract video ID from URL if not in database
+            const videoId = item.youtube_video_id || (item.type === 'video' ? getYouTubeVideoId(item.url) : null);
+            
+            // Generate thumbnail from URL if not in database
+            const imageUrl = item.image_url || 
+                             item.youtube_thumbnail_url || 
+                             (item.type === 'video' ? getYouTubeThumbnailFromUrl(item.url) : null);
+            
             const showBadges = item.reason_for_ranking && item.reason_for_ranking !== 'Relevant content';
             const hasImageError = imageErrors.has(item.id.toString());
 
@@ -84,7 +93,7 @@ export const FeedHeroCarousel = ({
                     <div className="grid md:grid-cols-2 gap-0">
                       {/* Image/Video Section */}
                       <div className="relative aspect-video md:aspect-square bg-muted">
-                        {item.type === 'video' && item.youtube_video_id ? (
+                        {item.type === 'video' && videoId ? (
                           <div className="w-full h-full relative">
                             {imageUrl && !hasImageError && (
                               <img
@@ -95,7 +104,7 @@ export const FeedHeroCarousel = ({
                               />
                             )}
                             <YouTubePlayer
-                              videoId={item.youtube_video_id}
+                              videoId={videoId}
                               contentId={item.id.toString()}
                               className="relative w-full h-full z-10"
                               isPremium={true}
