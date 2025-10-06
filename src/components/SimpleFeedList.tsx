@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, RefreshCw, Heart, Bookmark, X, Share2, ExternalLink } from "lucide-react";
+import { AlertCircle, RefreshCw, Heart, Bookmark, X, ExternalLink, Play, ThumbsDown } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEngagementState } from "@/hooks/useEngagementState";
 import { useTopicsMap } from "@/hooks/useTopicsMap";
@@ -8,11 +8,12 @@ import { FeedItem } from "@/hooks/useInfiniteFeed";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { ChipLink } from "@/components/ChipLink";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { track } from "@/lib/analytics";
 import { format } from "date-fns";
 import YouTubePlayer from "@/components/YouTubePlayer";
 import { getYouTubeVideoId, getYouTubeThumbnailFromUrl } from "@/lib/youtube";
+import { ShareButton } from "@/components/ShareButton";
+import { Badge } from "@/components/ui/badge";
 
 interface SimpleDropCardProps {
   drop: FeedItem;
@@ -25,8 +26,6 @@ interface SimpleDropCardProps {
 }
 
 const SimpleDropCard = ({ drop, updateEngagement, getTopicSlug, topicsLoading, getState, isLoading, topicsMap }: SimpleDropCardProps) => {
-  console.log('🎯 Rendering SimpleDropCard for drop:', drop.id, drop.title);
-  
   const [imageError, setImageError] = useState(false);
   const state = getState(drop.id.toString());
   const loading = isLoading(drop.id.toString());
@@ -42,44 +41,34 @@ const SimpleDropCard = ({ drop, updateEngagement, getTopicSlug, topicsLoading, g
 
   const handleAction = async (action: 'like' | 'save' | 'dismiss') => {
     await updateEngagement(drop.id.toString(), action);
-    track(`${action}_item`, {
-      drop_id: drop.id,
-      content_id: drop.id,
-      source: drop.source_name,
-      topic: drop.tags?.[0],
-    });
   };
 
-  const handleShare = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: drop.title,
-        url: drop.url,
-      }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(drop.url);
-    }
-    track('share_item', {
+  const handleOpen = () => {
+    track('content_click', {
       drop_id: drop.id,
       content_id: drop.id,
       source: drop.source_name,
-      topic: drop.tags?.[0],
     });
+    window.open(drop.url, '_blank', 'noopener,noreferrer');
   };
+
+  const l1 = drop.l1_topic_id;
+  const l2 = drop.l2_topic_id;
+  const l3Items = drop.tags || [];
 
   return (
-    <TooltipProvider>
-      <Card className="group hover:shadow-md transition-shadow h-full flex flex-col">
-        <CardContent className="p-4 flex flex-col h-full">
-          {/* Image/Video on top */}
-          <div className="w-full aspect-video relative mb-3">
+    <Card className="overflow-hidden hover:shadow-md transition-shadow bg-background border">
+      <CardContent className="p-0">
+        <div className="flex flex-col h-full">
+          {/* Image/Video Section */}
+          <div className="relative w-full aspect-square overflow-hidden">
             {drop.type === 'video' && videoId ? (
-              <div className="w-full h-full rounded overflow-hidden relative">
+              <div className="relative w-full h-full">
                 {imageUrl && !imageError && (
                   <img
                     src={imageUrl}
                     alt={drop.title}
-                    className="absolute inset-0 w-full h-full object-cover"
+                    className="w-full h-full object-cover absolute inset-0"
                     onError={() => setImageError(true)}
                     loading="lazy"
                   />
@@ -87,210 +76,168 @@ const SimpleDropCard = ({ drop, updateEngagement, getTopicSlug, topicsLoading, g
                 <YouTubePlayer
                   videoId={videoId}
                   contentId={drop.id.toString()}
-                  className="relative w-full h-full z-10"
                   isPremium={true}
-                  lazy={true}
-                />
-              </div>
-            ) : imageUrl && !imageError ? (
-              <div 
-                className="relative w-full h-full cursor-pointer"
-                onClick={() => {
-                  track("content_click", {
-                    drop_id: drop.id,
-                    content_id: drop.id,
-                    source: drop.source_name,
-                    topic: drop.tags?.[0],
-                  });
-                  window.open(drop.url, "_blank");
-                }}
-              >
-                <img
-                  src={imageUrl}
-                  alt={drop.title}
-                  className="w-full h-full object-cover rounded hover:scale-105 transition-transform duration-200"
-                  onError={() => setImageError(true)}
-                  loading="lazy"
+                  className="w-full h-full"
                 />
               </div>
             ) : (
-              <div className="w-full h-full bg-gradient-to-br from-primary/10 to-primary/5 rounded flex items-center justify-center">
-                <span className="text-4xl opacity-50">
-                  {drop.type === 'video' ? '🎥' : '📰'}
-                </span>
+              <div 
+                className="w-full h-full bg-cover bg-center cursor-pointer relative group"
+                style={{ 
+                  backgroundImage: imageUrl ? `url(${imageUrl})` : 'linear-gradient(135deg, hsl(var(--muted)), hsl(var(--muted-foreground)/0.1))' 
+                }}
+                onClick={handleOpen}
+              >
+                {drop.type === "video" && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/40 transition-colors">
+                    <div className="bg-black/70 rounded-full p-3 group-hover:scale-110 transition-transform">
+                      <Play className="h-6 w-6 text-white fill-white" />
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {/* Badges */}
-          {showBadges && (
-            <div className="flex flex-wrap gap-1 mb-2">
-              {drop.reason_for_ranking?.includes('Fresh') && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-700 dark:text-green-400">
-                  ✨ Fresh
-                </span>
-              )}
-              {drop.reason_for_ranking?.includes('interest') && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-400">
-                  🎯 Match
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Source and date */}
-          {(drop.source_name || drop.published_at) && (
-            <div className="text-xs text-muted-foreground flex items-center gap-1 mb-2">
-              {drop.source_name && (
-                <span className="font-medium truncate">{drop.source_name}</span>
-              )}
-              {drop.published_at && (
-                <>
+          {/* Content Section */}
+          <div className="flex-1 p-4 flex flex-col">
+            <div className="flex items-start justify-between gap-2 mb-3">
+              <div className="flex-1 min-w-0">
+                <h3 
+                  className="font-semibold text-foreground line-clamp-2 cursor-pointer hover:text-primary transition-colors text-sm leading-tight"
+                  onClick={handleOpen}
+                >
+                  {drop.title}
+                </h3>
+                <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground flex-wrap">
+                  {showBadges && (
+                    <>
+                      {drop.reason_for_ranking?.includes('Fresh') && (
+                        <Badge variant="default" className="text-xs py-0 px-1.5 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20">
+                          Fresh
+                        </Badge>
+                      )}
+                      {drop.reason_for_ranking?.toLowerCase().includes('match') && (
+                        <Badge variant="default" className="text-xs py-0 px-1.5 bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20">
+                          Match
+                        </Badge>
+                      )}
+                    </>
+                  )}
+                  <span className="truncate">{drop.source_name || 'Unknown Source'}</span>
                   <span>•</span>
-                  <time dateTime={drop.published_at} className="truncate">
-                    {format(new Date(drop.published_at), "MMM d")}
+                  <time dateTime={drop.published_at} className="whitespace-nowrap">
+                    {format(new Date(drop.published_at), 'MMM d, yyyy')}
                   </time>
-                </>
-              )}
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" onClick={handleOpen} className="flex-shrink-0">
+                <ExternalLink className="h-3 w-3" />
+              </Button>
             </div>
-          )}
 
-          {/* Title with link */}
-          <a
-            href={drop.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group/link block mb-2"
-            onClick={(e) => {
-              e.stopPropagation();
-              track("content_click", {
-                drop_id: drop.id,
-                content_id: drop.id,
-                source: drop.source_name,
-                topic: drop.tags?.[0],
-              });
-            }}
-          >
-            <h3 className="font-semibold text-sm text-foreground group-hover/link:text-primary transition-colors line-clamp-2 flex items-start gap-1">
-              {drop.title}
-              <ExternalLink className="h-3 w-3 opacity-0 group-hover/link:opacity-100 transition-opacity flex-shrink-0 mt-0.5" />
-            </h3>
-          </a>
-
-          {/* Summary */}
-          {drop.summary && (
-            <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
+            <p className="text-xs text-muted-foreground line-clamp-2 mb-3 flex-1">
               {drop.summary}
             </p>
-          )}
 
-          {/* Tags: L1, L2, L3 */}
-          <div className="flex flex-wrap gap-1 mb-3">
-            {/* L1 Topic */}
-            {drop.l1_topic_id && topicsMap.l1.get(drop.l1_topic_id) && (
-              <ChipLink
-                to={`/topics/${topicsMap.l1.get(drop.l1_topic_id)!.slug}`}
-                position={0}
-                variant="secondary"
-                className="bg-blue-600 text-white hover:bg-blue-700 text-xs"
-              >
-                {topicsMap.l1.get(drop.l1_topic_id)!.label}
-              </ChipLink>
-            )}
-            
-            {/* L2 Topic */}
-            {drop.l2_topic_id && topicsMap.l2.get(drop.l2_topic_id) && (
-              <ChipLink
-                to={`/topics/${topicsMap.l2.get(drop.l2_topic_id)!.slug}`}
-                position={1}
-                variant="secondary"
-                className="bg-green-500 text-white hover:bg-green-600 text-xs"
-              >
-                {topicsMap.l2.get(drop.l2_topic_id)!.label}
-              </ChipLink>
-            )}
-            
-            {/* L3 Tags */}
-            {drop.tags && drop.tags.map((tag, index) => {
-              const slug = topicsMap.l3.get(tag);
-              return slug ? (
-                <ChipLink
-                  key={tag}
-                  to={`/topics/${slug}`}
-                  position={2 + index}
-                  variant="outline"
-                  className="bg-orange-400 text-white hover:bg-orange-500 text-xs"
+            <div className="flex items-center justify-between gap-2 mt-auto">
+              <div className="flex gap-1 flex-wrap min-w-0 flex-1">
+                {l1 && topicsMap.l1.get(l1) && (
+                  <ChipLink 
+                    to={`/topics/${topicsMap.l1.get(l1)!.slug}`} 
+                    variant="tag-l1" 
+                    className="text-xs py-0 px-2 truncate"
+                    level={1}
+                  >
+                    {topicsMap.l1.get(l1)!.label}
+                  </ChipLink>
+                )}
+                
+                {l2 && topicsMap.l2.get(l2) && (
+                  <ChipLink 
+                    to={`/topics/${topicsMap.l2.get(l2)!.slug}`} 
+                    variant="tag-l2" 
+                    className="text-xs py-0 px-2 truncate"
+                    level={2}
+                  >
+                    {topicsMap.l2.get(l2)!.label}
+                  </ChipLink>
+                )}
+                
+                {l3Items.slice(0, l1 || l2 ? 1 : 2).map((tag, index) => {
+                  const slug = topicsMap.l3.get(tag);
+                  const linkTo = slug ? `/topics/${slug}` : `/search?q=${encodeURIComponent(tag)}`;
+                  return (
+                    <ChipLink 
+                      key={`l3-${index}`}
+                      to={linkTo} 
+                      variant="tag-l3" 
+                      className="text-xs py-0 px-2 truncate"
+                      level={3}
+                      position={index}
+                    >
+                      {tag}
+                    </ChipLink>
+                  );
+                })}
+                
+                {l3Items.length > (l1 || l2 ? 1 : 2) && (
+                  <Badge variant="tag-l3" className="text-xs py-0 px-2">
+                    +{l3Items.length - (l1 || l2 ? 1 : 2)}
+                  </Badge>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => handleAction("like")}
+                  disabled={loading}
+                  className={`h-7 w-7 p-0 ${state.isLiked ? 'text-rose-600' : ''}`}
+                  aria-pressed={state.isLiked}
+                  aria-label={state.isLiked ? 'Unlike' : 'Like'}
                 >
-                  {tag}
-                </ChipLink>
-              ) : null;
-            })}
+                  <Heart className={`h-3 w-3 ${state.isLiked ? 'fill-current' : ''}`} />
+                </Button>
+                
+                {!state.isLiked && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => handleAction("save")}
+                    disabled={loading}
+                    className={`h-7 w-7 p-0 ${state.isSaved ? 'text-primary' : ''}`}
+                    aria-pressed={state.isSaved}
+                    aria-label={state.isSaved ? 'Unsave' : 'Save'}
+                  >
+                    <Bookmark className={`h-3 w-3 ${state.isSaved ? 'fill-current' : ''}`} />
+                  </Button>
+                )}
+                
+                <ShareButton 
+                  dropId={drop.id.toString()}
+                  title={drop.title}
+                  url={drop.url}
+                  disabled={loading}
+                />
+                
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => handleAction("dismiss")}
+                  disabled={loading}
+                  className="h-7 w-7 p-0"
+                  aria-label="Dismiss"
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
           </div>
-
-          {/* Actions */}
-          <div className="flex items-center gap-1 pt-2 mt-auto border-t">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleAction('like')}
-                  disabled={loading}
-                  className={state?.isLiked ? "text-red-500" : ""}
-                >
-                  <Heart className={`h-4 w-4 ${state?.isLiked ? "fill-current" : ""}`} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Like</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleAction('save')}
-                  disabled={loading}
-                  className={state?.isSaved ? "text-blue-500" : ""}
-                >
-                  <Bookmark className={`h-4 w-4 ${state?.isSaved ? "fill-current" : ""}`} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Save</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleShare}
-                  disabled={loading}
-                >
-                  <Share2 className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Share</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleAction('dismiss')}
-                  disabled={loading}
-                  className="ml-auto text-muted-foreground hover:text-destructive"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Dismiss</TooltipContent>
-            </Tooltip>
-          </div>
-        </CardContent>
-      </Card>
-    </TooltipProvider>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 

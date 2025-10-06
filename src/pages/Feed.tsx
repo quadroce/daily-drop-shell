@@ -217,7 +217,7 @@ const Feed = () => {
   // Initial loading state (including preferences loading)
   if (initialLoading || preferencesLoading) {
     return (
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">
             Today's Drops
@@ -248,7 +248,7 @@ const Feed = () => {
   // Temporarily disable this to allow feed to show even without preferences
   if (false && !hasValidPrefs) {
     return (
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="container mx-auto px-4 py-8">
         <div className="text-center py-16">
           <div className="space-y-6">
             <div className="space-y-2">
@@ -301,7 +301,7 @@ const Feed = () => {
           },
         }}
       />
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="container mx-auto px-4 py-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-foreground mb-2">
