@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Get YouTube Refresh Token</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 { color: #1a73e8; }
+    .step {
+      background: #f8f9fa;
+      padding: 15px;
+      margin: 15px 0;
+      border-left: 4px solid #1a73e8;
+      border-radius: 4px;
+    }
+    .code {
+      background: #263238;
+      color: #aed581;
+      padding: 15px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      overflow-x: auto;
+      margin: 10px 0;
+    }
+    button {
+      background: #1a73e8;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px 0;
+    }
+    button:hover {
+      background: #1557b0;
+    }
+    .warning {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 15px 0;
+    }
+    .success {
+      background: #d4edda;
+      border: 1px solid #28a745;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 15px 0;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      margin: 5px 0;
+    }
+    label {
+      font-weight: bold;
+      display: block;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔐 YouTube Refresh Token Generator</h1>
+    <p>Questo script genera un <strong>Refresh Token</strong> per YouTube API con gli scope corretti per postare commenti.</p>
+
+    <div class="warning">
+      <strong>⚠️ IMPORTANTE:</strong> Assicurati di aver configurato correttamente l'OAuth Client nel Google Cloud Console con questi scope:
+      <ul>
+        <li><code>https://www.googleapis.com/auth/youtube.force-ssl</code></li>
+      </ul>
+    </div>
+
+    <div class="step">
+      <h3>Step 1: Inserisci le tue credenziali OAuth</h3>
+      <label for="clientId">Client ID:</label>
+      <input type="text" id="clientId" placeholder="xxxxx.apps.googleusercontent.com">
+      
+      <label for="clientSecret">Client Secret:</label>
+      <input type="text" id="clientSecret" placeholder="GOCSPX-xxxxx">
+
+      <label for="redirectUri">Redirect URI:</label>
+      <input type="text" id="redirectUri" value="http://localhost:8080" placeholder="http://localhost:8080">
+      <p style="font-size: 12px; color: #666;">
+        Deve corrispondere esattamente a quello configurato nel Google Cloud Console
+      </p>
+    </div>
+
+    <div class="step">
+      <h3>Step 2: Autorizza l'accesso a YouTube</h3>
+      <button onclick="startAuth()">🚀 Autorizza YouTube API</button>
+      <p id="authStatus" style="color: #666; margin-top: 10px;"></p>
+    </div>
+
+    <div class="step" id="codeStep" style="display: none;">
+      <h3>Step 3: Incolla il codice di autorizzazione</h3>
+      <p>Dopo aver autorizzato, Google ti reindirizzerà a una pagina con un parametro <code>?code=...</code> nell'URL.</p>
+      <label for="authCode">Authorization Code:</label>
+      <input type="text" id="authCode" placeholder="4/0AfJohXn...">
+      <button onclick="exchangeCode()">🔄 Ottieni Refresh Token</button>
+    </div>
+
+    <div class="success" id="resultStep" style="display: none;">
+      <h3>✅ Refresh Token Ottenuto!</h3>
+      <p><strong>Il tuo Refresh Token:</strong></p>
+      <div class="code" id="refreshToken" style="word-break: break-all;"></div>
+      <p style="margin-top: 15px;">
+        <strong>Copia questo token e aggiungilo come secret in Supabase con il nome:</strong><br>
+        <code>YOUTUBE_REFRESH_TOKEN</code>
+      </p>
+      <button onclick="copyToken()">📋 Copia Token</button>
+    </div>
+
+    <div class="warning" id="errorStep" style="display: none;">
+      <h3>❌ Errore</h3>
+      <p id="errorMessage"></p>
+    </div>
+  </div>
+
+  <script>
+    let clientId, clientSecret, redirectUri;
+
+    function startAuth() {
+      clientId = document.getElementById('clientId').value;
+      clientSecret = document.getElementById('clientSecret').value;
+      redirectUri = document.getElementById('redirectUri').value;
+
+      if (!clientId || !clientSecret || !redirectUri) {
+        alert('Inserisci tutte le credenziali prima di procedere!');
+        return;
+      }
+
+      const scope = 'https://www.googleapis.com/auth/youtube.force-ssl';
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+        `client_id=${encodeURIComponent(clientId)}&` +
+        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+        `response_type=code&` +
+        `scope=${encodeURIComponent(scope)}&` +
+        `access_type=offline&` +
+        `prompt=consent`;
+
+      document.getElementById('authStatus').textContent = 
+        '✅ Apertura finestra di autorizzazione... Se non si apre, copia questo URL e aprilo manualmente.';
+      document.getElementById('codeStep').style.display = 'block';
+
+      window.open(authUrl, '_blank');
+    }
+
+    async function exchangeCode() {
+      const authCode = document.getElementById('authCode').value;
+      
+      if (!authCode) {
+        alert('Inserisci il codice di autorizzazione!');
+        return;
+      }
+
+      try {
+        const response = await fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            code: authCode,
+            client_id: clientId,
+            client_secret: clientSecret,
+            redirect_uri: redirectUri,
+            grant_type: 'authorization_code',
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.error) {
+          throw new Error(data.error_description || data.error);
+        }
+
+        if (data.refresh_token) {
+          document.getElementById('refreshToken').textContent = data.refresh_token;
+          document.getElementById('resultStep').style.display = 'block';
+          document.getElementById('errorStep').style.display = 'none';
+        } else {
+          throw new Error('No refresh token received. Make sure you used prompt=consent in the auth URL.');
+        }
+      } catch (error) {
+        document.getElementById('errorMessage').textContent = error.message;
+        document.getElementById('errorStep').style.display = 'block';
+        console.error('Error exchanging code:', error);
+      }
+    }
+
+    function copyToken() {
+      const token = document.getElementById('refreshToken').textContent;
+      navigator.clipboard.writeText(token).then(() => {
+        alert('✅ Token copiato negli appunti!');
+      });
+    }
+  </script>
+</body>
+</html>

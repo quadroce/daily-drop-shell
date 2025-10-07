@@ -1,186 +1,99 @@
-# YouTube OAuth Setup for Auto-Comments
+# YouTube OAuth 2.0 Setup
 
-## Overview
-Per postare commenti automatici su YouTube, devi configurare OAuth 2.0 con Google Cloud.
+This guide explains how to set up YouTube OAuth 2.0 for the auto-commenting feature.
 
-## Step 1: Google Cloud Console Setup
+## Prerequisites
+- A Google Cloud project
+- YouTube Data API v3 enabled
 
-1. Vai su [Google Cloud Console](https://console.cloud.google.com/)
-2. Crea un nuovo progetto o seleziona uno esistente
-3. Abilita la **YouTube Data API v3**:
-   - Menu → APIs & Services → Library
-   - Cerca "YouTube Data API v3"
-   - Clicca "Enable"
+## Quick Setup (Recommended)
 
-## Step 2: Configure OAuth Consent Screen
+### Step 1: Configure Google Cloud Console
 
-1. Menu → APIs & Services → OAuth consent screen
-2. Scegli "External" come User Type
-3. Compila i campi richiesti:
-   - **App name**: DailyDrops Auto-Comment
-   - **User support email**: il tuo email
-   - **Developer contact**: il tuo email
-4. Aggiungi gli scope necessari:
-   - `.../auth/youtube.force-ssl` (View and manage your YouTube account)
-5. Aggiungi test users (il tuo account YouTube)
-6. Salva
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select an existing one
+3. Enable **YouTube Data API v3**
+4. Go to **APIs & Services** > **OAuth consent screen**:
+   - Configure the consent screen
+   - Add your domain to **Authorized domains** (if applicable)
+   - Add the following scope:
+     - `https://www.googleapis.com/auth/youtube.force-ssl`
+   - Add yourself as a test user
 
-## Step 3: Create OAuth Credentials
+5. Go to **APIs & Services** > **Credentials**
+6. Click **Create Credentials** > **OAuth Client ID**
+7. Choose **Web application**
+8. Add **Authorized redirect URIs**:
+   - For local testing: `http://localhost:8080`
+   - For production: Your actual domain (if needed)
 
-1. Menu → APIs & Services → Credentials
-2. Click "Create Credentials" → "OAuth client ID"
-3. Application type: **Web application**
-4. Name: "DailyDrops YouTube Commenter"
-5. Authorized redirect URIs:
-   - `http://localhost:8000/callback` (per testing locale)
-   - `https://qimelntuxquptqqynxzv.supabase.co/functions/v1/youtube-oauth-callback` (per production)
+9. Save your **Client ID** and **Client Secret**
 
-6. Ottieni le credenziali:
-   - **Client ID**: Salvalo
-   - **Client Secret**: Salvalo
+### Step 2: Generate Refresh Token
 
-## Step 4: Generate Access Token
+1. Open the file `docs/get-youtube-refresh-token.html` in your browser
+2. Enter your Client ID and Client Secret
+3. Click "Autorizza YouTube API"
+4. Grant permissions to your YouTube account
+5. Copy the authorization code from the redirect URL (it will be in the `?code=...` parameter)
+6. Paste it in the form and click "Ottieni Refresh Token"
+7. Copy the refresh token that appears
 
-### Opzione A: Script Locale (Consigliato per test)
+### Step 3: Configure Supabase Secrets
 
-Crea un file `get-youtube-token.html`:
+Add these three secrets in Supabase Dashboard under Settings > Edge Functions:
+- `YOUTUBE_CLIENT_ID` - Your OAuth Client ID
+- `YOUTUBE_CLIENT_SECRET` - Your OAuth Client Secret  
+- `YOUTUBE_REFRESH_TOKEN` - The refresh token you just generated
 
-```html
-<!DOCTYPE html>
-<html>
-<head>
-    <title>YouTube OAuth Token</title>
-</head>
-<body>
-    <h1>Get YouTube OAuth Token</h1>
-    <button onclick="authorize()">Authorize</button>
-    <div id="result"></div>
-    
-    <script>
-        const CLIENT_ID = 'YOUR_CLIENT_ID_HERE';
-        const REDIRECT_URI = 'http://localhost:8000/callback';
-        const SCOPE = 'https://www.googleapis.com/auth/youtube.force-ssl';
-        
-        function authorize() {
-            const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-                `client_id=${CLIENT_ID}&` +
-                `redirect_uri=${encodeURIComponent(REDIRECT_URI)}&` +
-                `response_type=token&` +
-                `scope=${encodeURIComponent(SCOPE)}`;
-            
-            window.location.href = authUrl;
-        }
-        
-        // Parse token from URL after redirect
-        window.onload = function() {
-            const hash = window.location.hash.substring(1);
-            const params = new URLSearchParams(hash);
-            const token = params.get('access_token');
-            
-            if (token) {
-                document.getElementById('result').innerHTML = `
-                    <h2>Access Token:</h2>
-                    <textarea style="width:100%;height:200px">${token}</textarea>
-                    <p><strong>IMPORTANT:</strong> This token expires in 1 hour. For production, implement refresh token flow.</p>
-                `;
-            }
-        };
-    </script>
-</body>
-</html>
-```
+### Step 4: Initialize the Token Cache
 
-1. Sostituisci `YOUR_CLIENT_ID_HERE` con il tuo Client ID
-2. Avvia un server locale: `python -m http.server 8000`
-3. Apri `http://localhost:8000/get-youtube-token.html`
-4. Click "Authorize" e fai login con il tuo account YouTube
-5. Copia l'Access Token
+1. Go to `/admin` in your app
+2. Find "YouTube OAuth Token Manager" panel
+3. Click "Refresh Token Now"
+4. Verify that the token is valid and has a future expiration time
 
-### Opzione B: Refresh Token (Per Production)
+## How It Works
 
-Per uso continuato, devi implementare il refresh token flow. Questo richiede:
-1. Exchange authorization code per access + refresh token
-2. Store refresh token in Supabase secrets
-3. Refresh automaticamente quando l'access token scade
+1. **Cron Job**: Every 50 minutes, a cron job automatically refreshes the access token
+2. **Token Cache**: The fresh access token is stored in `youtube_oauth_cache` table
+3. **Auto-Comment**: When posting comments, the function uses the cached token
+4. **Automatic Refresh**: If the token expires, it's automatically refreshed on the next scheduled run
 
-## Step 5: Configure Supabase Secret
+## Important Notes
 
-1. Vai su [Supabase Dashboard](https://supabase.com/dashboard/project/qimelntuxquptqqynxzv/settings/functions)
-2. Sotto "Edge Functions Secrets", aggiungi:
-   - **Name**: `YOUTUBE_OAUTH_TOKEN`
-   - **Value**: Il tuo access token
+⚠️ **Critical**: Make sure the refresh token has the `youtube.force-ssl` scope, otherwise you'll get "Insufficient Permission" errors when trying to post comments.
 
-**IMPORTANTE**: L'access token scade dopo 1 ora. Per production, dovrai:
-- Implementare refresh token flow
-- Salvare refresh token come secret
-- Creare un edge function che fa refresh automatico
+✅ The token will be automatically refreshed every 50 minutes by a cron job.
 
-## Step 6: Test
-
-1. Vai su `/admin` → Development Tools → YT Comments
-2. Click "Esegui Test"
-3. Click "Aggiorna Dati" per vedere i risultati
-
-Se il token è configurato correttamente, i job passeranno a status `posted` invece di `ready`.
+✅ You can manually refresh the token anytime from the Admin panel.
 
 ## Troubleshooting
 
-### Error: "YouTube OAuth token not configured"
-- Il secret `YOUTUBE_OAUTH_TOKEN` non è configurato in Supabase
-- Segui lo Step 5
+### Error: "Insufficient Permission" or "ACCESS_TOKEN_SCOPE_INSUFFICIENT"
+- Your refresh token doesn't have the correct scope
+- Regenerate the refresh token using the HTML script and make sure to authorize with the `youtube.force-ssl` scope
 
-### Error: "Invalid Credentials"
-- Il token è scaduto (durata: 1 ora)
-- Genera un nuovo token seguendo Step 4
+### Error: "Invalid Credentials" or "Token expired"
+- Click "Refresh Token Now" in the Admin panel
+- If it fails, regenerate the refresh token (Step 2)
 
-### Error: "Insufficient Permission"
-- Lo scope OAuth è sbagliato
-- Assicurati di usare `youtube.force-ssl` scope
-
-### Error: "The request uses the 'commentThreads' quota"
-- Hai raggiunto il quota limit di YouTube API
-- Default: 10,000 units/day
-- Ogni comment insert costa ~50 units = ~200 commenti/giorno max
-
-## Production Setup
-
-Per deployment in production, devi:
-
-1. **Implementare Refresh Token Flow**:
-   - Crea edge function `youtube-oauth-refresh`
-   - Store refresh token in Supabase secrets
-   - Auto-refresh access token quando scade
-
-2. **Monitoring**:
-   - Log tutti i post tentativi
-   - Alert quando quota è vicino al limite
-   - Track success/error rates
-
-3. **Rate Limiting**:
-   - Rispetta YouTube API quota
-   - Implementa exponential backoff per errori
-   - Considera spreading comments durante la giornata
+### Error: "Quota exceeded"
+- YouTube API has daily quota limits
+- Each comment costs ~50 quota units
+- Default quota: 10,000 units/day = ~200 comments/day
 
 ## Security Notes
 
 ⚠️ **CRITICAL**:
-- NON committare mai Client Secret nel codice
-- NON esporre mai Access Token nel frontend
-- Usa sempre Supabase secrets per token
-- Monitora l'uso del quota per evitare bans
-- Considera implementare webhook per notifiche di errori
+- Never commit Client Secret or Refresh Token to git
+- Always use Supabase secrets for sensitive credentials
+- Monitor API usage to avoid quota violations
+- The refresh token never expires unless revoked
 
-## Next Steps
+## Testing
 
-Una volta configurato OAuth, puoi:
-1. Testare con pochi video
-2. Monitorare i risultati in `social_comment_events`
-3. Aggiustare i template e prompts AI se necessario
-4. Aumentare gradualmente il volume
-5. Implementare analytics per tracciare conversioni
-
-## Resources
-
-- [YouTube Data API Docs](https://developers.google.com/youtube/v3/docs)
-- [OAuth 2.0 Guide](https://developers.google.com/identity/protocols/oauth2)
-- [API Quota Calculator](https://developers.google.com/youtube/v3/determine_quota_cost)
+1. Go to `/admin` → Development Tools
+2. Check "YouTube OAuth Token Manager" - token should be valid
+3. Click "Run YouTube OAuth Test" - should post a test comment
+4. Check the logs for any errors
