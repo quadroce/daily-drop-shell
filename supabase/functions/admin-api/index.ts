@@ -1157,7 +1157,7 @@ async function handleRunNow(req: Request) {
   
   const runRecords = ids.map((id: number) => ({
     source_id: id,
-    status: 'pending',
+    status: 'running',
     trigger_type: 'manual'
   }));
   
