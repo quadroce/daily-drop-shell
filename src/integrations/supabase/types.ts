@@ -975,6 +975,110 @@ export type Database = {
         }
         Relationships: []
       }
+      social_comment_events: {
+        Row: {
+          created_at: string | null
+          data: Json | null
+          id: number
+          job_id: number | null
+          message: string | null
+          phase: string
+          status: string
+        }
+        Insert: {
+          created_at?: string | null
+          data?: Json | null
+          id?: number
+          job_id?: number | null
+          message?: string | null
+          phase: string
+          status: string
+        }
+        Update: {
+          created_at?: string | null
+          data?: Json | null
+          id?: number
+          job_id?: number | null
+          message?: string | null
+          phase?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_comment_events_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "social_comment_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_comment_jobs: {
+        Row: {
+          channel_id: string
+          created_at: string
+          external_comment_id: string | null
+          id: number
+          last_error: string | null
+          locale: string
+          next_retry_at: string | null
+          platform: string
+          posted_at: string | null
+          status: string
+          text_hash: string
+          text_original: string | null
+          topic_slug: string
+          tries: number
+          utm_campaign: string | null
+          utm_content: string | null
+          video_description: string | null
+          video_id: string
+          video_title: string | null
+        }
+        Insert: {
+          channel_id: string
+          created_at?: string
+          external_comment_id?: string | null
+          id?: number
+          last_error?: string | null
+          locale?: string
+          next_retry_at?: string | null
+          platform?: string
+          posted_at?: string | null
+          status?: string
+          text_hash: string
+          text_original?: string | null
+          topic_slug: string
+          tries?: number
+          utm_campaign?: string | null
+          utm_content?: string | null
+          video_description?: string | null
+          video_id: string
+          video_title?: string | null
+        }
+        Update: {
+          channel_id?: string
+          created_at?: string
+          external_comment_id?: string | null
+          id?: number
+          last_error?: string | null
+          locale?: string
+          next_retry_at?: string | null
+          platform?: string
+          posted_at?: string | null
+          status?: string
+          text_hash?: string
+          text_original?: string | null
+          topic_slug?: string
+          tries?: number
+          utm_campaign?: string | null
+          utm_content?: string | null
+          video_description?: string | null
+          video_id?: string
+          video_title?: string | null
+        }
+        Relationships: []
+      }
       source_health: {
         Row: {
           consecutive_errors: number | null
@@ -1577,6 +1681,10 @@ export type Database = {
           _tags: string[]
           _user_id: string
         }
+        Returns: number
+      }
+      get_youtube_comments_today_count: {
+        Args: Record<PropertyKey, never>
         Returns: number
       }
       halfvec_avg: {
