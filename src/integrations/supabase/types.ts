@@ -1483,6 +1483,30 @@ export type Database = {
         }
         Relationships: []
       }
+      youtube_oauth_cache: {
+        Row: {
+          access_token: string
+          created_at: string
+          expires_at: string
+          id: number
+          updated_at: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          expires_at: string
+          id?: number
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          expires_at?: string
+          id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       drops_email_ready: {

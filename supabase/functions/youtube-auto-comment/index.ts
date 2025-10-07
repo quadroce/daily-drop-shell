@@ -197,9 +197,33 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const openaiKey = Deno.env.get('OPENAI_API_KEY');
-    const youtubeToken = Deno.env.get('YOUTUBE_OAUTH_TOKEN');
     
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Get fresh access token from cache
+    const { data: tokenCache, error: tokenError } = await supabase
+      .from('youtube_oauth_cache')
+      .select('access_token, expires_at')
+      .eq('id', 1)
+      .maybeSingle();
+
+    if (tokenError) {
+      console.error('❌ Error fetching cached token:', tokenError);
+    }
+
+    let youtubeToken: string | null = null;
+
+    if (tokenCache) {
+      const expiresAt = new Date(tokenCache.expires_at);
+      if (expiresAt > new Date()) {
+        youtubeToken = tokenCache.access_token;
+        console.log('✅ Using cached token, expires at:', expiresAt.toISOString());
+      } else {
+        console.log('⚠️ Cached token expired, will mark job as ready for manual posting');
+      }
+    } else {
+      console.log('⚠️ No cached token found, will mark job as ready for manual posting');
+    }
 
     // Check daily cap
     const { data: countData } = await supabase.rpc('get_youtube_comments_today_count');
