@@ -1055,6 +1055,198 @@ async function getLanguages(req: Request): Promise<Response> {
   }
 }
 
+// === Priority & Run Now handler functions ===
+
+async function handlePrioritize(req: Request) {
+  const validation = await validateAdminRole(req);
+  if (!validation.valid) {
+    return new Response(JSON.stringify({ error: validation.errorMessage }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+  
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  
+  const body = await req.json();
+  const { source_id, source_ids, priority_level = 1 } = body;
+  const ids = source_id ? [source_id] : source_ids;
+  
+  if (!ids || ids.length === 0) {
+    return new Response(JSON.stringify({ error: 'source_id or source_ids required' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+  
+  const records = ids.map((id: number) => ({
+    source_id: id,
+    priority_level,
+    created_at: new Date().toISOString()
+  }));
+  
+  const { error } = await supabaseAdmin
+    .from('ingestion_priority')
+    .upsert(records, { onConflict: 'source_id' });
+  
+  if (error) {
+    console.error('Error setting priority:', error);
+    return new Response(JSON.stringify({ error: 'Failed to set priority' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+  
+  return new Response(JSON.stringify({ 
+    success: true, 
+    message: `Priority set for ${ids.length} source(s)` 
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
+}
+
+async function handleRunNow(req: Request) {
+  const validation = await validateAdminRole(req);
+  if (!validation.valid) {
+    return new Response(JSON.stringify({ error: validation.errorMessage }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+  
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  
+  const body = await req.json();
+  const { source_id, source_ids } = body;
+  const ids = source_id ? [source_id] : source_ids;
+  
+  if (!ids || ids.length === 0) {
+    return new Response(JSON.stringify({ error: 'source_id or source_ids required' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+  
+  const runRecords = ids.map((id: number) => ({
+    source_id: id,
+    status: 'pending',
+    created_at: new Date().toISOString()
+  }));
+  
+  const { error: runError } = await supabaseAdmin
+    .from('ingestion_runs')
+    .insert(runRecords);
+  
+  if (runError) {
+    console.error('Error creating run records:', runError);
+    return new Response(JSON.stringify({ error: 'Failed to create run records' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+  
+  console.log(`Triggering fetch-rss for ${ids.length} sources...`);
+  const BATCH_SIZE = 3;
+  let triggered = 0;
+  let failed = 0;
+  
+  for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+    const batch = ids.slice(i, i + BATCH_SIZE);
+    const batchPromises = batch.map(async (sourceId: number) => {
+      try {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/fetch-rss`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ source_id: sourceId })
+        });
+        
+        if (response.ok) {
+          triggered++;
+          console.log(`Triggered fetch-rss for source ${sourceId}`);
+        } else {
+          failed++;
+          console.error(`Failed to trigger for source ${sourceId}:`, await response.text());
+        }
+      } catch (error) {
+        failed++;
+        console.error(`Error triggering source ${sourceId}:`, error);
+      }
+    });
+    
+    await Promise.all(batchPromises);
+    if (i + BATCH_SIZE < ids.length) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+  }
+  
+  return new Response(JSON.stringify({ 
+    success: true,
+    triggered,
+    failed,
+    total: ids.length,
+    message: `Triggered ${triggered}/${ids.length} sources`
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
+}
+
+async function handleSourcesStatus(req: Request) {
+  const validation = await validateAdminRole(req);
+  if (!validation.valid) {
+    return new Response(JSON.stringify({ error: validation.errorMessage }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+  
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  
+  const { data: runs, error: runsError } = await supabaseAdmin
+    .from('ingestion_runs')
+    .select('source_id, status, created_at')
+    .order('created_at', { ascending: false });
+  
+  if (runsError) {
+    console.error('Error fetching runs:', runsError);
+    return new Response(JSON.stringify({ error: 'Failed to fetch run status' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+  
+  const statusBySource: Record<number, { status: string; created_at: string }> = {};
+  for (const run of runs || []) {
+    if (!statusBySource[run.source_id]) {
+      statusBySource[run.source_id] = {
+        status: run.status,
+        created_at: run.created_at
+      };
+    }
+  }
+  
+  const { data: priorities, error: prioritiesError } = await supabaseAdmin
+    .from('ingestion_priority')
+    .select('source_id, priority_level, created_at');
+  
+  if (prioritiesError) {
+    console.error('Error fetching priorities:', prioritiesError);
+  }
+  
+  return new Response(JSON.stringify({ 
+    success: true,
+    status_by_source: statusBySource,
+    priorities: priorities || []
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -1389,23 +1581,3 @@ async function handleSourcesStatus(req: Request) {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   });
 }
-
-serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  // Only allow POST requests
-  if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-
-  return new Response(JSON.stringify({ error: 'Internal routing error' }), {
-    status: 500,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-  });
-});
