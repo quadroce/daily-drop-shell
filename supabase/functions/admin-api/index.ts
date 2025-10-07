@@ -1083,8 +1083,7 @@ async function handlePrioritize(req: Request) {
   
   const records = ids.map((id: number) => ({
     source_id: id,
-    priority_level,
-    created_at: new Date().toISOString()
+    priority_level
   }));
   
   const { error } = await supabaseAdmin
