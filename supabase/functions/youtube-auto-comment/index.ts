@@ -7,18 +7,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Updated templates to include topic information
+// Updated templates without URLs
 const STATIC_TEMPLATES = [
-  "🎯 Your video has been featured on DailyDrops under {TOPICS}! Check it out: {URL}",
-  "📌 Great content! We've added this to DailyDrops in the {TOPICS} section: {URL}",
-  "✨ This video is now on DailyDrops, tagged as {TOPICS}. Explore more: {URL}",
-  "🔥 Featured on DailyDrops! Your video is tagged under {TOPICS}: {URL}",
-  "👏 Excellent work! We've included this in DailyDrops under {TOPICS}: {URL}",
-  "💡 Your video made it to DailyDrops in {TOPICS}! See it here: {URL}",
-  "🌟 Featured in our {TOPICS} collection on DailyDrops: {URL}",
-  "📍 Tagged on DailyDrops under {TOPICS}. Join our community: {URL}",
-  "🎬 This video is part of DailyDrops' {TOPICS} section: {URL}",
-  "🚀 Your content is now featured on DailyDrops ({TOPICS}): {URL}"
+  "Your video has been featured on DailyDrops under {TOPICS}!",
+  "Great content! We've added this to DailyDrops in the {TOPICS} section.",
+  "This video is now on DailyDrops, tagged as {TOPICS}.",
+  "Featured on DailyDrops! Your video is tagged under {TOPICS}.",
+  "Excellent work! We've included this in DailyDrops under {TOPICS}.",
+  "Your video made it to DailyDrops in {TOPICS}!",
+  "Featured in our {TOPICS} collection on DailyDrops.",
+  "Tagged on DailyDrops under {TOPICS}.",
+  "This video is part of DailyDrops' {TOPICS} section.",
+  "Your content is now featured on DailyDrops ({TOPICS})."
 ];
 
 const DAILY_CAP = 50;
@@ -54,7 +54,6 @@ async function generateAIComment(
 CRITICAL REQUIREMENTS:
 - MUST start with "Your video has been featured on DailyDrops"
 - MUST mention it's tagged under "${topicName}"
-- MUST include this exact link: ${topicUrl}
 - Keep it short and professional
 - NO emojis
 - Sound genuine, not promotional
@@ -104,12 +103,12 @@ Write the comment now (2 sentences max):`;
 }
 
 /**
- * Pick random template and format with topic and URL
+ * Pick random template and format with topic
  */
-function pickRandomTemplate(topicUrl: string, topicSlug: string): string {
+function pickRandomTemplate(topicSlug: string): string {
   const template = STATIC_TEMPLATES[Math.floor(Math.random() * STATIC_TEMPLATES.length)];
   const topicName = topicSlug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-  return template.replace('{URL}', topicUrl).replace('{TOPICS}', topicName);
+  return template.replace('{TOPICS}', topicName);
 }
 
 /**
@@ -386,11 +385,11 @@ serve(async (req) => {
         textOriginal = aiComment;
         await logEvent(supabase, job.id, 'GENERATION', 'success', 'AI comment generated', { length: aiComment.length });
       } else {
-        textOriginal = pickRandomTemplate(topicUrl, job.topic_slug);
+        textOriginal = pickRandomTemplate(job.topic_slug);
         await logEvent(supabase, job.id, 'GENERATION', 'fallback', 'Using fallback template');
       }
     } else {
-      textOriginal = pickRandomTemplate(topicUrl, job.topic_slug);
+      textOriginal = pickRandomTemplate(job.topic_slug);
       await logEvent(supabase, job.id, 'GENERATION', 'template', 'Using static template');
     }
 
