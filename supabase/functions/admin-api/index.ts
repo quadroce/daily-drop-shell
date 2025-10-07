@@ -1140,6 +1140,15 @@ serve(async (req) => {
       case '/languages':
         return await getLanguages(req);
       
+      case '/sources/prioritize':
+        return await handlePrioritize(req);
+      
+      case '/sources/run-now':
+        return await handleRunNow(req);
+      
+      case '/sources/status':
+        return await handleSourcesStatus(req);
+      
       default:
         // Handle user detail endpoints /users/:id
         if (pathname.startsWith('/users/')) {
@@ -1172,7 +1181,10 @@ serve(async (req) => {
         return new Response(JSON.stringify({ 
           error: 'Not found',
           pathname: pathname,
-          available_endpoints: ['/sources', '/enqueue', '/retry', '/youtube-reprocess', '/users', '/languages']
+          available_endpoints: [
+            '/sources', '/enqueue', '/retry', '/youtube-reprocess', 
+            '/users', '/languages', '/sources/prioritize', '/sources/run-now', '/sources/status'
+          ]
         }), {
           status: 404,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -1187,187 +1199,213 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-  
-  // === Priority & Run Now endpoints ===
-  
-  // Prioritize sources
-  if (pathname.includes('/sources/prioritize') && req.method === 'POST') {
-    const validation = await validateAdminRole(req);
-    if (!validation.valid) {
-      return new Response(JSON.stringify({ error: validation.errorMessage }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-    
-    const body = await req.json();
-    const { source_id, source_ids, priority_level = 1 } = body;
-    const ids = source_id ? [source_id] : source_ids;
-    
-    if (!ids || ids.length === 0) {
-      return new Response(JSON.stringify({ error: 'source_id or source_ids required' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-    
-    const priorities = ids.map((id: number) => ({
-      source_id: id,
-      priority_level,
-      created_by: validation.userId,
-      created_at: new Date().toISOString()
-    }));
-    
-    const { data, error } = await supabaseAdmin
-      .from('ingestion_priority')
-      .upsert(priorities, { onConflict: 'source_id' })
-      .select();
-      
-    if (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-    
-    return new Response(JSON.stringify({ 
-      success: true, 
-      message: `${ids.length} source(s) prioritized for next run`,
-      count: data.length
-    }), {
+}
+
+// === Priority & Run Now handler functions ===
+
+async function handlePrioritize(req: Request) {
+  const validation = await validateAdminRole(req);
+  if (!validation.valid) {
+    return new Response(JSON.stringify({ error: validation.errorMessage }), {
+      status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
   
-  // Run Now
-  if (pathname.includes('/sources/run-now') && req.method === 'POST') {
-    const validation = await validateAdminRole(req);
-    if (!validation.valid) {
-      return new Response(JSON.stringify({ error: validation.errorMessage }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  
+  const body = await req.json();
+  const { source_id, source_ids, priority_level = 1 } = body;
+  const ids = source_id ? [source_id] : source_ids;
+  
+  if (!ids || ids.length === 0) {
+    return new Response(JSON.stringify({ error: 'source_id or source_ids required' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+  
+  const priorities = ids.map((id: number) => ({
+    source_id: id,
+    priority_level,
+    created_by: validation.payload?.sub,
+    created_at: new Date().toISOString()
+  }));
+  
+  const { data, error } = await supabaseAdmin
+    .from('ingestion_priority')
+    .upsert(priorities, { onConflict: 'source_id' })
+    .select();
     
-    const body = await req.json();
-    const { source_id, source_ids } = body;
-    const ids = source_id ? [source_id] : source_ids;
+  if (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+  
+  return new Response(JSON.stringify({ 
+    success: true, 
+    message: `${ids.length} source(s) prioritized for next run`,
+    count: data.length
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
+}
+
+async function handleRunNow(req: Request) {
+  const validation = await validateAdminRole(req);
+  if (!validation.valid) {
+    return new Response(JSON.stringify({ error: validation.errorMessage }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+  
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  
+  const body = await req.json();
+  const { source_id, source_ids } = body;
+  const ids = source_id ? [source_id] : source_ids;
+  
+  if (!ids || ids.length === 0) {
+    return new Response(JSON.stringify({ error: 'source_id or source_ids required' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+  
+  const runRecords = ids.map((id: number) => ({
+    source_id: id,
+    status: 'running',
+    triggered_by: validation.payload?.sub,
+    trigger_type: 'manual'
+  }));
+  
+  const { data, error } = await supabaseAdmin
+    .from('ingestion_runs')
+    .insert(runRecords)
+    .select();
     
-    if (!ids || ids.length === 0) {
-      return new Response(JSON.stringify({ error: 'source_id or source_ids required' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
+  if (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+  
+  // Trigger ingestion (non-blocking, batched)
+  const BATCH_SIZE = 3;
+  for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+    const batch = ids.slice(i, i + BATCH_SIZE);
     
-    const runRecords = ids.map((id: number) => ({
-      source_id: id,
-      status: 'running',
-      triggered_by: validation.userId,
-      trigger_type: 'manual'
-    }));
-    
-    const { data, error } = await supabaseAdmin
-      .from('ingestion_runs')
-      .insert(runRecords)
-      .select();
+    batch.forEach(async (sid: number) => {
+      const runId = data.find(r => r.source_id === sid)?.id;
       
-    if (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-    
-    // Trigger ingestion (non-blocking, batched)
-    const BATCH_SIZE = 3;
-    for (let i = 0; i < ids.length; i += BATCH_SIZE) {
-      const batch = ids.slice(i, i + BATCH_SIZE);
-      
-      batch.forEach(async (sid: number) => {
-        const runId = data.find(r => r.source_id === sid)?.id;
-        
-        try {
-          const response = await fetch(
-            `${SUPABASE_URL}/functions/v1/fetch-rss?source_id=${sid}`,
-            {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-                'Content-Type': 'application/json'
-              }
+      try {
+        const response = await fetch(
+          `${SUPABASE_URL}/functions/v1/fetch-rss?source_id=${sid}`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              'Content-Type': 'application/json'
             }
-          );
-          
-          const result = await response.json();
-          
-          await supabaseAdmin
-            .from('ingestion_runs')
-            .update({
-              status: result.enqueued > 0 ? 'success' : 'error',
-              items_ingested: result.enqueued || 0,
-              completed_at: new Date().toISOString(),
-              error_message: result.errors?.length ? result.errors.join(', ') : null
-            })
-            .eq('id', runId);
-        } catch (err) {
-          await supabaseAdmin
-            .from('ingestion_runs')
-            .update({
-              status: 'error',
-              completed_at: new Date().toISOString(),
-              error_message: err.message
-            })
-            .eq('id', runId);
-        }
-      });
-      
-      if (i + BATCH_SIZE < ids.length) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+        );
+        
+        const result = await response.json();
+        
+        await supabaseAdmin
+          .from('ingestion_runs')
+          .update({
+            status: result.enqueued > 0 ? 'success' : 'error',
+            items_ingested: result.enqueued || 0,
+            completed_at: new Date().toISOString(),
+            error_message: result.errors?.length ? result.errors.join(', ') : null
+          })
+          .eq('id', runId);
+      } catch (err: any) {
+        await supabaseAdmin
+          .from('ingestion_runs')
+          .update({
+            status: 'error',
+            completed_at: new Date().toISOString(),
+            error_message: err.message
+          })
+          .eq('id', runId);
       }
-    }
+    });
     
-    return new Response(JSON.stringify({ 
-      success: true, 
-      message: `Ingestion started for ${ids.length} source(s)`,
-      run_ids: data.map(r => r.id)
-    }), {
+    if (i + BATCH_SIZE < ids.length) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+  }
+  
+  return new Response(JSON.stringify({ 
+    success: true, 
+    message: `Ingestion started for ${ids.length} source(s)`,
+    run_ids: data.map(r => r.id)
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
+}
+
+async function handleSourcesStatus(req: Request) {
+  const validation = await validateAdminRole(req);
+  if (!validation.valid) {
+    return new Response(JSON.stringify({ error: validation.errorMessage }), {
+      status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
   
-  // Get sources status
-  if (pathname.includes('/sources/status') && req.method === 'POST') {
-    const validation = await validateAdminRole(req);
-    if (!validation.valid) {
-      return new Response(JSON.stringify({ error: validation.errorMessage }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  
+  const { data: latestRuns } = await supabaseAdmin
+    .from('ingestion_runs')
+    .select('*')
+    .order('started_at', { ascending: false });
+    
+  const { data: priorities } = await supabaseAdmin
+    .from('ingestion_priority')
+    .select('source_id, priority_level, created_at');
+  
+  const statusBySource = (latestRuns || []).reduce((acc, run) => {
+    if (!acc[run.source_id]) {
+      acc[run.source_id] = run;
     }
-    
-    const { data: latestRuns } = await supabaseAdmin
-      .from('ingestion_runs')
-      .select('*')
-      .order('started_at', { ascending: false });
-      
-    const { data: priorities } = await supabaseAdmin
-      .from('ingestion_priority')
-      .select('source_id, priority_level, created_at');
-    
-    const statusBySource = (latestRuns || []).reduce((acc, run) => {
-      if (!acc[run.source_id]) {
-        acc[run.source_id] = run;
-      }
-      return acc;
-    }, {} as Record<number, any>);
-    
-    return new Response(JSON.stringify({ 
-      success: true,
-      status_by_source: statusBySource,
-      priorities: priorities || []
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    return acc;
+  }, {} as Record<number, any>);
+  
+  return new Response(JSON.stringify({ 
+    success: true,
+    status_by_source: statusBySource,
+    priorities: priorities || []
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
+}
+
+serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  // Only allow POST requests
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
+
+  return new Response(JSON.stringify({ error: 'Internal routing error' }), {
+    status: 500,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
 });
