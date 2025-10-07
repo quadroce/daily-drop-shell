@@ -1266,8 +1266,14 @@ async function handleSourcesStatus(req: Request) {
 }
 
 serve(async (req) => {
+  console.log('=== INCOMING REQUEST START ===');
+  console.log('Method:', req.method);
+  console.log('URL:', req.url);
+  console.log('Headers:', JSON.stringify(Object.fromEntries(req.headers.entries())));
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('→ CORS preflight - returning 204');
     return new Response(null, { 
       status: 204,
       headers: corsHeaders 
@@ -1276,16 +1282,21 @@ serve(async (req) => {
 
   // Only allow POST requests
   if (req.method !== 'POST') {
+    console.log('→ Method not allowed:', req.method);
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
+  
+  console.log('→ POST request confirmed, proceeding to validation');
 
   // Validate admin role
+  console.log('→ Validating admin role...');
   const validation = await validateAdminRole(req);
   
   if (!validation.valid) {
+    console.log('→ Validation failed:', validation.error, validation.errorMessage);
     const statusCode = validation.error === 'no_auth' || validation.error === 'invalid_token' ? 401 : 403;
     return new Response(JSON.stringify({ 
       error: validation.errorMessage || 'Unauthorized: Admin role required',
@@ -1296,6 +1307,8 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
+  
+  console.log('→ Admin validation successful');
 
   // Route by pathname - handle both direct and function paths
   const url = new URL(req.url);
@@ -1318,22 +1331,28 @@ serve(async (req) => {
   }
   
   console.log('Final routing pathname:', pathname);
+  console.log('=== STARTING ROUTE MATCHING ===');
 
   try {
     switch (pathname) {
       case '/sources':
+        console.log('✓ Matched route: /sources');
         return await createSource(req);
       
       case '/enqueue':
+        console.log('✓ Matched route: /enqueue');
         return await enqueueItem(req);
       
       case '/retry':
+        console.log('✓ Matched route: /retry');
         return await retryQueueItem(req);
       
       case '/youtube-reprocess':
+        console.log('✓ Matched route: /youtube-reprocess');
         return await youtubeReprocess(req);
       
       case '/users':
+        console.log('✓ Matched route: /users');
         // Distinguish between fetch and create based on request body content
         try {
           const body = await req.json().catch(() => ({}));
@@ -1351,20 +1370,25 @@ serve(async (req) => {
         break;
       
       case '/languages':
+        console.log('✓ Matched route: /languages');
         return await getLanguages(req);
       
       case '/sources/prioritize':
+        console.log('✓ Matched route: /sources/prioritize');
         return await handlePrioritize(req);
       
       case '/sources/run-now':
+        console.log('✓ Matched route: /sources/run-now');
         return await handleRunNow(req);
       
       case '/sources/status':
+        console.log('✓ Matched route: /sources/status');
         return await handleSourcesStatus(req);
       
       default:
         // Handle user detail endpoints /users/:id
         if (pathname.startsWith('/users/')) {
+          console.log('✓ Matched route pattern: /users/:id');
           const userId = pathname.split('/')[2];
           
           // Since supabase.functions.invoke always sends POST, we need to handle all operations via POST
@@ -1391,6 +1415,7 @@ serve(async (req) => {
           }
         }
         
+        console.log('✗ No route matched for pathname:', pathname);
         return new Response(JSON.stringify({ 
           error: 'Not found',
           pathname: pathname,
@@ -1404,10 +1429,16 @@ serve(async (req) => {
         });
     }
   } catch (error) {
-    console.error('Error in admin-api function:', error);
+    console.error('=== FATAL ERROR IN MAIN HANDLER ===');
+    console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
+    console.error('Error message:', error instanceof Error ? error.message : String(error));
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace available');
     
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(JSON.stringify({ error: errorMessage }), {
+    return new Response(JSON.stringify({ 
+      error: errorMessage,
+      errorType: error instanceof Error ? error.constructor.name : typeof error
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
