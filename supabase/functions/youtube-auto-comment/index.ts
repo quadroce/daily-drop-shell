@@ -367,7 +367,7 @@ serve(async (req) => {
     await logEvent(supabase, job.id, 'START', 'info', 'Processing job', { videoId: job.video_id });
 
     // Build topic URL
-    const topicUrl = `https://dailydrops.info/topic/${job.topic_slug}?utm_source=youtube&utm_medium=comment&utm_campaign=${job.utm_campaign}&utm_content=${job.utm_content}`;
+    const topicUrl = `https://dailydrops.cloud/topic/${job.topic_slug}?utm_source=youtube&utm_medium=comment&utm_campaign=${job.utm_campaign}&utm_content=${job.utm_content}`;
 
     // Generate comment text
     let textOriginal: string;
