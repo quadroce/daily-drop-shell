@@ -1161,9 +1161,11 @@ async function handleRunNow(req: Request) {
     trigger_type: 'manual'
   }));
   
-  const { error: runError } = await supabaseAdmin
+  // Add .select() to get the created run IDs
+  const { data: runs, error: runError } = await supabaseAdmin
     .from('ingestion_runs')
-    .insert(runRecords);
+    .insert(runRecords)
+    .select('id, source_id');
   
   if (runError) {
     console.error('Error creating run records:', runError);
@@ -1173,7 +1175,7 @@ async function handleRunNow(req: Request) {
     });
   }
   
-  console.log(`Triggering fetch-rss for ${ids.length} sources...`);
+  console.log(`Triggering fetch-rss for ${ids.length} sources (created ${runs?.length} runs)...`);
   const BATCH_SIZE = 3;
   let triggered = 0;
   let failed = 0;
@@ -1181,26 +1183,68 @@ async function handleRunNow(req: Request) {
   for (let i = 0; i < ids.length; i += BATCH_SIZE) {
     const batch = ids.slice(i, i + BATCH_SIZE);
     const batchPromises = batch.map(async (sourceId: number) => {
+      const run = runs?.find((r: any) => r.source_id === sourceId);
+      const runId = run?.id;
+      
       try {
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/fetch-rss`, {
-          method: 'POST',
+        // fetch-rss uses query params, not POST body
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/fetch-rss?source_id=${sourceId}`, {
+          method: 'GET',
           headers: {
-            'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ source_id: sourceId })
+            'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
+          }
         });
+        
+        const result = await response.json();
         
         if (response.ok) {
           triggered++;
-          console.log(`Triggered fetch-rss for source ${sourceId}`);
+          console.log(`✓ Triggered fetch-rss for source ${sourceId}, items: ${result.enqueued || 0}`);
+          
+          // Update run status to success
+          if (runId) {
+            await supabaseAdmin
+              .from('ingestion_runs')
+              .update({
+                status: 'success',
+                completed_at: new Date().toISOString(),
+                items_ingested: result.enqueued || 0
+              })
+              .eq('id', runId);
+          }
         } else {
           failed++;
-          console.error(`Failed to trigger for source ${sourceId}:`, await response.text());
+          const errorText = await response.text();
+          console.error(`✗ Failed to trigger for source ${sourceId}:`, errorText);
+          
+          // Update run status to error
+          if (runId) {
+            await supabaseAdmin
+              .from('ingestion_runs')
+              .update({
+                status: 'error',
+                completed_at: new Date().toISOString(),
+                error_message: errorText
+              })
+              .eq('id', runId);
+          }
         }
       } catch (error) {
         failed++;
-        console.error(`Error triggering source ${sourceId}:`, error);
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        console.error(`✗ Error triggering source ${sourceId}:`, errorMsg);
+        
+        // Update run status to error
+        if (runId) {
+          await supabaseAdmin
+            .from('ingestion_runs')
+            .update({
+              status: 'error',
+              completed_at: new Date().toISOString(),
+              error_message: errorMsg
+            })
+            .eq('id', runId);
+        }
       }
     });
     
