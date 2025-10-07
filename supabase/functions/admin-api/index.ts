@@ -1110,15 +1110,35 @@ async function handlePrioritize(req: Request) {
 }
 
 async function handleRunNow(req: Request) {
+  console.log('=== handleRunNow called ===');
+  console.log('Request method:', req.method);
+  console.log('Request headers:', Object.fromEntries(req.headers.entries()));
+  
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   
   let body;
   try {
-    body = await req.json();
+    // Clone the request to read body without consuming it for debugging
+    const bodyText = await req.clone().text();
+    console.log('Raw body text:', bodyText);
+    
+    if (!bodyText || bodyText.trim() === '') {
+      console.error('Empty body received');
+      return new Response(JSON.stringify({ error: 'Empty request body' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    
+    body = JSON.parse(bodyText);
+    console.log('Parsed body:', body);
   } catch (error) {
     console.error('Error parsing JSON body:', error);
-    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+    return new Response(JSON.stringify({ 
+      error: 'Invalid JSON body',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
