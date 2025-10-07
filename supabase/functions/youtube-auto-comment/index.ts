@@ -188,6 +188,95 @@ async function postToYouTube(
   }
 }
 
+/**
+ * Subscribe to YouTube channel
+ */
+async function subscribeToChannel(
+  channelId: string,
+  oauthToken: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(
+      'https://www.googleapis.com/youtube/v3/subscriptions?part=snippet',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${oauthToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          snippet: {
+            resourceId: {
+              kind: 'youtube#channel',
+              channelId: channelId
+            }
+          }
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      // Already subscribed is OK
+      if (errorData?.error?.errors?.[0]?.reason === 'subscriptionDuplicate') {
+        console.log('ALREADY_SUBSCRIBED', { channelId });
+        return { success: true };
+      }
+      console.error('SUBSCRIBE_ERROR', { status: response.status, error: errorData });
+      return {
+        success: false,
+        error: `Subscribe failed: ${errorData?.error?.message || response.statusText}`
+      };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('SUBSCRIBE_EXCEPTION', { error: error.message });
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Like YouTube video
+ */
+async function likeVideo(
+  videoId: string,
+  oauthToken: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(
+      `https://www.googleapis.com/youtube/v3/videos/rate?id=${videoId}&rating=like`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${oauthToken}`,
+          'Content-Type': 'application/json',
+        }
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('LIKE_ERROR', { status: response.status, error: errorData });
+      return {
+        success: false,
+        error: `Like failed: ${response.status}`
+      };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('LIKE_EXCEPTION', { error: error.message });
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -317,7 +406,36 @@ serve(async (req) => {
       const postResult = await postToYouTube(job.video_id, textOriginal, youtubeToken);
 
       if (postResult.success) {
-        // Successfully posted
+        // Successfully posted comment
+        await logEvent(supabase, job.id, 'POSTED', 'success', 'Comment posted to YouTube', { 
+          commentId: postResult.commentId 
+        });
+
+        // Subscribe to channel
+        console.log('SUBSCRIBING_TO_CHANNEL', { jobId: job.id, channelId: job.channel_id });
+        const subscribeResult = await subscribeToChannel(job.channel_id, youtubeToken);
+        
+        if (subscribeResult.success) {
+          await logEvent(supabase, job.id, 'SUBSCRIBE', 'success', 'Subscribed to channel');
+        } else {
+          await logEvent(supabase, job.id, 'SUBSCRIBE', 'warning', 'Subscribe failed', { 
+            error: subscribeResult.error 
+          });
+        }
+
+        // Like video
+        console.log('LIKING_VIDEO', { jobId: job.id, videoId: job.video_id });
+        const likeResult = await likeVideo(job.video_id, youtubeToken);
+        
+        if (likeResult.success) {
+          await logEvent(supabase, job.id, 'LIKE', 'success', 'Liked video');
+        } else {
+          await logEvent(supabase, job.id, 'LIKE', 'warning', 'Like failed', { 
+            error: likeResult.error 
+          });
+        }
+
+        // Update job as posted
         await supabase
           .from('social_comment_jobs')
           .update({ 
@@ -329,13 +447,11 @@ serve(async (req) => {
           })
           .eq('id', job.id);
 
-        await logEvent(supabase, job.id, 'POSTED', 'success', 'Comment posted to YouTube', { 
-          commentId: postResult.commentId 
-        });
-
         console.log('POSTED_SUCCESS', { 
           jobId: job.id, 
-          commentId: postResult.commentId 
+          commentId: postResult.commentId,
+          subscribed: subscribeResult.success,
+          liked: likeResult.success
         });
 
         return new Response(JSON.stringify({ 
@@ -343,6 +459,8 @@ serve(async (req) => {
           jobId: job.id,
           videoId: job.video_id,
           commentId: postResult.commentId,
+          subscribed: subscribeResult.success,
+          liked: likeResult.success,
           status: 'posted',
           todayCount: todayCount + 1
         }), {
