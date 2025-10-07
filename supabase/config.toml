@@ -129,5 +129,8 @@ verify_jwt = true
 [functions.youtube-auto-comment]
 verify_jwt = false
 
+[functions.youtube-job-creator]
+verify_jwt = false
+
 [functions.youtube-refresh-token]
 verify_jwt = false
