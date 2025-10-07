@@ -1133,7 +1133,7 @@ async function handleRunNow(req: Request) {
   const runRecords = ids.map((id: number) => ({
     source_id: id,
     status: 'pending',
-    created_at: new Date().toISOString()
+    trigger_type: 'manual'
   }));
   
   const { error: runError } = await supabaseAdmin
@@ -1210,8 +1210,8 @@ async function handleSourcesStatus(req: Request) {
   
   const { data: runs, error: runsError } = await supabaseAdmin
     .from('ingestion_runs')
-    .select('source_id, status, created_at')
-    .order('created_at', { ascending: false });
+    .select('source_id, status, started_at')
+    .order('started_at', { ascending: false });
   
   if (runsError) {
     console.error('Error fetching runs:', runsError);
@@ -1221,12 +1221,12 @@ async function handleSourcesStatus(req: Request) {
     });
   }
   
-  const statusBySource: Record<number, { status: string; created_at: string }> = {};
+  const statusBySource: Record<number, { status: string; started_at: string }> = {};
   for (const run of runs || []) {
     if (!statusBySource[run.source_id]) {
       statusBySource[run.source_id] = {
         status: run.status,
-        created_at: run.created_at
+        started_at: run.started_at
       };
     }
   }
