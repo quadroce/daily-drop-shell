@@ -14,6 +14,7 @@ import SystemMonitorPanel from '@/components/admin/SystemMonitorPanel';
 import { CacheRegenerationTrigger } from "@/components/admin/CacheRegenerationTrigger";
 import { ServiceStatusIndicators } from "@/components/admin/ServiceStatusIndicators";
 import { YouTubeCommentTestPanel } from "@/components/admin/YouTubeCommentTestPanel";
+import { YouTubeOAuthTestPanel } from "@/components/admin/YouTubeOAuthTestPanel";
 import { Loader2, Users, Database, List, ArrowLeft, Rss, Cog, Tags, Monitor, Map, Globe, Youtube, Settings, Mail } from "lucide-react";
 
 interface Profile {
@@ -1060,6 +1061,7 @@ const Admin = () => {
         </CardHeader>
         <CardContent className="space-y-6">
           <NewsletterTestPanel />
+          <YouTubeOAuthTestPanel />
           <YouTubeCommentTestPanel />
           <VectorSystemInit />
         </CardContent>
