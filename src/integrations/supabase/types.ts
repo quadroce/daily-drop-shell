@@ -572,6 +572,35 @@ export type Database = {
         }
         Relationships: []
       }
+      ingestion_priority: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          priority_level: number
+          source_id: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          priority_level?: number
+          source_id: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          priority_level?: number
+          source_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingestion_priority_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: true
+            referencedRelation: "sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ingestion_queue: {
         Row: {
           created_at: string
@@ -615,6 +644,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "ingestion_queue_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ingestion_runs: {
+        Row: {
+          completed_at: string | null
+          error_message: string | null
+          id: number
+          items_ingested: number | null
+          source_id: number
+          started_at: string
+          status: string
+          trigger_type: string
+          triggered_by: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          error_message?: string | null
+          id?: number
+          items_ingested?: number | null
+          source_id: number
+          started_at?: string
+          status: string
+          trigger_type: string
+          triggered_by?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          error_message?: string | null
+          id?: number
+          items_ingested?: number | null
+          source_id?: number
+          started_at?: string
+          status?: string
+          trigger_type?: string
+          triggered_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingestion_runs_source_id_fkey"
             columns: ["source_id"]
             isOneToOne: false
             referencedRelation: "sources"
@@ -1102,6 +1175,7 @@ export type Database = {
           level: number
           parent_id: number | null
           slug: string
+          updated_at: string | null
         }
         Insert: {
           allow_follow?: boolean | null
@@ -1114,6 +1188,7 @@ export type Database = {
           level: number
           parent_id?: number | null
           slug: string
+          updated_at?: string | null
         }
         Update: {
           allow_follow?: boolean | null
@@ -1126,6 +1201,7 @@ export type Database = {
           level?: number
           parent_id?: number | null
           slug?: string
+          updated_at?: string | null
         }
         Relationships: [
           {

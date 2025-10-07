@@ -398,35 +398,66 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+    
+    // Fetch manual priorities (admin-set priorities for next run)
+    const { data: manualPriorities } = await supabase
+      .from('ingestion_priority')
+      .select('source_id, priority_level, created_at')
+      .order('priority_level', { ascending: false })
+      .order('created_at', { ascending: true });
 
-    // Intelligent prioritization: 
-    // 1. PRIORITY: Sources with 0 articles and <= 3 attempts (give new sources chances)
-    // 2. NORMAL: All other active sources (by health)
+    const prioritySourceIds = new Set(manualPriorities?.map(p => p.source_id) || []);
+    
+    console.log(`Found ${manualPriorities?.length || 0} manually prioritized sources`);
+
+    // Enhanced prioritization: 
+    // 1. MANUAL PRIORITIES: Admin-set via "Prioritize" button (highest priority)
+    // 2. AUTO-PRIORITY: Sources with 0 articles and <= 3 attempts (give new sources chances)
+    // 3. NORMAL: All other active sources (by health)
     const sources = sourcesData
       .filter(source => !source.source_health?.[0]?.is_paused)
       .sort((a, b) => {
+        // 1. Manual priorities FIRST (admin-set via "Prioritize" button)
+        const aManualPriority = manualPriorities?.find(p => p.source_id === a.id);
+        const bManualPriority = manualPriorities?.find(p => p.source_id === b.id);
+        
+        if (aManualPriority && !bManualPriority) return -1;
+        if (!aManualPriority && bManualPriority) return 1;
+        if (aManualPriority && bManualPriority) {
+          // Higher priority_level first, then by created_at (FIFO)
+          if (aManualPriority.priority_level !== bManualPriority.priority_level) {
+            return bManualPriority.priority_level - aManualPriority.priority_level;
+          }
+          return new Date(aManualPriority.created_at).getTime() - 
+                 new Date(bManualPriority.created_at).getTime();
+        }
+        
+        // 2. Auto-priority: sources with 0+ attempts but <= 3 (give chances to prove themselves)
         const aHealth = a.source_health?.[0];
         const bHealth = b.source_health?.[0];
         
         const aAttempts = aHealth?.zero_article_attempts || 0;
         const bAttempts = bHealth?.zero_article_attempts || 0;
         
-        // Priority sources: sources with 0+ attempts but <= 3 (give chances to prove themselves)
         const aPriority = aAttempts > 0 && aAttempts <= 3;
         const bPriority = bAttempts > 0 && bAttempts <= 3;
         
-        if (aPriority && !bPriority) return -1; // Priority sources first
+        if (aPriority && !bPriority) return -1;
         if (!aPriority && bPriority) return 1;
         
-        // Within same priority level, prefer fewer consecutive errors
+        // 3. Within same priority level, prefer fewer consecutive errors
         return (aHealth?.consecutive_errors || 0) - (bHealth?.consecutive_errors || 0);
       });
       
-    console.log(`Found ${sources.length} sources to process (${sources.filter(s => {
-      const health = s.source_health?.[0];
-      const attempts = health?.zero_article_attempts || 0;
-      return attempts > 0 && attempts <= 3;
-    }).length} priority sources with 0 articles)`);
+    console.log(`Found ${sources.length} sources to process (${
+      sources.filter(s => prioritySourceIds.has(s.id)).length
+    } manually prioritized, ${
+      sources.filter(s => {
+        const health = s.source_health?.[0];
+        const attempts = health?.zero_article_attempts || 0;
+        return attempts > 0 && attempts <= 3;
+      }).length
+    } auto-priority with 0 articles)`);
 
     if (sources.length === 0) {
       return new Response(JSON.stringify({ 
@@ -470,6 +501,26 @@ serve(async (req) => {
     console.log(`Processed ${sources.length} sources, enqueued ${totalEnqueued} items (offset: ${offsetParam})`);
     if (allErrors.length > 0) {
       console.warn('Errors encountered:', allErrors);
+    }
+    
+    // Clear processed manual priorities after successful run
+    if (manualPriorities && manualPriorities.length > 0) {
+      const processedIds = sources
+        .filter(s => prioritySourceIds.has(s.id))
+        .map(s => s.id);
+        
+      if (processedIds.length > 0) {
+        const { error: clearError } = await supabase
+          .from('ingestion_priority')
+          .delete()
+          .in('source_id', processedIds);
+          
+        if (clearError) {
+          console.error('Error clearing priorities:', clearError);
+        } else {
+          console.log(`Cleared ${processedIds.length} manual priorities after processing`);
+        }
+      }
     }
 
     // Determine if there are more sources to process
