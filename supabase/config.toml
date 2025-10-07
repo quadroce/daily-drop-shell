@@ -125,3 +125,6 @@ verify_jwt = false
 
 [functions.source-health-monitor]
 verify_jwt = true
+
+[functions.youtube-auto-comment]
+verify_jwt = false
