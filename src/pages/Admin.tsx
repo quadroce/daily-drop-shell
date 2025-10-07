@@ -16,6 +16,7 @@ import { ServiceStatusIndicators } from "@/components/admin/ServiceStatusIndicat
 import { YouTubeCommentTestPanel } from "@/components/admin/YouTubeCommentTestPanel";
 import { YouTubeOAuthTestPanel } from "@/components/admin/YouTubeOAuthTestPanel";
 import { YouTubeTokenPanel } from "@/components/admin/YouTubeTokenPanel";
+import { YouTubeJobsManager } from "@/components/admin/YouTubeJobsManager";
 import { Loader2, Users, Database, List, ArrowLeft, Rss, Cog, Tags, Monitor, Map, Globe, Youtube, Settings, Mail } from "lucide-react";
 
 interface Profile {
@@ -1063,6 +1064,7 @@ const Admin = () => {
         <CardContent className="space-y-6">
           <NewsletterTestPanel />
           <YouTubeTokenPanel />
+          <YouTubeJobsManager />
           <YouTubeOAuthTestPanel />
           <YouTubeCommentTestPanel />
           <VectorSystemInit />

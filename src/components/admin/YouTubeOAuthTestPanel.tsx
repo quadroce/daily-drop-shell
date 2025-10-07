@@ -208,9 +208,20 @@ export function YouTubeOAuthTestPanel() {
           </div>
         )}
 
-        <div className="text-xs text-muted-foreground p-3 bg-muted/50 rounded">
-          <strong>Note:</strong> This will attempt to post a comment to a test video (Rick Astley).
-          Make sure YOUTUBE_OAUTH_TOKEN is configured in Supabase secrets.
+        <div className="text-xs text-muted-foreground p-3 bg-muted/50 rounded space-y-2">
+          <div>
+            <strong>Test Process:</strong>
+          </div>
+          <ol className="list-decimal list-inside space-y-1 text-xs">
+            <li>Checks if cached access token exists and is valid</li>
+            <li>Fetches the oldest queued comment job from database</li>
+            <li>Generates AI comment text (or uses template fallback)</li>
+            <li>Posts comment to YouTube using OAuth access token</li>
+            <li>Updates job status and logs the result</li>
+          </ol>
+          <div className="pt-2 border-t border-border/50 mt-2">
+            <strong>Requirements:</strong> Valid YouTube OAuth credentials and at least one queued job in social_comment_jobs table.
+          </div>
         </div>
       </CardContent>
     </Card>
