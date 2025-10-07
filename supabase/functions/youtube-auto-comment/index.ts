@@ -7,17 +7,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Updated templates to include topic information
 const STATIC_TEMPLATES = [
-  "This video was featured on DropDaily → {url}\nYour smartest 10-minute tech digest — curated daily.",
-  "Spotted this gem while curating today's DropDaily feed → {url}\nJoin us for smarter mornings.",
-  "Tagged on DropDaily → {url}\nBecause great ideas deserve more eyes 👀.",
-  "Loved this insight — it made today's DropDaily list → {url}\nExplore your daily AI & tech picks.",
-  "Quality content like this is why DropDaily exists → {url}\nDiscover, learn, repeat.",
-  "Picked for today's DropDaily → {url}\n10 minutes of smart inspiration, every day.",
-  "Featured in our DropDaily feed → {url}\nA must-see for curious minds.",
-  "We tagged this video on DropDaily → {url}\nJoin our daily dose of tech & innovation.",
-  "This made it into DropDaily's daily digest → {url}\nWhere tech meets curiosity.",
-  "Found this worth sharing — featured on DropDaily → {url}\nStay sharp with your 10-minute drop."
+  "🎯 Your video has been featured on DailyDrops under {TOPICS}! Check it out: {URL}",
+  "📌 Great content! We've added this to DailyDrops in the {TOPICS} section: {URL}",
+  "✨ This video is now on DailyDrops, tagged as {TOPICS}. Explore more: {URL}",
+  "🔥 Featured on DailyDrops! Your video is tagged under {TOPICS}: {URL}",
+  "👏 Excellent work! We've included this in DailyDrops under {TOPICS}: {URL}",
+  "💡 Your video made it to DailyDrops in {TOPICS}! See it here: {URL}",
+  "🌟 Featured in our {TOPICS} collection on DailyDrops: {URL}",
+  "📍 Tagged on DailyDrops under {TOPICS}. Join our community: {URL}",
+  "🎬 This video is part of DailyDrops' {TOPICS} section: {URL}",
+  "🚀 Your content is now featured on DailyDrops ({TOPICS}): {URL}"
 ];
 
 const DAILY_CAP = 50;
@@ -33,27 +34,35 @@ interface CommentJob {
   text_hash: string;
   utm_campaign: string;
   utm_content: string;
+  tries: number;
 }
 
+/**
+ * Generate AI comment that informs creator their video is on DailyDrops
+ */
 async function generateAIComment(
   title: string,
   description: string,
-  topicName: string,
+  topicSlug: string,
   topicUrl: string,
   openaiKey: string
 ): Promise<string | null> {
-  const prompt = `You're writing a short, human YouTube comment (1–2 sentences, ≤60 tokens).
-It should sound authentic, relevant, and include a DropDaily link.
+  const topicName = topicSlug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  
+  const prompt = `You're writing a brief YouTube comment (max 2 sentences) for DailyDrops.
 
-Video title: "${title}"
-Description: "${description?.slice(0, 200) || 'N/A'}"
-Topic: "${topicName}"
-URL: "${topicUrl}"
+CRITICAL REQUIREMENTS:
+- MUST start with "Your video has been featured on DailyDrops"
+- MUST mention it's tagged under "${topicName}"
+- MUST include this exact link: ${topicUrl}
+- Keep it short and professional
+- Max 1 emoji at the start
+- Sound genuine, not promotional
 
-Examples:
-${STATIC_TEMPLATES.map(t => t.replace('{url}', topicUrl)).join('\n')}
+Video: "${title}"
+${description ? `Description: "${description.slice(0, 150)}"` : ''}
 
-Now write one new variant in English, with a friendly and curious tone.`;
+Write the comment now (2 sentences max):`;
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -65,8 +74,8 @@ Now write one new variant in English, with a friendly and curious tone.`;
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
-        temperature: 0.8,
-        max_tokens: 60
+        temperature: 0.7,
+        max_tokens: 100
       }),
     });
 
@@ -88,18 +97,24 @@ Now write one new variant in English, with a friendly and curious tone.`;
   } catch (e) {
     console.error('AI_COMMENT_ERROR', {
       errorType: e.name,
-      message: e.message,
-      stack: e.stack?.slice(0, 200)
+      message: e.message
     });
     return null;
   }
 }
 
-function pickRandomTemplate(topicUrl: string): string {
+/**
+ * Pick random template and format with topic and URL
+ */
+function pickRandomTemplate(topicUrl: string, topicSlug: string): string {
   const template = STATIC_TEMPLATES[Math.floor(Math.random() * STATIC_TEMPLATES.length)];
-  return template.replace('{url}', topicUrl);
+  const topicName = topicSlug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  return template.replace('{URL}', topicUrl).replace('{TOPICS}', topicName);
 }
 
+/**
+ * Log event to social_comment_events table
+ */
 async function logEvent(
   supabase: any,
   jobId: number,
@@ -113,8 +128,64 @@ async function logEvent(
     phase,
     status,
     message,
-    data: data ? JSON.stringify(data) : null
+    data: data || null
   });
+}
+
+/**
+ * Post comment to YouTube using OAuth token
+ */
+async function postToYouTube(
+  videoId: string,
+  commentText: string,
+  oauthToken: string
+): Promise<{ success: boolean; commentId?: string; error?: string }> {
+  try {
+    const response = await fetch(
+      'https://www.googleapis.com/youtube/v3/commentThreads?part=snippet',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${oauthToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          snippet: {
+            videoId: videoId,
+            topLevelComment: {
+              snippet: {
+                textOriginal: commentText
+              }
+            }
+          }
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('YOUTUBE_API_ERROR', {
+        status: response.status,
+        error: errorData
+      });
+      return {
+        success: false,
+        error: `YouTube API ${response.status}: ${errorData}`
+      };
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      commentId: data.id
+    };
+  } catch (error) {
+    console.error('YOUTUBE_POST_ERROR', { error: error.message });
+    return {
+      success: false,
+      error: error.message
+    };
+  }
 }
 
 serve(async (req) => {
@@ -126,6 +197,7 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const openaiKey = Deno.env.get('OPENAI_API_KEY');
+    const youtubeToken = Deno.env.get('YOUTUBE_OAUTH_TOKEN');
     
     const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -180,16 +252,9 @@ serve(async (req) => {
       .update({ status: 'processing' })
       .eq('id', job.id);
 
-    await logEvent(supabase, job.id, 'START', 'ok', 'Processing job', { videoId: job.video_id });
+    await logEvent(supabase, job.id, 'START', 'info', 'Processing job', { videoId: job.video_id });
 
-    // Get topic URL
-    const { data: topic } = await supabase
-      .from('topics')
-      .select('name, slug')
-      .eq('slug', job.topic_slug)
-      .single();
-
-    const topicName = topic?.name || job.topic_slug;
+    // Build topic URL
     const topicUrl = `https://dailydrops.info/topic/${job.topic_slug}?utm_source=youtube&utm_medium=comment&utm_campaign=${job.utm_campaign}&utm_content=${job.utm_content}`;
 
     // Generate comment text
@@ -199,54 +264,123 @@ serve(async (req) => {
       const aiComment = await generateAIComment(
         job.video_title,
         job.video_description,
-        topicName,
+        job.topic_slug,
         topicUrl,
         openaiKey
       );
 
       if (aiComment) {
         textOriginal = aiComment;
-        await logEvent(supabase, job.id, 'AI_COMMENT', 'ok', 'AI comment generated', { length: aiComment.length });
+        await logEvent(supabase, job.id, 'GENERATION', 'success', 'AI comment generated', { length: aiComment.length });
       } else {
-        textOriginal = pickRandomTemplate(topicUrl);
-        await logEvent(supabase, job.id, 'AI_COMMENT', 'fallback', 'Using fallback template');
+        textOriginal = pickRandomTemplate(topicUrl, job.topic_slug);
+        await logEvent(supabase, job.id, 'GENERATION', 'fallback', 'Using fallback template');
       }
     } else {
-      textOriginal = pickRandomTemplate(topicUrl);
-      await logEvent(supabase, job.id, 'TEMPLATE', 'ok', 'Using static template');
+      textOriginal = pickRandomTemplate(topicUrl, job.topic_slug);
+      await logEvent(supabase, job.id, 'GENERATION', 'template', 'Using static template');
     }
 
-    // Update job with text
-    await supabase
-      .from('social_comment_jobs')
-      .update({ 
-        text_original: textOriginal,
-        status: 'ready',
-        tries: job.tries + 1
-      })
-      .eq('id', job.id);
-
-    await logEvent(supabase, job.id, 'READY', 'ok', 'Comment prepared for posting', { 
-      textPreview: textOriginal.slice(0, 100) 
-    });
-
-    // Note: Actual YouTube API posting would go here with OAuth
-    // For now, we mark as ready for manual review or future YouTube integration
-    console.log('COMMENT_READY', { 
+    console.log('COMMENT_GENERATED', { 
       jobId: job.id, 
-      videoId: job.video_id,
-      textPreview: textOriginal.slice(0, 100)
+      preview: textOriginal.slice(0, 100) 
     });
 
-    return new Response(JSON.stringify({ 
-      success: true, 
-      jobId: job.id,
-      videoId: job.video_id,
-      textPreview: textOriginal.slice(0, 100),
-      todayCount: todayCount + 1
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    // Attempt to post to YouTube if OAuth token is available
+    if (youtubeToken) {
+      console.log('POSTING_TO_YOUTUBE', { jobId: job.id, videoId: job.video_id });
+      
+      const postResult = await postToYouTube(job.video_id, textOriginal, youtubeToken);
+
+      if (postResult.success) {
+        // Successfully posted
+        await supabase
+          .from('social_comment_jobs')
+          .update({ 
+            text_original: textOriginal,
+            external_comment_id: postResult.commentId,
+            status: 'posted',
+            posted_at: new Date().toISOString(),
+            tries: job.tries + 1
+          })
+          .eq('id', job.id);
+
+        await logEvent(supabase, job.id, 'POSTED', 'success', 'Comment posted to YouTube', { 
+          commentId: postResult.commentId 
+        });
+
+        console.log('POSTED_SUCCESS', { 
+          jobId: job.id, 
+          commentId: postResult.commentId 
+        });
+
+        return new Response(JSON.stringify({ 
+          success: true, 
+          jobId: job.id,
+          videoId: job.video_id,
+          commentId: postResult.commentId,
+          status: 'posted',
+          todayCount: todayCount + 1
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } else {
+        // Failed to post
+        await supabase
+          .from('social_comment_jobs')
+          .update({ 
+            text_original: textOriginal,
+            status: 'error',
+            last_error: postResult.error,
+            tries: job.tries + 1,
+            next_retry_at: new Date(Date.now() + 3600000).toISOString() // Retry in 1 hour
+          })
+          .eq('id', job.id);
+
+        await logEvent(supabase, job.id, 'POST', 'error', 'Failed to post to YouTube', { 
+          error: postResult.error 
+        });
+
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: postResult.error,
+          jobId: job.id
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+    } else {
+      // No OAuth token - mark as ready for manual posting
+      await supabase
+        .from('social_comment_jobs')
+        .update({ 
+          text_original: textOriginal,
+          status: 'ready',
+          last_error: 'YouTube OAuth token not configured',
+          tries: job.tries + 1
+        })
+        .eq('id', job.id);
+
+      await logEvent(supabase, job.id, 'READY', 'warning', 'Comment ready - OAuth not configured');
+
+      console.log('COMMENT_READY_NO_OAUTH', { 
+        jobId: job.id, 
+        videoId: job.video_id 
+      });
+
+      return new Response(JSON.stringify({ 
+        success: true, 
+        jobId: job.id,
+        videoId: job.video_id,
+        textPreview: textOriginal.slice(0, 100),
+        status: 'ready',
+        message: 'Comment generated but not posted (OAuth not configured)',
+        todayCount: todayCount + 1
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
   } catch (error) {
     console.error('WORKER_ERROR', { error: error.message, stack: error.stack });
