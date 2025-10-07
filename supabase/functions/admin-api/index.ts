@@ -1337,7 +1337,7 @@ serve(async (req) => {
   }
   
   // Get sources status
-  if (pathname.includes('/sources/status') && req.method === 'GET') {
+  if (pathname.includes('/sources/status') && req.method === 'POST') {
     const validation = await validateAdminRole(req);
     if (!validation.valid) {
       return new Response(JSON.stringify({ error: validation.errorMessage }), {

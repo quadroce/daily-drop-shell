@@ -65,7 +65,9 @@ const AdminSources = () => {
   // Fetch sources status for Priority & Run Now
   const fetchSourcesStatus = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('admin-api/sources/status');
+      const { data, error } = await supabase.functions.invoke('admin-api/sources/status', {
+        body: {},
+      });
       
       if (error) throw error;
       
