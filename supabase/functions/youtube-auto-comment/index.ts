@@ -56,7 +56,7 @@ CRITICAL REQUIREMENTS:
 - MUST mention it's tagged under "${topicName}"
 - MUST include this exact link: ${topicUrl}
 - Keep it short and professional
-- Max 1 emoji at the start
+- NO emojis
 - Sound genuine, not promotional
 
 Video: "${title}"
