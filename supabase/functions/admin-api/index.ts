@@ -1059,19 +1059,22 @@ async function getLanguages(req: Request): Promise<Response> {
 // === Priority & Run Now handler functions ===
 
 async function handlePrioritize(req: Request) {
-  const validation = await validateAdminRole(req);
-  if (!validation.valid) {
-    return new Response(JSON.stringify({ error: validation.errorMessage }), {
-      status: 401,
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  
+  let body;
+  try {
+    body = await req.json();
+  } catch (error) {
+    console.error('Error parsing JSON body:', error);
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+      status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
   
-  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-  
-  const body = await req.json();
   const { source_id, source_ids, priority_level = 1 } = body;
+  console.log('Prioritize request:', { source_id, source_ids, priority_level });
   const ids = source_id ? [source_id] : source_ids;
   
   if (!ids || ids.length === 0) {
@@ -1107,19 +1110,22 @@ async function handlePrioritize(req: Request) {
 }
 
 async function handleRunNow(req: Request) {
-  const validation = await validateAdminRole(req);
-  if (!validation.valid) {
-    return new Response(JSON.stringify({ error: validation.errorMessage }), {
-      status: 401,
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  
+  let body;
+  try {
+    body = await req.json();
+  } catch (error) {
+    console.error('Error parsing JSON body:', error);
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+      status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
   
-  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-  
-  const body = await req.json();
   const { source_id, source_ids } = body;
+  console.log('Run now request:', { source_id, source_ids });
   const ids = source_id ? [source_id] : source_ids;
   
   if (!ids || ids.length === 0) {
@@ -1196,14 +1202,6 @@ async function handleRunNow(req: Request) {
 }
 
 async function handleSourcesStatus(req: Request) {
-  const validation = await validateAdminRole(req);
-  if (!validation.valid) {
-    return new Response(JSON.stringify({ error: validation.errorMessage }), {
-      status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  }
-  
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   
