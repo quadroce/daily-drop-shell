@@ -92,12 +92,12 @@ Deno.serve(async (req) => {
     }
 
     const scriptPrompt = style === "recap"
-      ? `Create a 45-60 second YouTube Shorts script about: "${drop.title}"
+      ? `Create a 30 second YouTube Shorts script about: "${drop.title}"
 
 Summary: ${drop.summary || "No summary available"}
 Topics: ${topicNames}
 
-Format: Hook (5s) → Body (40s, 3-4 points) → CTA (10s)
+Format: Hook (5s) → Body (15s, 3-4 points) → CTA (10s)
 Requirements:
 - First person, conversational
 - 6-8 words per sentence
@@ -175,14 +175,14 @@ Return only the script text, one sentence per line.`;
 
     // Generate metadata
     const ctaUrl =
-      `https://dailydrops.io/drops/${drop.id}?utm_source=youtube&utm_medium=shorts&utm_campaign=${style}`;
+      `https://dailydrops.cloud?utm_source=youtube&utm_medium=shorts&utm_campaign=${style}`;
 
     const metadata = {
       title: title || `${drop.title.substring(0, 80)} #Shorts`,
       description: description ||
         `${
           drop.summary?.substring(0, 200) || drop.title
-        }\n\nLearn more at dailydrops.io\n${ctaUrl}\n\n#tech #innovation`,
+        }\n\nLearn more at ${ctaUrl}\n\n#tech #innovation`,
       tags: ["tech", "innovation"],
       categoryId: "28",
     };
