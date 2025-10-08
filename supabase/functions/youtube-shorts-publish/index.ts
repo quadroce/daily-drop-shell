@@ -312,29 +312,31 @@ Return only the script text, one sentence per line.`;
     
     console.log('Script for Shotstack (length:', script.length, '):', script.substring(0, 100));
 
-    // Create Shotstack render request with logo intro + drop image
+    // Create Shotstack render request with logo intro + drop image  
     const logoUrl = 'https://dailydrops.io/email/dailydrops-logo.png';
     const dropImageUrl = drop.image_url || 'https://dailydrops.io/topic-default.png';
     
     console.log('Logo URL:', logoUrl);
     console.log('Drop image URL:', dropImageUrl);
+    console.log('Audio URL:', audioUrl);
     console.log('Audio duration:', audioDuration);
     
     // Ensure minimum duration and valid clip lengths
-    const logoDuration = Math.min(5, audioDuration);
+    const logoDuration = Math.min(3, audioDuration / 2);
     const imageDuration = Math.max(1, audioDuration - logoDuration);
     
     const shotstackPayload = {
       timeline: {
-        soundtrack: audioUrl ? {
+        soundtrack: {
           src: audioUrl,
           effect: 'fadeInFadeOut'
-        } : undefined,
+        },
         background: '#1a1a2e',
         tracks: [
-          // Logo track (0-5s or less if audio is short)
+          // Single track with sequential clips: logo then drop image
           {
             clips: [
+              // Logo clip (first 3 seconds or less)
               {
                 asset: {
                   type: 'image',
@@ -349,12 +351,8 @@ Return only the script text, one sentence per line.`;
                   in: 'fade',
                   out: 'fade'
                 }
-              }
-            ]
-          },
-          // Drop image track (after logo to end)
-          {
-            clips: [
+              },
+              // Drop image clip (rest of video)
               {
                 asset: {
                   type: 'image',
