@@ -176,24 +176,53 @@ Return only the script text, one sentence per line.`;
 
     const gcpKey = JSON.parse(atob(gcpKeyBase64));
     
-    // Simplified JWT for Google Cloud (production would use proper crypto)
-    const jwtToken = `${btoa(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))}.${btoa(JSON.stringify({
-      iss: gcpKey.client_email,
-      scope: 'https://www.googleapis.com/auth/cloud-platform',
-      aud: 'https://oauth2.googleapis.com/token',
-      exp: Math.floor(Date.now() / 1000) + 3600,
-      iat: Math.floor(Date.now() / 1000)
-    }))}.placeholder`;
+    // Create JWT for Google Cloud authentication
+    const { create, getNumericDate } = await import('https://deno.land/x/djwt@v3.0.2/mod.ts');
+    const { importPKCS8 } = await import('https://deno.land/x/jose@v5.9.6/key/import.ts');
+    
+    const privateKey = await importPKCS8(gcpKey.private_key, 'RS256');
+    
+    const jwt = await create(
+      { alg: 'RS256', typ: 'JWT' },
+      {
+        iss: gcpKey.client_email,
+        scope: 'https://www.googleapis.com/auth/cloud-platform',
+        aud: 'https://oauth2.googleapis.com/token',
+        exp: getNumericDate(3600),
+        iat: getNumericDate(0),
+      },
+      privateKey
+    );
+
+    // Exchange JWT for access token
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        assertion: jwt,
+      }).toString(),
+    });
+
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      throw new Error(`Failed to get access token: ${errorText}`);
+    }
+
+    const { access_token } = await tokenResponse.json();
 
     let audioBase64: string;
     let audioDuration: number;
     
     try {
       const ttsResponse = await fetch(
-        `https://texttospeech.googleapis.com/v1/text:synthesize?key=${Deno.env.get('GCLOUD_API_KEY') || 'demo'}`,
+        `https://texttospeech.googleapis.com/v1/text:synthesize`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${access_token}`
+          },
           body: JSON.stringify({
             input: { text: script },
             voice: {
@@ -210,18 +239,19 @@ Return only the script text, one sentence per line.`;
         }
       );
 
-      if (ttsResponse.ok) {
-        const ttsData = await ttsResponse.json();
-        audioBase64 = ttsData.audioContent;
-        audioDuration = Math.ceil(script.split(/\s+/).length / 2.5);
-        console.log('✅ TTS audio generated');
-      } else {
-        throw new Error('TTS API failed');
+      if (!ttsResponse.ok) {
+        const errorText = await ttsResponse.text();
+        console.error('TTS API error:', errorText);
+        throw new Error(`TTS API failed: ${errorText}`);
       }
-    } catch (ttsError) {
-      console.warn('TTS generation failed, using estimate:', ttsError);
-      audioBase64 = ''; // Fallback
+
+      const ttsData = await ttsResponse.json();
+      audioBase64 = ttsData.audioContent;
       audioDuration = Math.ceil(script.split(/\s+/).length / 2.5);
+      console.log('✅ TTS audio generated successfully');
+    } catch (ttsError) {
+      console.error('TTS generation failed:', ttsError);
+      throw new Error(`Failed to generate TTS audio: ${ttsError.message}`);
     }
 
     // Step 3: Render video with Shotstack
