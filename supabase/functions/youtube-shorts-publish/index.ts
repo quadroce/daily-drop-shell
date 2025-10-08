@@ -171,13 +171,13 @@ Return only the script text, one sentence per line.`;
     console.log('Script generated successfully (length:', script.length, ')');
     console.log('Script preview:', script.substring(0, 200));
 
-    // Generate metadata
-    const ctaUrl = `https://dailydrops.io/drops/${drop.id}?utm_source=youtube&utm_medium=shorts&utm_campaign=${style}`;
+    // Generate metadata with correct drop link
+    const dropUrl = `https://dailydrops.io/drops/${drop.id}`;
     
     const metadata = {
-      title: title || `${drop.title.substring(0, 80)} #Shorts`,
-      description: description || `${drop.summary?.substring(0, 200) || drop.title}\n\nLearn more at dailydrops.io\n${ctaUrl}\n\n#tech #innovation`,
-      tags: ['tech', 'innovation'],
+      title: title || `DailyDrops: ${drop.title.substring(0, 70)}`,
+      description: description || `${drop.summary?.substring(0, 200) || drop.title}\n\n🔗 ${dropUrl}\n\n#tech #innovation #dailydrops`,
+      tags: ['tech', 'innovation', 'dailydrops'],
       categoryId: '28',
     };
 
@@ -285,9 +285,11 @@ Return only the script text, one sentence per line.`;
         throw new Error(`Failed to upload audio: ${uploadError.message}`);
       }
       
-      const { data: { publicUrl: audioUrl } } = supabase.storage
+      const { data: { publicUrl } } = supabase.storage
         .from('shorts-assets')
         .getPublicUrl(audioFilename);
+      
+      audioUrl = publicUrl;
       
       console.log('✅ Audio uploaded to:', audioUrl);
     } catch (ttsError) {
@@ -310,7 +312,10 @@ Return only the script text, one sentence per line.`;
     
     console.log('Script for Shotstack (length:', script.length, '):', script.substring(0, 100));
 
-    // Create Shotstack render request (updated - removed invalid scaleTo)
+    // Create Shotstack render request with logo intro + drop image
+    const logoUrl = 'https://dailydrops.io/email/dailydrops-logo.png';
+    const dropImageUrl = drop.image_url || 'https://dailydrops.io/topic-default.png';
+    
     const shotstackPayload = {
       timeline: {
         soundtrack: audioUrl ? {
@@ -319,24 +324,40 @@ Return only the script text, one sentence per line.`;
         } : undefined,
         background: '#1a1a2e',
         tracks: [
+          // Logo track (0-5s)
           {
             clips: [
               {
-            asset: {
-              type: 'title',
-              text: script,
-              style: 'future',
-              color: '#ffffff',
-              size: 'medium',
-              position: 'center'
-            },
+                asset: {
+                  type: 'image',
+                  src: logoUrl
+                },
                 start: 0,
-                length: audioDuration,
-                fit: 'none',
-                scale: 1,
+                length: 5,
+                fit: 'contain',
+                scale: 0.5,
+                position: 'center',
                 transition: {
                   in: 'fade',
                   out: 'fade'
+                }
+              }
+            ]
+          },
+          // Drop image track (5s to end)
+          {
+            clips: [
+              {
+                asset: {
+                  type: 'image',
+                  src: dropImageUrl
+                },
+                start: 5,
+                length: audioDuration - 5,
+                fit: 'cover',
+                position: 'center',
+                transition: {
+                  in: 'fade'
                 }
               }
             ]
