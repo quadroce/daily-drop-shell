@@ -156,10 +156,10 @@ export function ShortsPublishPanel() {
 
             {result.success && (
               <>
-                <div className="bg-yellow-50 dark:bg-yellow-950 p-3 rounded-lg flex items-start gap-2">
-                  <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
-                  <div className="text-sm text-yellow-900 dark:text-yellow-100">
-                    <strong>Demo Mode:</strong> {result.note}
+                <div className="bg-green-50 dark:bg-green-950 p-3 rounded-lg flex items-start gap-2">
+                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-green-900 dark:text-green-100">
+                    {result.note || 'Script generato con successo!'}
                   </div>
                 </div>
 
@@ -167,29 +167,27 @@ export function ShortsPublishPanel() {
                   {platform === 'youtube' && (
                     <>
                       <div>
-                        <div className="text-sm font-medium mb-1">Video ID</div>
-                        <div className="text-sm text-muted-foreground font-mono">
-                          {result.videoId}
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="text-sm font-medium mb-1">Script Generato</div>
-                        <div className="bg-background p-3 rounded text-sm max-h-32 overflow-y-auto border">
+                        <div className="text-sm font-medium mb-1">Script Generato (GPT-5)</div>
+                        <div className="bg-background p-3 rounded text-sm max-h-40 overflow-y-auto border">
                           {result.script.text}
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">
-                          {result.script.words} parole
+                          {result.script.words} parole • Durata stimata: {result.script.estimatedDuration}
                         </div>
                       </div>
 
-                      <div>
-                        <div className="text-sm font-medium mb-1">Metadata</div>
-                        <div className="text-xs text-muted-foreground space-y-1">
-                          <div className="font-medium">{result.metadata.title}</div>
-                          <div className="mt-1">{result.metadata.description}</div>
+                      {result.metadata && (
+                        <div>
+                          <div className="text-sm font-medium mb-1">Metadata YouTube</div>
+                          <div className="text-xs text-muted-foreground space-y-1">
+                            <div><strong>Titolo:</strong> {result.metadata.title}</div>
+                            <div><strong>Descrizione:</strong></div>
+                            <div className="bg-background p-2 rounded text-xs max-h-24 overflow-y-auto border mt-1">
+                              {result.metadata.description}
+                            </div>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </>
                   )}
 
@@ -253,11 +251,11 @@ export function ShortsPublishPanel() {
         <div className="text-xs text-muted-foreground space-y-1 border-t pt-4">
           <div className="font-medium">ℹ️ Informazioni</div>
           <ul className="space-y-1 ml-4">
-            <li>• Usa OpenAI GPT-5 per generare script professionali</li>
-            <li>• Demo mode: genera script e metadata ma non carica video reali</li>
-            <li>• In produzione: Google Cloud TTS + FFmpeg per video completi</li>
-            <li>• Tracking UTM automatico per analytics</li>
-            <li>• Tutti gli eventi sono loggati in short_job_events</li>
+            <li>✅ Usa OpenAI GPT-5 per generare script professionali in 45-60s</li>
+            <li>⚠️ Attualmente genera solo script - TTS e video rendering non ancora implementati</li>
+            <li>🎯 Prossimi step: Google Cloud TTS + FFmpeg per video completi</li>
+            <li>📊 Tracking UTM automatico per analytics</li>
+            <li>📝 Eventi loggati in short_job_events per monitoring</li>
           </ul>
         </div>
       </div>
