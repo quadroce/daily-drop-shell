@@ -383,6 +383,7 @@ Return only the script text, one sentence per line.`;
     
     console.log('Clip durations - Logo:', logoDuration, 'Image:', imageDuration);
 
+    console.log('Shotstack payload:', JSON.stringify(shotstackPayload, null, 2));
     console.log('Sending render request to Shotstack...');
     const renderResponse = await fetch('https://api.shotstack.io/v1/render', {
       method: 'POST',
@@ -426,7 +427,10 @@ Return only the script text, one sentence per line.`;
           console.log('✅ Video rendered:', videoUrl);
           break;
         } else if (status === 'failed') {
-          throw new Error('Shotstack render failed');
+          // Log detailed error from Shotstack
+          console.error('Shotstack render failed. Full response:', JSON.stringify(statusData, null, 2));
+          const errorMessage = statusData.response?.error || 'Unknown Shotstack error';
+          throw new Error(`Shotstack render failed: ${errorMessage}`);
         }
       }
       
