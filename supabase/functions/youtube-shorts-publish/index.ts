@@ -150,9 +150,26 @@ Return only the script text, one sentence per line.`;
     }
 
     const scriptData = await scriptResponse.json();
+    console.log('OpenAI response:', JSON.stringify(scriptData, null, 2));
+    
+    if (!scriptData.choices || scriptData.choices.length === 0) {
+      throw new Error('OpenAI returned no choices');
+    }
+    
+    if (!scriptData.choices[0].message || !scriptData.choices[0].message.content) {
+      console.error('Invalid OpenAI response structure:', scriptData);
+      throw new Error('OpenAI returned invalid response structure');
+    }
+    
     const script = scriptData.choices[0].message.content.trim();
 
-    console.log('Script generated:', script.substring(0, 100) + '...');
+    if (!script || script.length === 0) {
+      console.error('Script is empty after OpenAI generation');
+      throw new Error('OpenAI returned empty script');
+    }
+
+    console.log('Script generated successfully (length:', script.length, ')');
+    console.log('Script preview:', script.substring(0, 200));
 
     // Generate metadata
     const ctaUrl = `https://dailydrops.io/drops/${drop.id}?utm_source=youtube&utm_medium=shorts&utm_campaign=${style}`;
