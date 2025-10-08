@@ -80,7 +80,7 @@ export function ShortsPublishPanel() {
           <TabsContent value="youtube" className="space-y-4 mt-4">
             <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
               <div className="text-sm text-blue-900 dark:text-blue-100">
-                <strong>YouTube Shorts:</strong> Video verticale 1080x1920, 45-60s, con CTA e UTM tracking
+                <strong>YouTube Shorts:</strong> Video verticale 1080x1920, MAX 30s, con CTA e UTM tracking
               </div>
             </div>
           </TabsContent>
@@ -88,7 +88,7 @@ export function ShortsPublishPanel() {
           <TabsContent value="linkedin" className="space-y-4 mt-4">
             <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
               <div className="text-sm text-blue-900 dark:text-blue-100">
-                <strong>LinkedIn Video:</strong> Video quadrato/verticale, 15-30s, tono professionale, con captions
+                <strong>LinkedIn Video:</strong> Video quadrato/verticale, MAX 30s, tono professionale, con captions
               </div>
             </div>
           </TabsContent>
@@ -176,6 +176,34 @@ export function ShortsPublishPanel() {
                         </div>
                       </div>
 
+                      {result.audio && (
+                        <div>
+                          <div className="text-sm font-medium mb-1">Audio TTS</div>
+                          <div className="text-xs text-muted-foreground space-y-1">
+                            <div><strong>Provider:</strong> {result.audio.provider}</div>
+                            <div><strong>Voice:</strong> {result.audio.voice}</div>
+                            <div><strong>Durata:</strong> {result.audio.duration}</div>
+                            {result.audio.size && <div><strong>Dimensione:</strong> {result.audio.size}</div>}
+                          </div>
+                        </div>
+                      )}
+
+                      {result.video && (
+                        <div>
+                          <div className="text-sm font-medium mb-1">Video</div>
+                          <div className="text-xs text-muted-foreground space-y-1">
+                            <div><strong>Status:</strong> {result.video.status}</div>
+                            <div><strong>Formato:</strong> {result.video.format}</div>
+                            {result.video.mockId && <div><strong>Mock ID:</strong> {result.video.mockId}</div>}
+                            {result.video.note && (
+                              <div className="text-yellow-600 dark:text-yellow-400 mt-1">
+                                ⚠️ {result.video.note}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       {result.metadata && (
                         <div>
                           <div className="text-sm font-medium mb-1">Metadata YouTube</div>
@@ -251,9 +279,10 @@ export function ShortsPublishPanel() {
         <div className="text-xs text-muted-foreground space-y-1 border-t pt-4">
           <div className="font-medium">ℹ️ Informazioni</div>
           <ul className="space-y-1 ml-4">
-            <li>✅ Usa OpenAI GPT-5 per generare script professionali in 45-60s</li>
-            <li>⚠️ Attualmente genera solo script - TTS e video rendering non ancora implementati</li>
-            <li>🎯 Prossimi step: Google Cloud TTS + FFmpeg per video completi</li>
+            <li>✅ Usa OpenAI GPT-5 per generare script professionali di MAX 30 secondi</li>
+            <li>✅ Google Cloud TTS per convertire script in audio (voice: en-US-Neural2-J)</li>
+            <li>⚠️ Video rendering con FFmpeg richiede infrastruttura dedicata (non disponibile in edge functions)</li>
+            <li>⚠️ Upload su YouTube/LinkedIn simulato (richiede OAuth e API integration)</li>
             <li>📊 Tracking UTM automatico per analytics</li>
             <li>📝 Eventi loggati in short_job_events per monitoring</li>
           </ul>

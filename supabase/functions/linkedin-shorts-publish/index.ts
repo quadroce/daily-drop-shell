@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
       throw new Error('OPENAI_API_KEY not configured');
     }
 
-    const postPrompt = text || `Create an engaging LinkedIn post for a video about: "${drop.title}"
+    const postPrompt = text || `Create an engaging LinkedIn post for a 20-30 second video about: "${drop.title}"
 
 Summary: ${drop.summary || 'No summary available'}
 Topics: ${topicNames}
@@ -95,10 +95,10 @@ Source: ${drop.sources?.name || 'Unknown'}
 
 Requirements:
 - Professional yet conversational tone
-- 150-300 characters
+- 100-200 characters max
 - Include 2-3 relevant hashtags
 - Call-to-action to visit dailydrops.io
-- Emphasize insights and value
+- Emphasize ONE key insight
 
 Write only the post text, no quotes or extra formatting.`;
 
