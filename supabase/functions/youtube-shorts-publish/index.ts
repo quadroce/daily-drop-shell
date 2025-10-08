@@ -345,7 +345,6 @@ Return only the script text, one sentence per line.`;
       },
       output: {
         format: 'mp4',
-        resolution: 'hd',
         aspectRatio: '9:16',
         size: {
           width: 1080,
