@@ -195,7 +195,7 @@ Return only the script text, one sentence per line.`;
     );
 
     // Exchange JWT for access token
-    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+    const ttsTokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
@@ -204,12 +204,12 @@ Return only the script text, one sentence per line.`;
       }).toString(),
     });
 
-    if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text();
+    if (!ttsTokenResponse.ok) {
+      const errorText = await ttsTokenResponse.text();
       throw new Error(`Failed to get access token: ${errorText}`);
     }
 
-    const { access_token } = await tokenResponse.json();
+    const { access_token } = await ttsTokenResponse.json();
 
     let audioBase64: string;
     let audioDuration: number;
