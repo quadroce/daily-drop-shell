@@ -353,10 +353,11 @@ Return only the script text, one sentence per line.`;
     
     // Create clips array - start with drop image
     const clips = [];
+    let logoDuration = 0;
     
     // If we have a logo, show it first for 3 seconds
     if (logoUrl) {
-      const logoDuration = Math.min(3, audioDuration / 2);
+      logoDuration = Math.min(3, audioDuration / 2);
       clips.push({
         asset: {
           type: 'image',
