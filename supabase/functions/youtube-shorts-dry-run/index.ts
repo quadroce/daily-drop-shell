@@ -87,10 +87,10 @@ Deno.serve(async (req) => {
 
     console.log('Generating script for drop:', drop.title);
 
-    // Generate script using Lovable AI
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
-    if (!lovableApiKey) {
-      return new Response(JSON.stringify({ error: 'LOVABLE_API_KEY not configured' }), {
+    // Generate script using OpenAI GPT-5
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openaiApiKey) {
+      return new Response(JSON.stringify({ error: 'OPENAI_API_KEY not configured' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
@@ -139,14 +139,14 @@ Requirements:
 Return only the script text, one sentence per line.`;
 
     const scriptStartTime = Date.now();
-    const scriptResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const scriptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
+        'Authorization': `Bearer ${openaiApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gpt-5-2025-08-07',
         messages: [
           {
             role: 'system',
@@ -157,13 +157,13 @@ Return only the script text, one sentence per line.`;
             content: scriptPrompt
           }
         ],
-        temperature: 0.8,
+        max_completion_tokens: 1000,
       }),
     });
 
     if (!scriptResponse.ok) {
       const errorData = await scriptResponse.text();
-      console.error('Lovable AI error:', errorData);
+      console.error('OpenAI API error:', errorData);
       return new Response(JSON.stringify({ 
         error: 'script_generation_failed',
         message: errorData
