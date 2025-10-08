@@ -322,15 +322,14 @@ Return only the script text, one sentence per line.`;
           {
             clips: [
               {
-                asset: {
-                  type: 'title',
-                  text: script,
-                  style: 'future',
-                  color: '#ffffff',
-                  size: 'medium',
-                  background: 'transparent',
-                  position: 'center'
-                },
+            asset: {
+              type: 'title',
+              text: script,
+              style: 'future',
+              color: '#ffffff',
+              size: 'medium',
+              position: 'center'
+            },
                 start: 0,
                 length: audioDuration,
                 fit: 'none',
