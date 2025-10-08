@@ -60,26 +60,105 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Step 1: Generate script (same as dry-run)
-    console.log('Step 1/4: Generating script...');
-    const { data: scriptData, error: scriptError } = await supabase.functions.invoke(
-      'youtube-shorts-dry-run',
-      { body: { dropId, style } }
-    );
+    // Fetch drop data
+    const { data: drop, error: dropError } = await supabase
+      .from('drops')
+      .select('*, sources(name)')
+      .eq('id', dropId)
+      .single();
 
-    if (scriptError || !scriptData?.success) {
-      throw new Error(scriptData?.error || scriptError?.message || 'Script generation failed');
+    if (dropError || !drop) {
+      throw new Error('Drop not found');
     }
 
-    const script = scriptData.script.text;
-    const metadata = {
-      title: title || scriptData.metadata.title,
-      description: description || scriptData.metadata.description,
-      tags: scriptData.metadata.tags,
-      categoryId: '28', // Science & Technology
-    };
+    // Get topics
+    const { data: topics } = await supabase
+      .from('content_topics')
+      .select('topics(slug, name)')
+      .eq('content_id', dropId);
+
+    const topicNames = topics?.map((t: any) => t.topics.name).join(', ') || 'tech';
+
+    // Step 1: Generate script using OpenAI GPT-5
+    console.log('Step 1/4: Generating script...');
+    
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openaiApiKey) {
+      throw new Error('OPENAI_API_KEY not configured');
+    }
+
+    const scriptPrompt = style === 'recap' 
+      ? `Create a 45-60 second YouTube Shorts script about: "${drop.title}"
+
+Summary: ${drop.summary || 'No summary available'}
+Topics: ${topicNames}
+
+Format: Hook (5s) → Body (40s, 3-4 points) → CTA (10s)
+Requirements:
+- First person, conversational
+- 8-12 words per sentence
+- Simple language
+- Natural pauses
+- End with: "Check the link in comments for the full story on DailyDrops"
+
+Return only the script text, one sentence per line.`
+      : `Create a 45-60 second YouTube Shorts highlighting: "${drop.title}"
+
+Summary: ${drop.summary || 'No summary available'}
+Topics: ${topicNames}
+
+Format: Bold opening (5s) → Details (40s, 3 points) → Impact + CTA (10s)
+Requirements:
+- Energetic tone
+- 6-10 words per sentence
+- Build excitement
+- Natural rhythm
+- End with: "Link in comments - dive deeper on DailyDrops"
+
+Return only the script text, one sentence per line.`;
+
+    const scriptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-5-2025-08-07',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a YouTube Shorts script writer. Create engaging, concise scripts optimized for vertical video.'
+          },
+          {
+            role: 'user',
+            content: scriptPrompt
+          }
+        ],
+        max_completion_tokens: 1000,
+      }),
+    });
+
+    if (!scriptResponse.ok) {
+      const errorData = await scriptResponse.text();
+      console.error('OpenAI API error:', errorData);
+      throw new Error(`Script generation failed: ${errorData}`);
+    }
+
+    const scriptData = await scriptResponse.json();
+    const script = scriptData.choices[0].message.content.trim();
 
     console.log('Script generated:', script.substring(0, 100) + '...');
+
+    // Generate metadata
+    const ctaUrl = `https://dailydrops.io/drops/${drop.id}?utm_source=youtube&utm_medium=shorts&utm_campaign=${style}`;
+    
+    const metadata = {
+      title: title || `${drop.title.substring(0, 80)} #Shorts`,
+      description: description || `${drop.summary?.substring(0, 200) || drop.title}\n\nLearn more at dailydrops.io\n${ctaUrl}\n\n#tech #innovation`,
+      tags: ['tech', 'innovation'],
+      categoryId: '28',
+    };
 
     // Step 2: Generate TTS audio using Google Cloud TTS
     console.log('Step 2/4: Generating audio with TTS...');

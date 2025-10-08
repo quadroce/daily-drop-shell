@@ -134,3 +134,33 @@ verify_jwt = false
 
 [functions.youtube-refresh-token]
 verify_jwt = false
+
+[functions.youtube-oauth-start]
+verify_jwt = true
+
+[functions.youtube-oauth-callback]
+verify_jwt = false
+
+[functions.youtube-token-check]
+verify_jwt = true
+
+[functions.youtube-channel-info]
+verify_jwt = true
+
+[functions.youtube-quota-check]
+verify_jwt = true
+
+[functions.youtube-comment-suggest]
+verify_jwt = true
+
+[functions.youtube-comment-post]
+verify_jwt = true
+
+[functions.youtube-shorts-dry-run]
+verify_jwt = true
+
+[functions.youtube-shorts-publish]
+verify_jwt = true
+
+[functions.linkedin-shorts-publish]
+verify_jwt = true

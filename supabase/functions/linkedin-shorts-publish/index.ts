@@ -147,14 +147,8 @@ Write only the post text, no quotes or extra formatting.`;
     
     console.log(videoNote);
 
-    // Step 3: Upload to LinkedIn
-    console.log('Step 3/3: Uploading to LinkedIn...');
-    
-    // Get LinkedIn access token
-    const linkedinToken = Deno.env.get('LINKEDIN_ACCESS_TOKEN');
-    if (!linkedinToken) {
-      throw new Error('LINKEDIN_ACCESS_TOKEN not configured');
-    }
+    // Step 3: Upload to LinkedIn (Demo mode - skip token requirement)
+    console.log('Step 3/3: Uploading to LinkedIn (Demo mode)...');
 
     // LinkedIn video upload process:
     // 1. Initialize upload
