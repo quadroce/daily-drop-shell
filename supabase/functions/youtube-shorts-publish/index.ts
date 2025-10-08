@@ -230,6 +230,7 @@ Return only the script text, one sentence per line.`;
 
     let audioBase64: string;
     let audioDuration: number;
+    let audioUrl: string;
     
     try {
       const ttsResponse = await fetch(
@@ -266,6 +267,29 @@ Return only the script text, one sentence per line.`;
       audioBase64 = ttsData.audioContent;
       audioDuration = Math.ceil(script.split(/\s+/).length / 2.5);
       console.log('✅ TTS audio generated successfully');
+      
+      // Upload audio to Supabase Storage to get public URL
+      console.log('Uploading audio to Supabase Storage...');
+      const audioBuffer = Uint8Array.from(atob(audioBase64), c => c.charCodeAt(0));
+      const audioFilename = `shorts-audio-${dropId}-${Date.now()}.mp3`;
+      
+      const { data: audioUpload, error: uploadError } = await supabase.storage
+        .from('shorts-assets')
+        .upload(audioFilename, audioBuffer, {
+          contentType: 'audio/mpeg',
+          upsert: true
+        });
+      
+      if (uploadError) {
+        console.error('Audio upload failed:', uploadError);
+        throw new Error(`Failed to upload audio: ${uploadError.message}`);
+      }
+      
+      const { data: { publicUrl: audioUrl } } = supabase.storage
+        .from('shorts-assets')
+        .getPublicUrl(audioFilename);
+      
+      console.log('✅ Audio uploaded to:', audioUrl);
     } catch (ttsError) {
       console.error('TTS generation failed:', ttsError);
       throw new Error(`Failed to generate TTS audio: ${ttsError.message}`);
@@ -289,8 +313,8 @@ Return only the script text, one sentence per line.`;
     // Create Shotstack render request
     const shotstackPayload = {
       timeline: {
-        soundtrack: audioBase64 ? {
-          src: `data:audio/mp3;base64,${audioBase64}`,
+        soundtrack: audioUrl ? {
+          src: audioUrl,
           effect: 'fadeInFadeOut'
         } : undefined,
         background: '#1a1a2e',
