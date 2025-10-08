@@ -297,8 +297,41 @@ Return only the script text, one sentence per line.`;
       throw new Error(`Failed to generate TTS audio: ${ttsError.message}`);
     }
 
-    // Step 3: Render video with Shotstack
-    console.log('Step 3/5: Rendering video with Shotstack...');
+    // Step 3: Upload logo to Supabase Storage for Shotstack
+    console.log('Step 3/5: Uploading logo to Supabase Storage...');
+    
+    // Fetch logo from public folder and upload to Storage
+    const logoResponse = await fetch('https://dailydrops.io/email/dailydrops-logo.png');
+    if (!logoResponse.ok) {
+      console.warn('Logo fetch failed, using drop image only');
+    }
+    
+    let logoUrl = '';
+    if (logoResponse.ok) {
+      const logoBlob = await logoResponse.arrayBuffer();
+      const logoFilename = `logo-${Date.now()}.png`;
+      
+      const { data: logoUpload, error: logoUploadError } = await supabase.storage
+        .from('shorts-assets')
+        .upload(logoFilename, logoBlob, {
+          contentType: 'image/png',
+          upsert: true
+        });
+      
+      if (logoUploadError) {
+        console.error('Logo upload failed:', logoUploadError);
+      } else {
+        const { data: { publicUrl } } = supabase.storage
+          .from('shorts-assets')
+          .getPublicUrl(logoFilename);
+        
+        logoUrl = publicUrl;
+        console.log('✅ Logo uploaded to:', logoUrl);
+      }
+    }
+
+    // Step 4: Render video with Shotstack
+    console.log('Step 4/5: Rendering video with Shotstack...');
     
     const shotstackApiKey = Deno.env.get('SHOTSTACK_API_KEY');
     if (!shotstackApiKey) {
@@ -312,18 +345,70 @@ Return only the script text, one sentence per line.`;
     
     console.log('Script for Shotstack (length:', script.length, '):', script.substring(0, 100));
 
-    // Create Shotstack render request with logo intro + drop image  
-    const logoUrl = 'https://dailydrops.io/email/dailydrops-logo.png';
     const dropImageUrl = drop.image_url || 'https://dailydrops.io/topic-default.png';
     
-    console.log('Logo URL:', logoUrl);
     console.log('Drop image URL:', dropImageUrl);
     console.log('Audio URL:', audioUrl);
     console.log('Audio duration:', audioDuration);
     
-    // Ensure minimum duration and valid clip lengths
-    const logoDuration = Math.min(3, audioDuration / 2);
-    const imageDuration = Math.max(1, audioDuration - logoDuration);
+    // Create clips array - start with drop image
+    const clips = [];
+    
+    // If we have a logo, show it first for 3 seconds
+    if (logoUrl) {
+      const logoDuration = Math.min(3, audioDuration / 2);
+      clips.push({
+        asset: {
+          type: 'image',
+          src: logoUrl
+        },
+        start: 0,
+        length: logoDuration,
+        fit: 'contain',
+        scale: 0.5,
+        position: 'center',
+        transition: {
+          in: 'fade',
+          out: 'fade'
+        }
+      });
+      
+      // Then show drop image
+      const imageDuration = Math.max(1, audioDuration - logoDuration);
+      clips.push({
+        asset: {
+          type: 'image',
+          src: dropImageUrl
+        },
+        start: logoDuration,
+        length: imageDuration,
+        fit: 'cover',
+        position: 'center',
+        transition: {
+          in: 'fade'
+        }
+      });
+      
+      console.log('Logo URL:', logoUrl);
+      console.log('Clip durations - Logo:', logoDuration, 'Image:', imageDuration);
+    } else {
+      // No logo, just show drop image for entire duration
+      clips.push({
+        asset: {
+          type: 'image',
+          src: dropImageUrl
+        },
+        start: 0,
+        length: audioDuration,
+        fit: 'cover',
+        position: 'center',
+        transition: {
+          in: 'fade'
+        }
+      });
+      
+      console.log('No logo, using drop image only for', audioDuration, 'seconds');
+    }
     
     const shotstackPayload = {
       timeline: {
@@ -333,40 +418,8 @@ Return only the script text, one sentence per line.`;
         },
         background: '#1a1a2e',
         tracks: [
-          // Single track with sequential clips: logo then drop image
           {
-            clips: [
-              // Logo clip (first 3 seconds or less)
-              {
-                asset: {
-                  type: 'image',
-                  src: logoUrl
-                },
-                start: 0,
-                length: logoDuration,
-                fit: 'contain',
-                scale: 0.5,
-                position: 'center',
-                transition: {
-                  in: 'fade',
-                  out: 'fade'
-                }
-              },
-              // Drop image clip (rest of video)
-              {
-                asset: {
-                  type: 'image',
-                  src: dropImageUrl
-                },
-                start: logoDuration,
-                length: imageDuration,
-                fit: 'cover',
-                position: 'center',
-                transition: {
-                  in: 'fade'
-                }
-              }
-            ]
+            clips
           }
         ]
       },
@@ -441,8 +494,8 @@ Return only the script text, one sentence per line.`;
       throw new Error('Video render timeout after 60s');
     }
 
-    // Step 4: Download video for upload
-    console.log('Step 4/5: Downloading rendered video...');
+    // Step 5: Download video for upload
+    console.log('Step 5/6: Downloading rendered video...');
     const videoResponse = await fetch(videoUrl);
     if (!videoResponse.ok) {
       throw new Error('Failed to download video from Shotstack');
@@ -450,8 +503,8 @@ Return only the script text, one sentence per line.`;
     const videoBlob = await videoResponse.arrayBuffer();
     console.log('Video downloaded, size:', Math.ceil(videoBlob.byteLength / 1024), 'KB');
 
-    // Step 5: Upload to YouTube
-    console.log('Step 5/5: Uploading to YouTube...');
+    // Step 6: Upload to YouTube
+    console.log('Step 6/6: Uploading to YouTube...');
     
     const youtubeClientId = Deno.env.get('YOUTUBE_CLIENT_ID');
     const youtubeClientSecret = Deno.env.get('YOUTUBE_CLIENT_SECRET');
