@@ -310,7 +310,7 @@ Return only the script text, one sentence per line.`;
     
     console.log('Script for Shotstack (length:', script.length, '):', script.substring(0, 100));
 
-    // Create Shotstack render request
+    // Create Shotstack render request (updated - removed invalid scaleTo)
     const shotstackPayload = {
       timeline: {
         soundtrack: audioUrl ? {
