@@ -139,7 +139,7 @@ Return only the script text, one sentence per line.`;
             content: scriptPrompt
           }
         ],
-        max_completion_tokens: 1000,
+        max_completion_tokens: 4000, // Increased for reasoning + output
       }),
     });
 
