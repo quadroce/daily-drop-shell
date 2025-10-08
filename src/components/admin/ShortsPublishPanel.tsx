@@ -224,18 +224,20 @@ export function ShortsPublishPanel() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {/* Script */}
-                  <Card className="p-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Sparkles className="h-4 w-4 text-purple-500" />
-                      <div className="text-sm font-medium">Script (GPT-5)</div>
-                    </div>
-                    <div className="bg-background p-2 rounded text-xs max-h-32 overflow-y-auto border">
-                      {result.script.text}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {result.script.words} parole • {result.script.estimatedDuration}
-                    </div>
-                  </Card>
+                  {result.script && (
+                    <Card className="p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Sparkles className="h-4 w-4 text-purple-500" />
+                        <div className="text-sm font-medium">Script (GPT-5)</div>
+                      </div>
+                      <div className="bg-background p-2 rounded text-xs max-h-32 overflow-y-auto border">
+                        {result.script.text}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {result.script.words} parole • {result.script.estimatedDuration}
+                      </div>
+                    </Card>
+                  )}
 
                   {/* Audio */}
                   {result.audio && (
