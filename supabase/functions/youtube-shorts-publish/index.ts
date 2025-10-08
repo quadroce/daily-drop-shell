@@ -351,8 +351,7 @@ Return only the script text, one sentence per line.`;
           width: 1080,
           height: 1920
         },
-        fps: 30,
-        scaleTo: 'crop'
+        fps: 30
       }
     };
     
