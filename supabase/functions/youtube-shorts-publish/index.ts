@@ -262,6 +262,13 @@ Return only the script text, one sentence per line.`;
       throw new Error('SHOTSTACK_API_KEY not configured');
     }
 
+    // Verify script is not empty before rendering
+    if (!script || script.trim().length === 0) {
+      throw new Error('Script is empty, cannot render video');
+    }
+    
+    console.log('Script for Shotstack (length:', script.length, '):', script.substring(0, 100));
+
     // Create Shotstack render request
     const shotstackPayload = {
       timeline: {
@@ -308,6 +315,8 @@ Return only the script text, one sentence per line.`;
         scaleTo: 'crop'
       }
     };
+    
+    console.log('Shotstack payload text field:', shotstackPayload.timeline.tracks[0].clips[0].asset.text?.substring(0, 50));
 
     console.log('Sending render request to Shotstack...');
     const renderResponse = await fetch('https://api.shotstack.io/v1/render', {
