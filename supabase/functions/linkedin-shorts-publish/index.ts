@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
       throw new Error('OPENAI_API_KEY not configured');
     }
 
-    const postPrompt = text || `Create an engaging LinkedIn post for a video about: "${drop.title}"
+    const postPrompt = text || `Create an engaging LinkedIn post for a 20-30 second video about: "${drop.title}"
 
 Summary: ${drop.summary || 'No summary available'}
 Topics: ${topicNames}
@@ -95,10 +95,10 @@ Source: ${drop.sources?.name || 'Unknown'}
 
 Requirements:
 - Professional yet conversational tone
-- 150-300 characters
+- 100-200 characters max
 - Include 2-3 relevant hashtags
 - Call-to-action to visit dailydrops.io
-- Emphasize insights and value
+- Emphasize ONE key insight
 
 Write only the post text, no quotes or extra formatting.`;
 
@@ -135,75 +135,372 @@ Write only the post text, no quotes or extra formatting.`;
     console.log('Post text generated:', postText);
 
     // Step 2: Generate video (same process as YouTube but shorter, more professional)
-    console.log('Step 2/3: Generating video...');
+    // Step 2: Generate TTS audio
+    console.log('Step 2/5: Generating TTS audio...');
     
-    // For LinkedIn, videos should be:
-    // - 3-60 seconds (optimal: 15-30s)
-    // - Square (1:1) or vertical (9:16)
-    // - Professional, polished look
-    // - Captions are crucial
+    // Generate shorter script for LinkedIn (15-25s)
+    const linkedInScript = script.split(/\s+/).slice(0, 50).join(' '); // Max 50 words for LinkedIn
     
-    const videoNote = 'Video rendering not implemented in demo. In production: generate 15-30s professional video in 1080x1080 or 1080x1920 format with captions.';
+    const gcpProject = Deno.env.get('GCLOUD_TTS_PROJECT');
+    const gcpKeyBase64 = Deno.env.get('GCLOUD_TTS_SA_JSON_BASE64');
     
-    console.log(videoNote);
+    if (!gcpProject || !gcpKeyBase64) {
+      throw new Error('Google Cloud TTS not configured');
+    }
 
-    // Step 3: Upload to LinkedIn (Demo mode - skip token requirement)
-    console.log('Step 3/3: Uploading to LinkedIn (Demo mode)...');
-
-    // LinkedIn video upload process:
-    // 1. Initialize upload
-    // 2. Upload video chunks
-    // 3. Finalize upload
-    // 4. Create post with video
-
-    // For demo, simulate the upload
-    const mockVideoUrn = 'urn:li:video:DEMO_' + crypto.randomUUID();
-    const mockPostId = 'DEMO_' + crypto.randomUUID();
+    const gcpKey = JSON.parse(atob(gcpKeyBase64));
     
-    console.log('Mock LinkedIn upload completed');
-    console.log('VideoURN:', mockVideoUrn);
-    console.log('PostId:', mockPostId);
+    // Create JWT for Google Cloud authentication
+    const { create, getNumericDate } = await import('https://deno.land/x/djwt@v3.0.2/mod.ts');
+    const { importPKCS8 } = await import('https://deno.land/x/jose@v5.9.6/key/import.ts');
+    
+    const privateKey = await importPKCS8(gcpKey.private_key, 'RS256');
+    
+    const jwt = await create(
+      { alg: 'RS256', typ: 'JWT' },
+      {
+        iss: gcpKey.client_email,
+        scope: 'https://www.googleapis.com/auth/cloud-platform',
+        aud: 'https://oauth2.googleapis.com/token',
+        exp: getNumericDate(3600),
+        iat: getNumericDate(0),
+      },
+      privateKey
+    );
 
-    // Add UTM parameters to DailyDrops link
+    // Exchange JWT for access token
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        assertion: jwt,
+      }).toString(),
+    });
+
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      throw new Error(`Failed to get access token: ${errorText}`);
+    }
+
+    const { access_token } = await tokenResponse.json();
+    
+    let audioBase64: string;
+    let audioDuration: number;
+    
+    try {
+      const ttsResponse = await fetch(
+        `https://texttospeech.googleapis.com/v1/text:synthesize`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${access_token}`
+          },
+          body: JSON.stringify({
+            input: { text: linkedInScript },
+            voice: {
+              languageCode: 'en-US',
+              name: 'en-US-Neural2-D', // Professional female voice for LinkedIn
+              ssmlGender: 'FEMALE'
+            },
+            audioConfig: {
+              audioEncoding: 'MP3',
+              speakingRate: 1.0,
+              pitch: 0
+            }
+          })
+        }
+      );
+
+      if (!ttsResponse.ok) {
+        const errorText = await ttsResponse.text();
+        console.error('TTS API error:', errorText);
+        throw new Error(`TTS API failed: ${errorText}`);
+      }
+
+      const ttsData = await ttsResponse.json();
+      audioBase64 = ttsData.audioContent;
+      audioDuration = Math.ceil(linkedInScript.split(/\s+/).length / 2.5);
+      console.log('✅ TTS audio generated successfully');
+    } catch (ttsError) {
+      console.error('TTS generation failed:', ttsError);
+      throw new Error(`Failed to generate TTS audio: ${ttsError.message}`);
+    }
+
+    // Step 3: Render video with Shotstack (Square format for LinkedIn)
+    console.log('Step 3/5: Rendering video with Shotstack (square format)...');
+    
+    const shotstackApiKey = Deno.env.get('SHOTSTACK_API_KEY');
+    if (!shotstackApiKey) {
+      throw new Error('SHOTSTACK_API_KEY not configured');
+    }
+
+    const shotstackPayload = {
+      timeline: {
+        soundtrack: audioBase64 ? {
+          src: `data:audio/mp3;base64,${audioBase64}`,
+          effect: 'fadeInFadeOut'
+        } : undefined,
+        background: '#0a66c2', // LinkedIn blue gradient
+        tracks: [
+          {
+            clips: [
+              {
+                asset: {
+                  type: 'title',
+                  text: linkedInScript,
+                  style: 'minimal',
+                  color: '#ffffff',
+                  size: 'medium',
+                  background: 'transparent',
+                  position: 'center'
+                },
+                start: 0,
+                length: audioDuration,
+                fit: 'none',
+                scale: 1,
+                transition: {
+                  in: 'fade',
+                  out: 'fade'
+                }
+              }
+            ]
+          }
+        ]
+      },
+      output: {
+        format: 'mp4',
+        resolution: 'hd',
+        aspectRatio: '1:1', // Square for LinkedIn
+        size: {
+          width: 1080,
+          height: 1080
+        },
+        fps: 30,
+        scaleTo: 'crop'
+      }
+    };
+
+    const renderResponse = await fetch('https://api.shotstack.io/v1/render', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': shotstackApiKey
+      },
+      body: JSON.stringify(shotstackPayload)
+    });
+
+    if (!renderResponse.ok) {
+      const error = await renderResponse.text();
+      throw new Error(`Shotstack render failed: ${error}`);
+    }
+
+    const renderData = await renderResponse.json();
+    const renderId = renderData.response.id;
+    console.log('Render started, ID:', renderId);
+
+    // Poll for render completion
+    let videoUrl: string | null = null;
+    let pollAttempts = 0;
+    const maxAttempts = 20;
+
+    while (pollAttempts < maxAttempts && !videoUrl) {
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      const statusResponse = await fetch(`https://api.shotstack.io/v1/render/${renderId}`, {
+        headers: { 'x-api-key': shotstackApiKey }
+      });
+
+      if (statusResponse.ok) {
+        const statusData = await statusResponse.json();
+        const status = statusData.response.status;
+        
+        console.log(`Render status (${pollAttempts + 1}/${maxAttempts}):`, status);
+        
+        if (status === 'done') {
+          videoUrl = statusData.response.url;
+          console.log('✅ Video rendered:', videoUrl);
+          break;
+        } else if (status === 'failed') {
+          throw new Error('Shotstack render failed');
+        }
+      }
+      
+      pollAttempts++;
+    }
+
+    if (!videoUrl) {
+      throw new Error('Video render timeout after 60s');
+    }
+
+    // Step 4: Download video
+    console.log('Step 4/5: Downloading rendered video...');
+    const videoResponse = await fetch(videoUrl);
+    if (!videoResponse.ok) {
+      throw new Error('Failed to download video from Shotstack');
+    }
+    const videoBlob = await videoResponse.arrayBuffer();
+    console.log('Video downloaded, size:', Math.ceil(videoBlob.byteLength / 1024), 'KB');
+
+    // Step 5: Upload to LinkedIn
+    console.log('Step 5/5: Uploading to LinkedIn...');
+    
+    const linkedinAccessToken = Deno.env.get('LINKEDIN_ACCESS_TOKEN');
+    const linkedinPageUrn = Deno.env.get('LINKEDIN_PAGE_URN');
+
+    if (!linkedinAccessToken || !linkedinPageUrn) {
+      throw new Error('LinkedIn credentials not configured');
+    }
+
+    // A. Initialize Upload
+    const initResponse = await fetch('https://api.linkedin.com/v2/assets?action=registerUpload', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${linkedinAccessToken}`,
+        'Content-Type': 'application/json',
+        'X-Restli-Protocol-Version': '2.0.0'
+      },
+      body: JSON.stringify({
+        registerUploadRequest: {
+          recipes: ['urn:li:digitalmediaRecipe:feedshare-video'],
+          owner: linkedinPageUrn,
+          serviceRelationships: [
+            {
+              relationshipType: 'OWNER',
+              identifier: 'urn:li:userGeneratedContent'
+            }
+          ]
+        }
+      })
+    });
+
+    if (!initResponse.ok) {
+      const error = await initResponse.text();
+      throw new Error(`LinkedIn init upload failed: ${error}`);
+    }
+
+    const initData = await initResponse.json();
+    const uploadUrl = initData.value.uploadMechanism['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'].uploadUrl;
+    const assetUrn = initData.value.asset;
+    console.log('Upload initialized, asset:', assetUrn);
+
+    // B. Upload Video
+    const uploadVideoResponse = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${linkedinAccessToken}`,
+        'Content-Type': 'application/octet-stream'
+      },
+      body: videoBlob
+    });
+
+    if (!uploadVideoResponse.ok) {
+      const error = await uploadVideoResponse.text();
+      throw new Error(`LinkedIn video upload failed: ${error}`);
+    }
+
+    console.log('✅ Video uploaded to LinkedIn');
+
+    // C. Create Post
     const utmUrl = `https://dailydrops.io/drops/${drop.id}?utm_source=linkedin&utm_medium=video&utm_campaign=${style}`;
-    
     const finalPostText = `${postText}\n\n🔗 ${utmUrl}`;
 
+    const postResponse = await fetch('https://api.linkedin.com/v2/ugcPosts', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${linkedinAccessToken}`,
+        'Content-Type': 'application/json',
+        'X-Restli-Protocol-Version': '2.0.0'
+      },
+      body: JSON.stringify({
+        author: linkedinPageUrn,
+        lifecycleState: 'PUBLISHED',
+        specificContent: {
+          'com.linkedin.ugc.ShareContent': {
+            shareCommentary: {
+              text: finalPostText
+            },
+            shareMediaCategory: 'VIDEO',
+            media: [
+              {
+                status: 'READY',
+                description: {
+                  text: drop.summary?.substring(0, 200) || drop.title
+                },
+                media: assetUrn,
+                title: {
+                  text: drop.title
+                }
+              }
+            ]
+          }
+        },
+        visibility: {
+          'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC'
+        }
+      })
+    });
+
+    if (!postResponse.ok) {
+      const error = await postResponse.text();
+      throw new Error(`LinkedIn post creation failed: ${error}`);
+    }
+
+    const postData = await postResponse.json();
+    const postUrn = postData.id;
+    const postUrl = `https://www.linkedin.com/feed/update/${postUrn}`;
+    
+    console.log('✅ LinkedIn post created:', postUrl);
+
     // Log success event
-    await supabase.from('short_job_events').insert({
-      stage: 'publish',
-      ok: true,
-      meta: {
-        action: 'publish_shorts',
-        platform: 'linkedin',
-        drop_id: dropId,
-        video_urn: mockVideoUrn,
-        post_id: mockPostId,
+    await supabase.from('admin_audit_log').insert({
+      user_id: user.id,
+      action: 'linkedin_video_publish',
+      resource_type: 'drop',
+      resource_id: dropId.toString(),
+      details: {
+        post_urn: postUrn,
+        asset_urn: assetUrn,
         style,
-        note: 'Demo mode - no actual video uploaded'
+        script_length: linkedInScript.split(/\s+/).length,
+        render_id: renderId,
+        upload_status: 'success'
       }
     });
 
     const result = {
       success: true,
-      mode: 'demo',
+      mode: 'production',
       platform: 'linkedin',
-      videoUrn: mockVideoUrn,
-      postId: mockPostId,
-      postUrl: `https://www.linkedin.com/feed/update/${mockPostId}`,
+      postUrn,
+      assetUrn,
+      postUrl,
       postText: finalPostText,
+      script: {
+        text: linkedInScript,
+        words: linkedInScript.split(/\s+/).length,
+        estimatedDuration: `${audioDuration}s`
+      },
+      audio: {
+        provider: 'Google Cloud TTS',
+        voice: 'en-US-Neural2-D',
+        duration: `${audioDuration}s`,
+        size: audioBase64 ? `${Math.ceil(audioBase64.length * 0.75 / 1024)}KB` : 'N/A'
+      },
+      video: {
+        status: 'published',
+        renderId,
+        format: '1080x1080 (1:1), 30fps, h264',
+        size: `${Math.ceil(videoBlob.byteLength / 1024)}KB`,
+        shotstackUrl: videoUrl
+      },
       drop: {
         id: drop.id,
         title: drop.title,
         topics: topicNames
       },
-      note: 'Demo mode: Post text generated, video rendering and upload not implemented. In production, this would upload a real video to LinkedIn.',
-      nextSteps: [
-        'Implement LinkedIn OAuth flow',
-        'Integrate LinkedIn Video API',
-        'Generate professional square/vertical videos',
-        'Add automated captions for accessibility'
-      ]
+      note: '✅ Video pubblicato con successo su LinkedIn!'
     };
 
     return new Response(JSON.stringify(result), {
@@ -217,20 +514,34 @@ Write only the post text, no quotes or extra formatting.`;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
     
-    await supabase.from('short_job_events').insert({
-      stage: 'publish',
-      ok: false,
-      meta: {
-        action: 'publish_shorts',
-        platform: 'linkedin',
-        error: error instanceof Error ? error.message : 'Unknown error'
+    // Try to log error
+    try {
+      const authHeader = req.headers.get('Authorization');
+      if (authHeader) {
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user } } = await supabase.auth.getUser(token);
+        
+        if (user) {
+          await supabase.from('admin_audit_log').insert({
+            user_id: user.id,
+            action: 'linkedin_video_publish_error',
+            resource_type: 'drop',
+            details: {
+              error: error instanceof Error ? error.message : 'Unknown error',
+              stack: error instanceof Error ? error.stack : undefined
+            }
+          });
+        }
       }
-    });
+    } catch (logError) {
+      console.error('Failed to log error:', logError);
+    }
 
     return new Response(JSON.stringify({ 
       success: false,
       error: 'publish_failed',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : 'Unknown error',
+      details: error instanceof Error ? error.stack : undefined
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

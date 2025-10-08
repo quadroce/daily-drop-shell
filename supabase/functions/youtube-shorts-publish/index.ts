@@ -92,32 +92,34 @@ Deno.serve(async (req) => {
     }
 
     const scriptPrompt = style === "recap"
-      ? `Create a 30 second YouTube Shorts script about: "${drop.title}"
+      ? `Create a 45-60 second YouTube Shorts script about: "${drop.title}"
 
 Summary: ${drop.summary || "No summary available"}
 Topics: ${topicNames}
 
-Format: Hook (5s) → Body (15s, 3-4 points) → CTA (10s)
+Format: Hook (5s) → Body (40s, 3-4 points) → CTA (10s)
 Requirements:
 - First person, conversational
-- 8-12 words per sentence
+- 6-8 words per sentence
+- ONE main point only
 - Simple language
-- Natural pauses
-- End with: "Check the link in comments for the full story on DailyDrops"
+- End with: "Link in comments for more on DailyDrops"
 
 Return only the script text, one sentence per line.`
-      : `Create a 30 second YouTube Shorts highlighting: "${drop.title}"
+      : `Create a 45-60 second YouTube Shorts highlighting: "${drop.title}"
 
 Summary: ${drop.summary || "No summary available"}
 Topics: ${topicNames}
 
-Format: Bold opening (5s) → Details (40s, 3 points) → Impact + CTA (10s)
+CRITICAL: Maximum 50-60 words total (about 2.5 words per second)
+
+Format: Bold opening (3s) → Main insight (15s) → Impact + CTA (5s)
 Requirements:
 - Energetic tone
-- 6-10 words per sentence
+- 5-7 words per sentence
+- ONE key takeaway
 - Build excitement
-- Natural rhythm
-- End with: "Link in comments - dive deeper on DailyDrops"
+- End with: "Check comments for the full story"
 
 Return only the script text, one sentence per line.`;
 
@@ -154,20 +156,33 @@ Return only the script text, one sentence per line.`;
     }
 
     const scriptData = await scriptResponse.json();
+    console.log("OpenAI response:", JSON.stringify(scriptData, null, 2));
+
+    if (!scriptData.choices || scriptData.choices.length === 0) {
+      throw new Error("OpenAI returned no choices");
+    }
+
+    if (
+      !scriptData.choices[0].message || !scriptData.choices[0].message.content
+    ) {
+      console.error("Invalid OpenAI response structure:", scriptData);
+      throw new Error("OpenAI returned invalid response structure");
+    }
+
     const script = scriptData.choices[0].message.content.trim();
 
     console.log("Script generated:", script.substring(0, 100) + "...");
 
     // Generate metadata
     const ctaUrl =
-      `https://dailydrops.cloud?utm_source=youtube&utm_medium=shorts&utm_campaign=${style}`;
+      `https://dailydrops.io/drops/${drop.id}?utm_source=youtube&utm_medium=shorts&utm_campaign=${style}`;
 
     const metadata = {
       title: title || `${drop.title.substring(0, 80)} #Shorts`,
       description: description ||
         `${
           drop.summary?.substring(0, 200) || drop.title
-        }\n\nLearn more at \n${ctaUrl}\n\n#tech #innovation`,
+        }\n\nLearn more at dailydrops.io\n${ctaUrl}\n\n#tech #innovation`,
       tags: ["tech", "innovation"],
       categoryId: "28",
     };
@@ -204,7 +219,22 @@ Return only the script text, one sentence per line.`;
       script: {
         text: script,
         words: script.split(/\s+/).length,
-        estimatedDuration: `${Math.ceil(script.split(/\s+/).length / 2.5)}s`,
+        estimatedDuration: `${audioDuration}s`,
+      },
+      audio: {
+        provider: "Google Cloud TTS",
+        voice: "en-US-Neural2-J",
+        duration: `${audioDuration}s`,
+        size: audioBase64
+          ? `${Math.ceil(audioBase64.length * 0.75 / 1024)}KB`
+          : "N/A",
+      },
+      video: {
+        status: "published",
+        renderId,
+        format: "1080x1920 (9:16), 30fps, h264",
+        size: `${Math.ceil(videoBlob.byteLength / 1024)}KB`,
+        shotstackUrl: videoUrl,
       },
       metadata,
       note:
