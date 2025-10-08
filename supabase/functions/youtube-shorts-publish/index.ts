@@ -316,6 +316,14 @@ Return only the script text, one sentence per line.`;
     const logoUrl = 'https://dailydrops.io/email/dailydrops-logo.png';
     const dropImageUrl = drop.image_url || 'https://dailydrops.io/topic-default.png';
     
+    console.log('Logo URL:', logoUrl);
+    console.log('Drop image URL:', dropImageUrl);
+    console.log('Audio duration:', audioDuration);
+    
+    // Ensure minimum duration and valid clip lengths
+    const logoDuration = Math.min(5, audioDuration);
+    const imageDuration = Math.max(1, audioDuration - logoDuration);
+    
     const shotstackPayload = {
       timeline: {
         soundtrack: audioUrl ? {
@@ -324,7 +332,7 @@ Return only the script text, one sentence per line.`;
         } : undefined,
         background: '#1a1a2e',
         tracks: [
-          // Logo track (0-5s)
+          // Logo track (0-5s or less if audio is short)
           {
             clips: [
               {
@@ -333,7 +341,7 @@ Return only the script text, one sentence per line.`;
                   src: logoUrl
                 },
                 start: 0,
-                length: 5,
+                length: logoDuration,
                 fit: 'contain',
                 scale: 0.5,
                 position: 'center',
@@ -344,7 +352,7 @@ Return only the script text, one sentence per line.`;
               }
             ]
           },
-          // Drop image track (5s to end)
+          // Drop image track (after logo to end)
           {
             clips: [
               {
@@ -352,8 +360,8 @@ Return only the script text, one sentence per line.`;
                   type: 'image',
                   src: dropImageUrl
                 },
-                start: 5,
-                length: audioDuration - 5,
+                start: logoDuration,
+                length: imageDuration,
                 fit: 'cover',
                 position: 'center',
                 transition: {
@@ -375,7 +383,7 @@ Return only the script text, one sentence per line.`;
       }
     };
     
-    console.log('Shotstack payload text field:', shotstackPayload.timeline.tracks[0].clips[0].asset.text?.substring(0, 50));
+    console.log('Clip durations - Logo:', logoDuration, 'Image:', imageDuration);
 
     console.log('Sending render request to Shotstack...');
     const renderResponse = await fetch('https://api.shotstack.io/v1/render', {
