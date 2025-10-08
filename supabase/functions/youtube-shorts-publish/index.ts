@@ -172,7 +172,7 @@ Return only the script text, one sentence per line.`;
     console.log('Script preview:', script.substring(0, 200));
 
     // Generate metadata with correct drop link
-    const dropUrl = `https://dailydrops.io/drops/${drop.id}`;
+    const dropUrl = `https://dailydrops.cloud/drops/${drop.id}`;
     
     const metadata = {
       title: title || `DailyDrops: ${drop.title.substring(0, 70)}`,
@@ -300,8 +300,8 @@ Return only the script text, one sentence per line.`;
     // Step 3: Upload logo to Supabase Storage for Shotstack
     console.log('Step 3/5: Uploading logo to Supabase Storage...');
     
-    // Fetch logo from public folder and upload to Storage
-    const logoResponse = await fetch('https://dailydrops.io/email/dailydrops-logo.png');
+    // Fetch logo from correct domain and upload to Storage
+    const logoResponse = await fetch('https://dailydrops.cloud/favicon.png');
     if (!logoResponse.ok) {
       console.warn('Logo fetch failed, using drop image only');
     }
