@@ -102,7 +102,7 @@ Requirements:
 
 Write only the post text, no quotes or extra formatting.`;
 
-    const postResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    const scriptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${openaiApiKey}`,
@@ -124,22 +124,21 @@ Write only the post text, no quotes or extra formatting.`;
       }),
     });
 
-    if (!postResponse.ok) {
-      const error = await postResponse.text();
+    if (!scriptResponse.ok) {
+      const error = await scriptResponse.text();
       throw new Error(`Post generation failed: ${error}`);
     }
 
-    const postData = await postResponse.json();
-    const postText = postData.choices[0].message.content.trim();
+    const scriptData = await scriptResponse.json();
+    const postText = scriptData.choices[0].message.content.trim();
 
     console.log('Post text generated:', postText);
 
-    // Step 2: Generate video (same process as YouTube but shorter, more professional)
     // Step 2: Generate TTS audio
     console.log('Step 2/5: Generating TTS audio...');
     
-    // Generate shorter script for LinkedIn (15-25s)
-    const linkedInScript = script.split(/\s+/).slice(0, 50).join(' '); // Max 50 words for LinkedIn
+    // Generate shorter script for LinkedIn (15-25s, max 50 words)
+    const linkedInScript = postText.split(/\s+/).slice(0, 50).join(' ');
     
     const gcpProject = Deno.env.get('GCLOUD_TTS_PROJECT');
     const gcpKeyBase64 = Deno.env.get('GCLOUD_TTS_SA_JSON_BASE64');
@@ -165,7 +164,7 @@ Write only the post text, no quotes or extra formatting.`;
         exp: getNumericDate(3600),
         iat: getNumericDate(0),
       },
-      privateKey
+      privateKey as any
     );
 
     // Exchange JWT for access token
@@ -225,7 +224,8 @@ Write only the post text, no quotes or extra formatting.`;
       console.log('✅ TTS audio generated successfully');
     } catch (ttsError) {
       console.error('TTS generation failed:', ttsError);
-      throw new Error(`Failed to generate TTS audio: ${ttsError.message}`);
+      const errorMessage = ttsError instanceof Error ? ttsError.message : 'Unknown TTS error';
+      throw new Error(`Failed to generate TTS audio: ${errorMessage}`);
     }
 
     // Step 3: Render video with Shotstack (Square format for LinkedIn)
@@ -406,7 +406,7 @@ Write only the post text, no quotes or extra formatting.`;
     const utmUrl = `https://dailydrops.io/drops/${drop.id}?utm_source=linkedin&utm_medium=video&utm_campaign=${style}`;
     const finalPostText = `${postText}\n\n🔗 ${utmUrl}`;
 
-    const postResponse = await fetch('https://api.linkedin.com/v2/ugcPosts', {
+    const createPostResponse = await fetch('https://api.linkedin.com/v2/ugcPosts', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${linkedinAccessToken}`,
@@ -442,13 +442,13 @@ Write only the post text, no quotes or extra formatting.`;
       })
     });
 
-    if (!postResponse.ok) {
-      const error = await postResponse.text();
+    if (!createPostResponse.ok) {
+      const error = await createPostResponse.text();
       throw new Error(`LinkedIn post creation failed: ${error}`);
     }
 
-    const postData = await postResponse.json();
-    const postUrn = postData.id;
+    const createPostData = await createPostResponse.json();
+    const postUrn = createPostData.id;
     const postUrl = `https://www.linkedin.com/feed/update/${postUrn}`;
     
     console.log('✅ LinkedIn post created:', postUrl);

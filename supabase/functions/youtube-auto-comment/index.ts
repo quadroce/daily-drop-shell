@@ -94,9 +94,10 @@ Write the comment now (2 sentences max):`;
     
     return null;
   } catch (e) {
+    const error = e as Error;
     console.error('AI_COMMENT_ERROR', {
-      errorType: e.name,
-      message: e.message
+      errorType: error.name,
+      message: error.message
     });
     return null;
   }
