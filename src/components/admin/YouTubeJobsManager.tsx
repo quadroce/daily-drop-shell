@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Trash2, RefreshCw } from "lucide-react";
+import { Loader2, Trash2, RefreshCw, Plus } from "lucide-react";
 
 export function YouTubeJobsManager() {
   const [isLoading, setIsLoading] = useState(false);
@@ -27,6 +27,30 @@ export function YouTubeJobsManager() {
     } catch (error: any) {
       toast({
         title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const createCommentJobs = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('youtube-job-creator', {
+        body: { trigger: 'manual_admin' }
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "✅ Comment Jobs Created",
+        description: `Created ${data.jobsCreated || 0} new comment jobs for YouTube videos`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error creating jobs",
         description: error.message,
         variant: "destructive",
       });
@@ -79,6 +103,24 @@ export function YouTubeJobsManager() {
       </CardHeader>
       <CardContent className="space-y-3">
         <Button 
+          onClick={createCommentJobs} 
+          disabled={isLoading}
+          className="w-full gap-2"
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Creating Jobs...
+            </>
+          ) : (
+            <>
+              <Plus className="h-4 w-4" />
+              Create Comment Jobs
+            </>
+          )}
+        </Button>
+
+        <Button 
           onClick={cleanupFailedJobs} 
           disabled={isLoading}
           variant="outline"
@@ -117,6 +159,7 @@ export function YouTubeJobsManager() {
         </Button>
 
         <div className="text-xs text-muted-foreground p-3 bg-muted/50 rounded space-y-1">
+          <p><strong>Create Comment Jobs:</strong> Creates up to 20 jobs for new YouTube videos</p>
           <p><strong>Clean Failed Jobs:</strong> Marks all error jobs as 'failed'</p>
           <p><strong>Create Test Job:</strong> Adds Rick Astley video to queue</p>
         </div>

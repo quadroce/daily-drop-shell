@@ -56,12 +56,11 @@ async function generateAIComment(
     `You're writing a brief YouTube comment (max 2 sentences) for DailyDrops.
 
 CRITICAL REQUIREMENTS:
-- MUST start with something similar to Your video has been featured on DailyDrops
+- MUST start with "Your video has been featured on DailyDrops"
 - MUST mention it's tagged under "${topicName}"
 - Keep it short and professional
 - NO emojis
 - Sound genuine, not promotional
-- Sometimes add the link dailydrops.cloud to the comment
 
 Video: "${title}"
 ${description ? `Description: "${description.slice(0, 150)}"` : ""}
