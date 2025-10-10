@@ -11,6 +11,7 @@ import { YouTubeOAuthPanel } from "@/components/admin/youtube/YouTubeOAuthPanel"
 import { YouTubeShortsConfig } from "@/components/admin/youtube/YouTubeShortsConfig";
 import { YouTubeUtilities } from "@/components/admin/youtube/YouTubeUtilities";
 import { YouTubeLogsTable } from "@/components/admin/youtube/YouTubeLogsTable";
+import { ShortsPublishPanel } from "@/components/admin/ShortsPublishPanel";
 
 const YouTubeAdmin = () => {
   const { user, loading: authLoading } = useAuth();
@@ -123,6 +124,9 @@ const YouTubeAdmin = () => {
 
         {/* Shorts Automation Config */}
         <YouTubeShortsConfig />
+
+        {/* Shorts Publish Panel */}
+        <ShortsPublishPanel />
 
         {/* Utilities */}
         <YouTubeUtilities />

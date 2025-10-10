@@ -17,7 +17,6 @@ import { YouTubeCommentTestPanel } from "@/components/admin/YouTubeCommentTestPa
 import { YouTubeOAuthTestPanel } from "@/components/admin/YouTubeOAuthTestPanel";
 import { YouTubeTokenPanel } from "@/components/admin/YouTubeTokenPanel";
 import { YouTubeJobsManager } from "@/components/admin/YouTubeJobsManager";
-import { ShortsPublishPanel } from "@/components/admin/ShortsPublishPanel";
 import { Loader2, Users, Database, List, ArrowLeft, Rss, Cog, Tags, Monitor, Map, Globe, Youtube, Settings, Mail } from "lucide-react";
 
 interface Profile {
@@ -1136,7 +1135,6 @@ const Admin = () => {
           <CardDescription>Testing and development utilities</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <ShortsPublishPanel />
           <NewsletterTestPanel />
           <YouTubeTokenPanel />
           <YouTubeJobsManager />
