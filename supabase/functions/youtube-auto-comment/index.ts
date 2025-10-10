@@ -54,13 +54,28 @@ async function generateAIComment(
 
   const prompt = `You're writing a brief YouTube comment (max 2 sentences) for DailyDrops.
 
-CRITICAL REQUIREMENTS:
-- MUST start with "Your video has been featured on DailyDrops"
-- MUST mention it's tagged under "${topicName}"
-- Keep it short and professional
-- NO emojis
-- Sound genuine, not promotional
-- Every 3 comment put the "${topicUrl}"
+
+CRITICAL INSTRUCTIONS:
+- Pick ONE of the following 10 openings at random and start with it (replace {TOPICS} with "${topicName}"):
+  1. "Your video has been featured on DailyDrops under {TOPICS}!"
+  2. "Great content! We've added this to DailyDrops in the {TOPICS} section."
+  3. "This video is now on DailyDrops, tagged as {TOPICS}."
+  4. "Featured on DailyDrops! Your video is tagged under {TOPICS}."
+  5. "Excellent work! We've included this in DailyDrops under {TOPICS}."
+  6. "Your video made it to DailyDrops in {TOPICS}!"
+  7. "Featured in our {TOPICS} collection on DailyDrops."
+  8. "Tagged on DailyDrops under {TOPICS}."
+  9. "This video is part of DailyDrops' {TOPICS} section."
+  10. "Your content is now featured on DailyDrops ({TOPICS})."
+
+STYLE & QUALITY RULES:
+- MUST mention it's tagged under "${topicName}" (even if implied)
+- Keep it short, clear, and professional (2 sentences max)
+- NO emojis, hashtags, or excessive punctuation
+- Sound genuine, not promotional or corporate
+- Maintain a natural human tone
+
+
 
 
 Video: "${title}"
