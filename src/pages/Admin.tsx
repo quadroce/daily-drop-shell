@@ -755,6 +755,79 @@ const Admin = () => {
         )}
       </div>
 
+      {/* 🔗 QUICK NAVIGATION */}
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            🔗 Admin Pages
+          </CardTitle>
+          <CardDescription>Quick access to specialized admin tools</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <Link to="/admin/sources" className="block">
+              <Button variant="outline" className="w-full justify-start gap-2 h-auto py-4">
+                <Database className="h-5 w-5" />
+                <div className="text-left">
+                  <div className="font-medium">Sources</div>
+                  <div className="text-xs text-muted-foreground">Manage RSS feeds</div>
+                </div>
+              </Button>
+            </Link>
+
+            <Link to="/admin/articles" className="block">
+              <Button variant="outline" className="w-full justify-start gap-2 h-auto py-4">
+                <List className="h-5 w-5" />
+                <div className="text-left">
+                  <div className="font-medium">Articles</div>
+                  <div className="text-xs text-muted-foreground">View & manage drops</div>
+                </div>
+              </Button>
+            </Link>
+
+            <Link to="/admin/users" className="block">
+              <Button variant="outline" className="w-full justify-start gap-2 h-auto py-4">
+                <Users className="h-5 w-5" />
+                <div className="text-left">
+                  <div className="font-medium">Users</div>
+                  <div className="text-xs text-muted-foreground">User management</div>
+                </div>
+              </Button>
+            </Link>
+
+            <Link to="/admin/manual-ingest" className="block">
+              <Button variant="outline" className="w-full justify-start gap-2 h-auto py-4">
+                <Rss className="h-5 w-5" />
+                <div className="text-left">
+                  <div className="font-medium">Manual Ingest</div>
+                  <div className="text-xs text-muted-foreground">Add content manually</div>
+                </div>
+              </Button>
+            </Link>
+
+            <Link to="/admin/sitemap" className="block">
+              <Button variant="outline" className="w-full justify-start gap-2 h-auto py-4">
+                <Map className="h-5 w-5" />
+                <div className="text-left">
+                  <div className="font-medium">Sitemap</div>
+                  <div className="text-xs text-muted-foreground">SEO & indexing</div>
+                </div>
+              </Button>
+            </Link>
+
+            <Link to="/admin/youtube" className="block">
+              <Button variant="outline" className="w-full justify-start gap-2 h-auto py-4 text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950/20">
+                <Youtube className="h-5 w-5" />
+                <div className="text-left">
+                  <div className="font-medium">YouTube</div>
+                  <div className="text-xs text-muted-foreground">OAuth, automation & logs</div>
+                </div>
+              </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* 🚨 INGESTION CONTROL PANEL */}
       <Card className="mb-8 border-red-200 dark:border-red-800">
         <CardHeader className="pb-3">

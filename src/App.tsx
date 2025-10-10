@@ -30,6 +30,7 @@ import AdminSources from "./pages/AdminSources";
 import AdminArticles from "./pages/admin/AdminArticles";
 import AdminManualIngest from "./pages/admin/AdminManualIngest";
 import AdminUsers from "./pages/AdminUsers";
+import YouTubeAdmin from "./pages/admin/YouTubeAdmin";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Unsubscribe from "./pages/Unsubscribe";
 import { TopicsIndexPage } from "./pages/topics/TopicsIndexPage";
@@ -109,6 +110,11 @@ const App = () => (
                   <Route path="/admin/users" element={
                     <ProtectedRoute>
                       <AdminUsers />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/admin/youtube" element={
+                    <ProtectedRoute>
+                      <YouTubeAdmin />
                     </ProtectedRoute>
                   } />
                   <Route path="/topics" element={<TopicsIndexPage />} />
