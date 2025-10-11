@@ -23,3 +23,4 @@ dist-ssr
 *.sln
 *.sw?
 supabase/functions/deno.lock
+.env
