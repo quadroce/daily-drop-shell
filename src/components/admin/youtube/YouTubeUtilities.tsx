@@ -10,6 +10,7 @@ import { toast } from "sonner";
 export function YouTubeUtilities() {
   const [isCheckingQuota, setIsCheckingQuota] = useState(false);
   const [isTestingUpload, setIsTestingUpload] = useState(false);
+  const [isCreatingTestJob, setIsCreatingTestJob] = useState(false);
   const [quotaStatus, setQuotaStatus] = useState<any>(null);
   const [testResult, setTestResult] = useState<any>(null);
 
@@ -56,6 +57,36 @@ export function YouTubeUtilities() {
     }
   };
 
+  const createTestJob = async () => {
+    setIsCreatingTestJob(true);
+    try {
+      const { error } = await supabase
+        .from('social_comment_jobs')
+        .insert({
+          platform: 'youtube',
+          video_id: 'dQw4w9WgXcQ',
+          channel_id: 'UCuAXFkgsw1L7xaCfnd5JJOw',
+          video_title: 'Rick Astley - Never Gonna Give You Up (Official Video)',
+          video_description: 'The official video for "Never Gonna Give You Up" by Rick Astley',
+          topic_slug: 'pop-music',
+          text_hash: `test-${Date.now()}`,
+          locale: 'en',
+          status: 'queued',
+          utm_campaign: 'test',
+          utm_content: 'manual_admin_test'
+        });
+
+      if (error) throw error;
+
+      toast.success('Test comment job created and queued for processing');
+    } catch (error: any) {
+      console.error('Create test job error:', error);
+      toast.error(`Failed to create test job: ${error.message}`);
+    } finally {
+      setIsCreatingTestJob(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -95,6 +126,20 @@ export function YouTubeUtilities() {
               <Film className="h-4 w-4" />
             )}
             Test Upload (Dry-Run)
+          </Button>
+
+          <Button 
+            onClick={createTestJob} 
+            disabled={isCreatingTestJob}
+            variant="secondary"
+            className="gap-2"
+          >
+            {isCreatingTestJob ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <AlertCircle className="h-4 w-4" />
+            )}
+            Create Test Comment Job
           </Button>
         </div>
 
@@ -178,6 +223,7 @@ export function YouTubeUtilities() {
         <div className="text-xs text-muted-foreground space-y-1 p-3 bg-muted/50 rounded-lg">
           <p>📊 <strong>Validate Quota:</strong> Checks current YouTube API quota usage</p>
           <p>🎬 <strong>Test Upload:</strong> Runs a 3s FFmpeg mock render without publishing</p>
+          <p>💬 <strong>Test Comment:</strong> Creates a test comment job (Rick Astley video)</p>
           <p>⚠️ Quota limits: 10,000 units/day (1 upload = ~1600 units, 1 comment = ~50 units)</p>
         </div>
       </CardContent>
