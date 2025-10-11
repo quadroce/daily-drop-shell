@@ -1024,9 +1024,11 @@ export type Database = {
           next_retry_at: string | null
           platform: string
           posted_at: string | null
+          scheduled_for: string | null
           status: string
           text_hash: string
           text_original: string | null
+          text_variant: string | null
           topic_slug: string
           tries: number
           utm_campaign: string | null
@@ -1045,9 +1047,11 @@ export type Database = {
           next_retry_at?: string | null
           platform?: string
           posted_at?: string | null
+          scheduled_for?: string | null
           status?: string
           text_hash: string
           text_original?: string | null
+          text_variant?: string | null
           topic_slug: string
           tries?: number
           utm_campaign?: string | null
@@ -1066,9 +1070,11 @@ export type Database = {
           next_retry_at?: string | null
           platform?: string
           posted_at?: string | null
+          scheduled_for?: string | null
           status?: string
           text_hash?: string
           text_original?: string | null
+          text_variant?: string | null
           topic_slug?: string
           tries?: number
           utm_campaign?: string | null

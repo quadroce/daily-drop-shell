@@ -150,6 +150,9 @@ verify_jwt = true
 [functions.youtube-credentials-check]
 verify_jwt = true
 
+[functions.comments-scheduler]
+verify_jwt = false
+
 [functions.youtube-quota-check]
 verify_jwt = true
 

@@ -12,6 +12,7 @@ import { YouTubeShortsConfig } from "@/components/admin/youtube/YouTubeShortsCon
 import { YouTubeUtilities } from "@/components/admin/youtube/YouTubeUtilities";
 import { YouTubeLogsTable } from "@/components/admin/youtube/YouTubeLogsTable";
 import { ShortsPublishPanel } from "@/components/admin/ShortsPublishPanel";
+import { YouTubeCommentsTable } from "@/components/admin/youtube/YouTubeCommentsTable";
 
 const YouTubeAdmin = () => {
   const { user, loading: authLoading } = useAuth();
@@ -130,6 +131,9 @@ const YouTubeAdmin = () => {
 
         {/* Utilities */}
         <YouTubeUtilities />
+
+        {/* Comments Management */}
+        <YouTubeCommentsTable />
 
         {/* Logs Table */}
         <YouTubeLogsTable />
