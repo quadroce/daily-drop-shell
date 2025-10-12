@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, Film, Gauge, Loader2, Wrench } from "lucide-react";
+import { AlertCircle, Film, Gauge, Loader2, Wrench, Calendar, Play } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -17,6 +17,8 @@ export function YouTubeUtilities() {
   const [isCheckingQuota, setIsCheckingQuota] = useState(false);
   const [isTestingUpload, setIsTestingUpload] = useState(false);
   const [isCreatingTestJob, setIsCreatingTestJob] = useState(false);
+  const [isTestingScheduler, setIsTestingScheduler] = useState(false);
+  const [isTestingWorker, setIsTestingWorker] = useState(false);
   const [quotaStatus, setQuotaStatus] = useState<any>(null);
   const [testResult, setTestResult] = useState<any>(null);
 
@@ -103,6 +105,48 @@ export function YouTubeUtilities() {
     }
   };
 
+  const testScheduler = async () => {
+    setIsTestingScheduler(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "comments-scheduler",
+        { body: { trigger: "manual_test" } }
+      );
+
+      if (error) throw error;
+
+      toast.success(
+        `Scheduler test completed: ${data.scheduled || 0} jobs scheduled`
+      );
+      console.log("Scheduler result:", data);
+    } catch (error: any) {
+      console.error("Scheduler test error:", error);
+      toast.error(`Scheduler test failed: ${error.message}`);
+    } finally {
+      setIsTestingScheduler(false);
+    }
+  };
+
+  const testWorker = async () => {
+    setIsTestingWorker(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "youtube-auto-comment",
+        { body: { trigger: "manual_test" } }
+      );
+
+      if (error) throw error;
+
+      toast.success("Worker test completed - check logs for details");
+      console.log("Worker result:", data);
+    } catch (error: any) {
+      console.error("Worker test error:", error);
+      toast.error(`Worker test failed: ${error.message}`);
+    } finally {
+      setIsTestingWorker(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -116,41 +160,69 @@ export function YouTubeUtilities() {
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Action Buttons */}
-        <div className="flex flex-wrap gap-2">
-          <Button
-            onClick={validateQuota}
-            disabled={isCheckingQuota}
-            className="gap-2"
-          >
-            {isCheckingQuota
-              ? <Loader2 className="h-4 w-4 animate-spin" />
-              : <Gauge className="h-4 w-4" />}
-            Validate Upload Quota
-          </Button>
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={validateQuota}
+              disabled={isCheckingQuota}
+              className="gap-2"
+            >
+              {isCheckingQuota
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <Gauge className="h-4 w-4" />}
+              Validate Upload Quota
+            </Button>
 
-          <Button
-            onClick={testUploadDryRun}
-            disabled={isTestingUpload}
-            variant="outline"
-            className="gap-2"
-          >
-            {isTestingUpload
-              ? <Loader2 className="h-4 w-4 animate-spin" />
-              : <Film className="h-4 w-4" />}
-            Test Upload (Dry-Run)
-          </Button>
+            <Button
+              onClick={testUploadDryRun}
+              disabled={isTestingUpload}
+              variant="outline"
+              className="gap-2"
+            >
+              {isTestingUpload
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <Film className="h-4 w-4" />}
+              Test Upload (Dry-Run)
+            </Button>
+          </div>
 
-          <Button
-            onClick={createTestJob}
-            disabled={isCreatingTestJob}
-            variant="secondary"
-            className="gap-2"
-          >
-            {isCreatingTestJob
-              ? <Loader2 className="h-4 w-4 animate-spin" />
-              : <AlertCircle className="h-4 w-4" />}
-            Create Test Comment Job
-          </Button>
+          <div className="flex flex-wrap gap-2 pt-2 border-t">
+            <Button
+              onClick={createTestJob}
+              disabled={isCreatingTestJob}
+              variant="secondary"
+              className="gap-2"
+            >
+              {isCreatingTestJob
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <AlertCircle className="h-4 w-4" />}
+              Create Test Comment Job
+            </Button>
+
+            <Button
+              onClick={testScheduler}
+              disabled={isTestingScheduler}
+              variant="secondary"
+              className="gap-2"
+            >
+              {isTestingScheduler
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <Calendar className="h-4 w-4" />}
+              Test Scheduler Now
+            </Button>
+
+            <Button
+              onClick={testWorker}
+              disabled={isTestingWorker}
+              variant="secondary"
+              className="gap-2"
+            >
+              {isTestingWorker
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <Play className="h-4 w-4" />}
+              Test Worker Now
+            </Button>
+          </div>
         </div>
 
         {/* Quota Status Display */}
@@ -263,8 +335,16 @@ export function YouTubeUtilities() {
             Runs a 3s FFmpeg mock render without publishing
           </p>
           <p>
-            💬 <strong>Test Comment:</strong>{" "}
-            Creates a test comment job (Rick Astley video)
+            💬 <strong>Create Test Job:</strong>{" "}
+            Creates a queued comment job (Linus Tech Tips video)
+          </p>
+          <p>
+            📅 <strong>Test Scheduler:</strong>{" "}
+            Runs the daily scheduler to assign scheduled_for times
+          </p>
+          <p>
+            ▶️ <strong>Test Worker:</strong>{" "}
+            Runs the comment worker to process due jobs
           </p>
           <p>
             ⚠️ Quota limits: 10,000 units/day (1 upload = ~1600 units, 1 comment
