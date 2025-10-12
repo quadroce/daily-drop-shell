@@ -13,6 +13,8 @@ import { YouTubeUtilities } from "@/components/admin/youtube/YouTubeUtilities";
 import { YouTubeLogsTable } from "@/components/admin/youtube/YouTubeLogsTable";
 import { ShortsPublishPanel } from "@/components/admin/ShortsPublishPanel";
 import { YouTubeCommentsTable } from "@/components/admin/youtube/YouTubeCommentsTable";
+import { YouTubeTokenPanel } from "@/components/admin/YouTubeTokenPanel";
+import { YouTubeJobsManager } from "@/components/admin/YouTubeJobsManager";
 
 const YouTubeAdmin = () => {
   const { user, loading: authLoading } = useAuth();
@@ -131,6 +133,12 @@ const YouTubeAdmin = () => {
 
         {/* Utilities */}
         <YouTubeUtilities />
+
+        {/* Token Manager */}
+        <YouTubeTokenPanel />
+
+        {/* Jobs Manager */}
+        <YouTubeJobsManager />
 
         {/* Comments Management */}
         <YouTubeCommentsTable />
