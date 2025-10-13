@@ -414,15 +414,14 @@ Write only the post text, no quotes or extra formatting.`;
 
       // Clip 2: "Today in {Topic}" (2.0s)
       clips.push({
-        asset: {
-          type: 'title',
-          text: scriptLines[0] || `Today in ${topicData.label}.`,
-          style: 'minimal',
-          color: '#ffffff',
-          size: 'large',
-          background: 'transparent',
-          position: 'center'
-        },
+          asset: {
+            type: 'title',
+            text: scriptLines[0] || `Today in ${topicData.label}.`,
+            style: 'minimal',
+            color: '#ffffff',
+            size: 'large',
+            position: 'center'
+          },
         start: currentStart,
         length: 2.0,
         fit: 'none',
@@ -440,7 +439,6 @@ Write only the post text, no quotes or extra formatting.`;
             style: 'minimal',
             color: '#ffffff',
             size: 'medium',
-            background: 'transparent',
             position: 'center'
           },
           start: currentStart,
@@ -454,15 +452,14 @@ Write only the post text, no quotes or extra formatting.`;
 
       // Clip 6: CTA (~4.5s)
       clips.push({
-        asset: {
-          type: 'title',
-          text: scriptLines[scriptLines.length - 1] || `See more on DailyDrops`,
-          style: 'minimal',
-          color: '#ffffff',
-          size: 'medium',
-          background: 'transparent',
-          position: 'center'
-        },
+          asset: {
+            type: 'title',
+            text: scriptLines[scriptLines.length - 1] || `See more on DailyDrops`,
+            style: 'minimal',
+            color: '#ffffff',
+            size: 'medium',
+            position: 'center'
+          },
         start: currentStart,
         length: 4.5,
         fit: 'none',
@@ -491,10 +488,6 @@ Write only the post text, no quotes or extra formatting.`;
       // Original drop-based rendering
       shotstackPayload = {
         timeline: {
-          soundtrack: audioBase64 ? {
-            src: `data:audio/mp3;base64,${audioBase64}`,
-            effect: 'fadeInFadeOut'
-          } : undefined,
           background: '#0a66c2',
           tracks: [
             {
@@ -506,7 +499,6 @@ Write only the post text, no quotes or extra formatting.`;
                     style: 'minimal',
                     color: '#ffffff',
                     size: 'medium',
-                    background: 'transparent',
                     position: 'center'
                   },
                   start: 0,

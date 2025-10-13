@@ -389,8 +389,7 @@ Return only the script text, one sentence per line.`;
           style: "minimal",
           size: isTitle ? "large" : "medium",
           position: "center",
-          color: "#ffffff",
-          background: "transparent"
+          color: "#ffffff"
         },
         start: currentTime,
         length: duration,
