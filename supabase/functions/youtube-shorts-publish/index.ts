@@ -472,16 +472,106 @@ Return only the script text, one sentence per line.`;
       throw new Error(`Render timeout after ${maxAttempts * pollInterval / 1000}s`);
     }
 
-    // Step 4: YouTube upload (placeholder - requires OAuth implementation)
-    console.log("Step 4/4: YouTube upload not yet implemented");
-    console.log("⚠️ YouTube upload requires OAuth token - returning video URL for manual upload")
+    // Step 4: Download video from Shotstack
+    console.log("Step 4/6: Downloading video from Shotstack...");
+
+    const videoResponse = await fetch(videoUrl);
+    if (!videoResponse.ok) {
+      throw new Error(`Failed to download video: ${videoResponse.statusText}`);
+    }
+
+    const videoBlob = await videoResponse.blob();
+    const videoBuffer = await videoBlob.arrayBuffer();
+    console.log(`Video downloaded: ${videoBuffer.byteLength} bytes`);
+
+    // Step 5: Get YouTube OAuth token
+    console.log("Step 5/6: Getting YouTube OAuth token...");
+
+    const { data: tokenData } = await supabase
+      .from("youtube_oauth_cache")
+      .select("access_token, expires_at")
+      .eq("id", 1)
+      .single();
+
+    if (!tokenData || !tokenData.access_token) {
+      throw new Error("YouTube OAuth token not found - please authenticate first");
+    }
+
+    if (new Date(tokenData.expires_at) < new Date()) {
+      throw new Error("YouTube OAuth token expired - please re-authenticate");
+    }
+
+    const youtubeToken = tokenData.access_token;
+
+    // Step 6: Upload to YouTube
+    console.log("Step 6/6: Uploading to YouTube...");
+
+    // Create video metadata
+    const videoMetadata = {
+      snippet: {
+        title: metadata.title,
+        description: metadata.description,
+        tags: metadata.tags,
+        categoryId: metadata.categoryId
+      },
+      status: {
+        privacyStatus: "public",
+        selfDeclaredMadeForKids: false
+      }
+    };
+
+    // Upload video using resumable upload
+    const uploadUrl = "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status";
+    
+    const initResponse = await fetch(uploadUrl, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${youtubeToken}`,
+        "Content-Type": "application/json",
+        "X-Upload-Content-Type": "video/mp4",
+        "X-Upload-Content-Length": videoBuffer.byteLength.toString()
+      },
+      body: JSON.stringify(videoMetadata)
+    });
+
+    if (!initResponse.ok) {
+      const errorText = await initResponse.text();
+      console.error("YouTube upload init error:", errorText);
+      throw new Error(`YouTube upload init failed: ${errorText}`);
+    }
+
+    const uploadSessionUrl = initResponse.headers.get("Location");
+    if (!uploadSessionUrl) {
+      throw new Error("No upload session URL returned from YouTube");
+    }
+
+    // Upload the video binary
+    const uploadResponse = await fetch(uploadSessionUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "video/mp4"
+      },
+      body: videoBuffer
+    });
+
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      console.error("YouTube video upload error:", errorText);
+      throw new Error(`YouTube video upload failed: ${errorText}`);
+    }
+
+    const uploadResult = await uploadResponse.json();
+    const videoId = uploadResult.id;
+    const videoPublicUrl = `https://www.youtube.com/watch?v=${videoId}`;
+
+    console.log(`✅ Video uploaded successfully: ${videoPublicUrl}`)
 
     // Log success event
     await supabase.from("short_job_events").insert({
-      stage: "script_generation",
+      stage: "upload_done",
       ok: true,
       meta: {
-        action: "generate_script",
+        action: "publish_youtube_short",
         platform: "youtube",
         mode: isTopicDigest ? "topic_digest" : "drop",
         ...(isTopicDigest ? {
@@ -495,27 +585,32 @@ Return only the script text, one sentence per line.`;
         }),
         style,
         model: "gpt-5-2025-08-07",
-        note:
-          "Script generated successfully - TTS/rendering/upload not yet implemented",
+        render_id: renderId,
+        video_url: videoUrl,
+        youtube_video_id: videoId,
+        youtube_url: videoPublicUrl
       },
     });
 
     const result: any = {
       success: true,
-      mode: isTopicDigest ? "topic_digest_script" : "script_only",
+      mode: isTopicDigest ? "topic_digest" : "drop",
       platform: "youtube",
       script: {
         text: script,
+        lines: isTopicDigest ? scriptLines : undefined,
         words: script.split(/\s+/).length
       },
-      metadata,
-      note:
-        "✅ Script generato con successo. ⚠️ Rendering video e caricamento su YouTube non ancora implementati.",
-      nextSteps: [
-        "Implementare rendering video con Shotstack (1080x1920, 30fps, 9:16)",
-        "Integrare caricamento su YouTube Data API v3",
-        "Configurare autenticazione OAuth per YouTube",
-      ],
+      shotstack: {
+        renderId,
+        videoUrl,
+        duration_s: currentTime
+      },
+      youtube: {
+        videoId,
+        url: videoPublicUrl
+      },
+      metadata
     };
 
     if (isTopicDigest) {
@@ -524,7 +619,6 @@ Return only the script text, one sentence per line.`;
         name: topicData.label,
         id: topicData.id
       };
-      result.script.lines = scriptLines;
       if (musicUrl) result.music = { url: musicUrl };
       if (logoUrl) result.logo = { url: logoUrl };
     }
@@ -540,10 +634,10 @@ Return only the script text, one sentence per line.`;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     await supabase.from("short_job_events").insert({
-      stage: "script_generation",
+      stage: "publish_failed",
       ok: false,
       meta: {
-        action: "generate_script",
+        action: "publish_youtube_short",
         platform: "youtube",
         error: error instanceof Error ? error.message : "Unknown error",
       },
@@ -552,7 +646,7 @@ Return only the script text, one sentence per line.`;
     return new Response(
       JSON.stringify({
         success: false,
-        error: "script_generation_failed",
+        error: "publish_failed",
         message: error instanceof Error ? error.message : "Unknown error",
       }),
       {
