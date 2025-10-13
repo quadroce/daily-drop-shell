@@ -1,9 +1,9 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 interface TopicData {
   slug: string;
@@ -12,21 +12,21 @@ interface TopicData {
 }
 
 const socialCrawlers = [
-  'facebookexternalhit',
-  'twitterbot',
-  'linkedinbot',
-  'slackbot',
-  'whatsapp',
-  'telegrambot',
-  'discordbot',
-  'skypebot',
-  'googlebot',
-  'bingbot',
-]
+  "facebookexternalhit",
+  "twitterbot",
+  "linkedinbot",
+  "slackbot",
+  "whatsapp",
+  "telegrambot",
+  "discordbot",
+  "skypebot",
+  "googlebot",
+  "bingbot",
+];
 
 function isSocialCrawler(userAgent: string): boolean {
   const lowercaseUA = userAgent.toLowerCase();
-  return socialCrawlers.some(crawler => lowercaseUA.includes(crawler));
+  return socialCrawlers.some((crawler) => lowercaseUA.includes(crawler));
 }
 
 function extractSlugFromPath(pathname: string): string | null {
@@ -36,17 +36,17 @@ function extractSlugFromPath(pathname: string): string | null {
 }
 
 function stripHtmlTags(html: string): string {
-  return html.replace(/<[^>]*>/g, '').trim();
+  return html.replace(/<[^>]*>/g, "").trim();
 }
 
 function generateTopicHtml(topic: TopicData): string {
   const title = `${topic.label} - DailyDrops`;
-  const description = topic.intro 
+  const description = topic.intro
     ? stripHtmlTags(topic.intro).substring(0, 160)
     : `Get curated ${topic.label} news and insights for busy professionals on DailyDrops.`;
-  
+
   const url = `https://dailydrops.cloud/topics/${topic.slug}`;
-  const imageUrl = `https://dailydrops.cloud/og-dailydrops.jpg`;
+  const imageUrl = `https://dailydrops.cloud/og-image.png`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -99,20 +99,20 @@ function generateTopicHtml(topic: TopicData): string {
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const userAgent = req.headers.get('user-agent') || '';
+    const userAgent = req.headers.get("user-agent") || "";
     const url = new URL(req.url);
     const slug = extractSlugFromPath(url.pathname);
 
     // If no slug found, return 404
     if (!slug) {
-      return new Response('Topic not found', { 
-        status: 404, 
-        headers: corsHeaders 
+      return new Response("Topic not found", {
+        status: 404,
+        headers: corsHeaders,
       });
     }
 
@@ -123,59 +123,55 @@ Deno.serve(async (req) => {
         status: 302,
         headers: {
           ...corsHeaders,
-          'Location': `https://dailydrops.cloud/topics/${slug}`
-        }
+          Location: `https://dailydrops.cloud/topics/${slug}`,
+        },
       });
     }
 
     // Initialize Supabase client
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const supabase = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
 
     // Fetch topic data
     const { data: topic, error } = await supabase
-      .from('topics')
-      .select('slug, label, intro')
-      .eq('slug', slug)
-      .eq('is_active', true)
+      .from("topics")
+      .select("slug, label, intro")
+      .eq("slug", slug)
+      .eq("is_active", true)
       .single();
 
     if (error || !topic) {
-      console.error('Error fetching topic:', error);
+      console.error("Error fetching topic:", error);
       // Fallback data for unknown topics
       const fallbackTopic: TopicData = {
         slug,
-        label: slug.charAt(0).toUpperCase() + slug.slice(1).replace('-', ' '),
-        intro: null
+        label: slug.charAt(0).toUpperCase() + slug.slice(1).replace("-", " "),
+        intro: null,
       };
       const html = generateTopicHtml(fallbackTopic);
       return new Response(html, {
         headers: {
           ...corsHeaders,
-          'Content-Type': 'text/html; charset=utf-8',
-          'Cache-Control': 'public, max-age=300' // 5 minutes cache
-        }
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "public, max-age=300", // 5 minutes cache
+        },
       });
     }
 
     // Generate HTML with topic-specific meta tags
     const html = generateTopicHtml(topic);
-    
+
     return new Response(html, {
       headers: {
         ...corsHeaders,
-        'Content-Type': 'text/html; charset=utf-8',
-        'Cache-Control': 'public, max-age=300' // 5 minutes cache
-      }
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "public, max-age=300", // 5 minutes cache
+      },
     });
-
   } catch (error) {
-    console.error('Error in topic-meta-server:', error);
-    return new Response('Internal Server Error', { 
-      status: 500, 
-      headers: corsHeaders 
+    console.error("Error in topic-meta-server:", error);
+    return new Response("Internal Server Error", {
+      status: 500,
+      headers: corsHeaders,
     });
   }
 });
