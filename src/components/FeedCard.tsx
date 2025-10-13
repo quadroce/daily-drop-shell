@@ -174,7 +174,7 @@ export const FeedCard = ({
               <div 
                 className="w-full h-full bg-cover bg-center cursor-pointer relative group"
                 style={{ 
-                  backgroundImage: `url(${imageUrl || '/og-image.png'})` 
+                  backgroundImage: `url(${imageUrl && imageUrl.trim() ? imageUrl : '/og-dailydrops.jpg'})` 
                 }}
                 onClick={type === "video" ? handleVideoPlay : handleOpen}
               >
