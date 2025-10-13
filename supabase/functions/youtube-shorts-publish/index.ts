@@ -356,20 +356,19 @@ Return only the script text, one sentence per line.`;
 
     // Build Shotstack timeline
     const clips: any[] = [];
+    const logoIntroUrl = "https://dailydrops.cloud/favicon.png";
 
-    if (isTopicDigest && logoUrl) {
-      // Logo intro (1.2s)
-      clips.push({
-        asset: { type: "image", src: logoUrl },
-        start: 0,
-        length: 1.2,
-        fit: "cover",
-        scale: 1,
-        transition: { in: "fade", out: "fade" }
-      });
-    }
+    // Logo intro (1.2s) - always show
+    clips.push({
+      asset: { type: "image", src: logoIntroUrl },
+      start: 0,
+      length: 1.2,
+      fit: "contain",
+      scale: 0.4,
+      transition: { in: "fade", out: "fade" }
+    });
 
-    let currentTime = isTopicDigest && logoUrl ? 1.2 : 0;
+    let currentTime = 1.2;
 
     // Add text clips
     const lines = isTopicDigest ? scriptLines : script.split('\n').filter(l => l.trim());
@@ -389,7 +388,11 @@ Return only the script text, one sentence per line.`;
           style: "minimal",
           size: isTitle ? "large" : "medium",
           position: "center",
-          color: "#ffffff"
+          color: "#000000",
+          offset: {
+            x: 0,
+            y: 0
+          }
         },
         start: currentTime,
         length: duration,
@@ -399,10 +402,25 @@ Return only the script text, one sentence per line.`;
       currentTime += duration;
     }
 
+    // Background image (blurred og-image) for entire video duration
+    const backgroundClip = {
+      asset: {
+        type: "image",
+        src: "https://dailydrops.cloud/og-image.png"
+      },
+      start: 0,
+      length: currentTime,
+      fit: "cover",
+      scale: 1.2,
+      filter: "blur"
+    };
+
     const timelinePayload: any = {
       timeline: {
-        background: "#000000",
-        tracks: [{ clips }]
+        tracks: [
+          { clips: [backgroundClip] }, // Background track
+          { clips } // Foreground track (logo + text)
+        ]
       },
       output: {
         format: "mp4",
