@@ -194,7 +194,7 @@ Total max ~60 words. Return only the 5 lines, no quotes, no markdown.`;
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'gpt-5-2025-08-07',
+            model: 'gpt-4o-mini',
             messages: [
               {
                 role: 'system',
@@ -205,7 +205,8 @@ Total max ~60 words. Return only the 5 lines, no quotes, no markdown.`;
                 content: scriptPromptText
               }
             ],
-            max_completion_tokens: 300,
+            max_tokens: 300,
+            temperature: 0.7,
           }),
         });
 
@@ -254,7 +255,7 @@ Write only the post text, no quotes or extra formatting.`;
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-5-2025-08-07',
+          model: 'gpt-4o-mini',
           messages: [
             {
               role: 'system',
@@ -265,7 +266,8 @@ Write only the post text, no quotes or extra formatting.`;
               content: postPrompt
             }
           ],
-          max_completion_tokens: 500,
+          max_tokens: 500,
+          temperature: 0.7,
         }),
       });
 
