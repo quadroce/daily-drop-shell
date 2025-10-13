@@ -174,7 +174,7 @@ export const FeedCard = ({
               <div 
                 className="w-full h-full bg-cover bg-center cursor-pointer relative group"
                 style={{ 
-                  backgroundImage: imageUrl ? `url(${imageUrl})` : 'linear-gradient(135deg, hsl(var(--muted)), hsl(var(--muted-foreground)/0.1))' 
+                  backgroundImage: `url(${imageUrl || '/og-image.png'})` 
                 }}
                 onClick={type === "video" ? handleVideoPlay : handleOpen}
               >
@@ -197,9 +197,6 @@ export const FeedCard = ({
                     {youtubeDuration && <span>{formatDuration(youtubeDuration)}</span>}
                     {youtubeViewCount && <span>• {formatViewCount(youtubeViewCount)} views</span>}
                   </div>
-                )}
-                {!imageUrl && (
-                  <ImagePlaceholder className="absolute inset-0 border-0 rounded-none" />
                 )}
               </div>
             )}
