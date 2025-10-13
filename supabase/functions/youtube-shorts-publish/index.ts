@@ -390,7 +390,7 @@ Return only the script text, one sentence per line.`;
           size: isTitle ? "large" : "medium",
           position: "center",
           color: "#ffffff",
-          background: "rgba(0,0,0,0.7)"
+          background: "transparent"
         },
         start: currentTime,
         length: duration,
