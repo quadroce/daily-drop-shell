@@ -338,6 +338,7 @@ Write only the post text, no quotes or extra formatting.`;
     
     let audioBase64: string;
     let audioDuration: number;
+    let ttsAudioUrl: string | undefined;
     
     try {
       const ttsResponse = await fetch(
@@ -373,6 +374,24 @@ Write only the post text, no quotes or extra formatting.`;
       const ttsData = await ttsResponse.json();
       audioBase64 = ttsData.audioContent;
       audioDuration = Math.ceil(linkedInScript.split(/\s+/).length / 2.5);
+      
+      // Upload TTS audio to storage and get public URL
+      if (!isTopicDigest) {
+        const audioBytes = Uint8Array.from(atob(audioBase64), c => c.charCodeAt(0));
+        const filePath = `tts/${crypto.randomUUID()}.mp3`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('music')
+          .upload(filePath, audioBytes, { contentType: 'audio/mpeg', upsert: false });
+        
+        if (uploadError) {
+          console.warn('Failed to upload TTS to storage:', uploadError);
+        } else {
+          const { data: publicData } = supabase.storage.from('music').getPublicUrl(filePath);
+          ttsAudioUrl = publicData.publicUrl;
+          console.log('TTS audio uploaded to storage:', ttsAudioUrl);
+        }
+      }
+      
       console.log('✅ TTS audio generated successfully');
     } catch (ttsError) {
       console.error('TTS generation failed:', ttsError);
@@ -485,9 +504,13 @@ Write only the post text, no quotes or extra formatting.`;
         }
       };
     } else {
-      // Original drop-based rendering
+      // Original drop-based rendering with TTS audio
       shotstackPayload = {
         timeline: {
+          soundtrack: ttsAudioUrl ? {
+            src: ttsAudioUrl,
+            effect: 'fadeInFadeOut'
+          } : undefined,
           background: '#0a66c2',
           tracks: [
             {
@@ -518,8 +541,7 @@ Write only the post text, no quotes or extra formatting.`;
           format: 'mp4',
           resolution: 'hd',
           size: { width: 1080, height: 1080 },
-          fps: 30,
-          scaleTo: 'crop'
+          fps: 30
         }
       };
     }
@@ -627,12 +649,12 @@ Write only the post text, no quotes or extra formatting.`;
     const assetUrn = initData.value.asset;
     console.log('Upload initialized, asset:', assetUrn);
 
-    // B. Upload Video
+    // B. Upload Video (no Authorization, add Content-Length)
     const uploadVideoResponse = await fetch(uploadUrl, {
       method: 'PUT',
       headers: {
-        'Authorization': `Bearer ${linkedinAccessToken}`,
-        'Content-Type': 'application/octet-stream'
+        'Content-Type': 'application/octet-stream',
+        'Content-Length': String(videoBlob.byteLength)
       },
       body: videoBlob
     });

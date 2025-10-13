@@ -401,14 +401,14 @@ Return only the script text, one sentence per line.`;
 
     const timelinePayload: any = {
       timeline: {
+        background: "#000000",
         tracks: [{ clips }]
       },
       output: {
         format: "mp4",
         resolution: "hd",
         fps: 30,
-        size: { width: 1080, height: 1920 },
-        scaleTo: "crop"
+        size: { width: 1080, height: 1920 }
       }
     };
 
