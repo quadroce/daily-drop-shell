@@ -33,37 +33,40 @@ export type FeedCardProps = {
 
 type FeedCardComponentProps = FeedCardProps & {
   user?: { isLoggedIn: boolean; isPremium: boolean };
-  onEngage?: (e: { itemId: string; action: "save"|"dismiss"|"like"|"dislike"|"open"|"video_play"|"share" }) => void;
+  onEngage?: (e: {
+    itemId: string;
+    action: "save" | "dismiss" | "like" | "dislike" | "open" | "video_play" | "share";
+  }) => void;
   position?: number;
 };
 
-export const FeedCard = ({ 
-  id, 
-  type, 
-  title, 
-  summary, 
-  imageUrl, 
-  publishedAt, 
-  source, 
-  tags, 
+export const FeedCard = ({
+  id,
+  type,
+  title,
+  summary,
+  imageUrl,
+  publishedAt,
+  source,
+  tags,
   l1Topic,
   l2Topic,
-  href, 
-  youtubeId, 
+  href,
+  youtubeId,
   youtubeDuration,
   youtubeViewCount,
-  isPremium, 
+  isPremium,
   user,
   onEngage,
-  position
+  position,
 }: FeedCardComponentProps) => {
   const { track } = useAnalytics();
   const { updateEngagement, getState, isLoading, initializeStates } = useEngagementState();
   const { getTopicSlug } = useTopicsMap();
-  
+
   // Create debounced open tracker for this component instance
   const debouncedOpenTracker = createDebouncedOpenTracker(2000);
-  
+
   // Check if user is premium (for YouTube embeds)
   const isUserPremium = user?.isPremium || false;
   const showInlineVideo = type === "video" && youtubeId && isUserPremium;
@@ -83,10 +86,10 @@ export const FeedCard = ({
     topic_l1: l1Topic,
     topic_l2: l2Topic,
     position: position || 0,
-    is_premium: isUserPremium
+    is_premium: isUserPremium,
   };
 
-  const handleEngagementAction = async (action: "save"|"dismiss"|"like"|"dislike") => {
+  const handleEngagementAction = async (action: "save" | "dismiss" | "like" | "dislike") => {
     const success = await updateEngagement(id, action);
     if (success) {
       // Call legacy handler if provided
@@ -106,17 +109,17 @@ export const FeedCard = ({
   const handleVideoPlay = () => {
     if (user?.isPremium && youtubeId) {
       // Premium users see inline video - tracking handled by YouTubePlayer
-      track('video_play', { 
-        content_id: id, 
+      track("video_play", {
+        content_id: id,
         video_id: youtubeId,
-        platform: 'youtube_inline_premium'
+        platform: "youtube_inline_premium",
       });
     } else {
       // Free users open YouTube externally
-      track('video_play', { 
-        content_id: id, 
+      track("video_play", {
+        content_id: id,
         video_id: youtubeId,
-        platform: 'youtube_external'
+        platform: "youtube_external",
       });
       window.open(`https://www.youtube.com/watch?v=${youtubeId}`, "_blank");
     }
@@ -125,19 +128,19 @@ export const FeedCard = ({
   };
 
   const formatDuration = (seconds?: number) => {
-    if (!seconds) return '';
+    if (!seconds) return "";
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-    
+
     if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+      return `${hours}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
     }
-    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+    return `${minutes}:${secs.toString().padStart(2, "0")}`;
   };
 
   const formatViewCount = (count?: number) => {
-    if (!count) return '';
+    if (!count) return "";
     if (count < 1000) return count.toString();
     if (count < 1000000) return `${(count / 1000).toFixed(1)}K`;
     if (count < 1000000000) return `${(count / 1000000).toFixed(1)}M`;
@@ -152,12 +155,7 @@ export const FeedCard = ({
           <div className="relative w-full aspect-square overflow-hidden">
             {showInlineVideo ? (
               <div className="relative w-full h-full">
-                <YouTubePlayer
-                  videoId={youtubeId!}
-                  contentId={id}
-                  isPremium={true}
-                  className="w-full h-full"
-                />
+                <YouTubePlayer videoId={youtubeId!} contentId={id} isPremium={true} className="w-full h-full" />
                 {/* Premium badge */}
                 <div className="absolute top-2 right-2 bg-primary text-primary-foreground px-2 py-1 rounded text-xs font-medium">
                   Premium
@@ -171,10 +169,10 @@ export const FeedCard = ({
                 )}
               </div>
             ) : (
-              <div 
+              <div
                 className="w-full h-full bg-cover bg-center cursor-pointer relative group"
-                style={{ 
-                  backgroundImage: `url(${imageUrl && imageUrl.trim() ? imageUrl : '/og-dailydrops.jpg'})` 
+                style={{
+                  backgroundImage: `url(${imageUrl && imageUrl.trim() ? imageUrl : "/og-image.png"})`,
                 }}
                 onClick={type === "video" ? handleVideoPlay : handleOpen}
               >
@@ -187,7 +185,10 @@ export const FeedCard = ({
                 )}
                 {!user?.isPremium && youtubeId && (
                   <div className="absolute top-2 right-2">
-                    <Badge variant="secondary" className="text-xs bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
+                    <Badge
+                      variant="secondary"
+                      className="text-xs bg-gradient-to-r from-primary to-primary/80 text-primary-foreground"
+                    >
                       Watch inline with Premium
                     </Badge>
                   </div>
@@ -206,20 +207,20 @@ export const FeedCard = ({
           <div className="flex-1 p-4 flex flex-col">
             <div className="flex items-start justify-between gap-2 mb-3">
               <div className="flex-1 min-w-0">
-                <h3 
+                <h3
                   className="font-semibold text-foreground line-clamp-2 cursor-pointer hover:text-primary transition-colors text-sm leading-tight"
                   onClick={handleOpen}
                 >
                   {title}
                 </h3>
                 <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                  <span className="truncate">{source.name || 'Unknown Source'}</span>
+                  <span className="truncate">{source.name || "Unknown Source"}</span>
                   <span>•</span>
                   <time dateTime={publishedAt} className="whitespace-nowrap">
-                    {new Date(publishedAt).toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      day: 'numeric',
-                      year: 'numeric'
+                    {new Date(publishedAt).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
                     })}
                   </time>
                 </div>
@@ -229,58 +230,45 @@ export const FeedCard = ({
               </Button>
             </div>
 
-            <p className="text-xs text-muted-foreground line-clamp-2 mb-3 flex-1">
-              {summary}
-            </p>
+            <p className="text-xs text-muted-foreground line-clamp-2 mb-3 flex-1">{summary}</p>
 
             <div className="flex items-center justify-between gap-2 mt-auto">
               <div className="flex gap-1 flex-wrap min-w-0 flex-1">
                 {/* L1 Topic - Always clickable */}
-                {l1Topic && (() => {
-                  const slug = getTopicSlug(l1Topic);
-                  const linkTo = slug ? `/topics/${slug}` : `/search?q=${encodeURIComponent(l1Topic)}`;
-                  return (
-                    <ChipLink 
-                      to={linkTo} 
-                      variant="tag-l1" 
-                      className="text-xs py-0 px-2 truncate"
-                    >
-                      {l1Topic}
-                    </ChipLink>
-                  );
-                })()}
-                
+                {l1Topic &&
+                  (() => {
+                    const slug = getTopicSlug(l1Topic);
+                    const linkTo = slug ? `/topics/${slug}` : `/search?q=${encodeURIComponent(l1Topic)}`;
+                    return (
+                      <ChipLink to={linkTo} variant="tag-l1" className="text-xs py-0 px-2 truncate">
+                        {l1Topic}
+                      </ChipLink>
+                    );
+                  })()}
+
                 {/* L2 Topic - Always clickable */}
-                {l2Topic && (() => {
-                  const slug = getTopicSlug(l2Topic);
-                  const linkTo = slug ? `/topics/${slug}` : `/search?q=${encodeURIComponent(l2Topic)}`;
-                  return (
-                    <ChipLink 
-                      to={linkTo} 
-                      variant="tag-l2" 
-                      className="text-xs py-0 px-2 truncate"
-                    >
-                      {l2Topic}
-                    </ChipLink>
-                  );
-                })()}
-                
+                {l2Topic &&
+                  (() => {
+                    const slug = getTopicSlug(l2Topic);
+                    const linkTo = slug ? `/topics/${slug}` : `/search?q=${encodeURIComponent(l2Topic)}`;
+                    return (
+                      <ChipLink to={linkTo} variant="tag-l2" className="text-xs py-0 px-2 truncate">
+                        {l2Topic}
+                      </ChipLink>
+                    );
+                  })()}
+
                 {/* L3 Tags - Always link to search */}
                 {tags.slice(0, l1Topic || l2Topic ? 1 : 2).map((tag, index) => {
                   const slug = getTopicSlug(tag);
                   const linkTo = slug ? `/topics/${slug}` : `/search?q=${encodeURIComponent(tag)}`;
                   return (
-                    <ChipLink 
-                      key={`l3-${index}`}
-                      to={linkTo} 
-                      variant="tag-l3" 
-                      className="text-xs py-0 px-2 truncate"
-                    >
+                    <ChipLink key={`l3-${index}`} to={linkTo} variant="tag-l3" className="text-xs py-0 px-2 truncate">
                       {tag}
                     </ChipLink>
                   );
                 })}
-                
+
                 {/* Show +N for remaining tags */}
                 {tags.length > (l1Topic || l2Topic ? 1 : 2) && (
                   <Badge variant="tag-l3" className="text-xs py-0 px-2">
@@ -290,54 +278,49 @@ export const FeedCard = ({
               </div>
 
               <div className="flex items-center gap-1 flex-shrink-0">
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="sm"
                   onClick={() => handleEngagementAction("like")}
                   disabled={loadingState}
-                  className={`h-7 w-7 p-0 ${engagementState.isLiked ? 'text-rose-600' : ''}`}
+                  className={`h-7 w-7 p-0 ${engagementState.isLiked ? "text-rose-600" : ""}`}
                   aria-pressed={engagementState.isLiked}
-                  aria-label={engagementState.isLiked ? 'Unlike' : 'Like'}
+                  aria-label={engagementState.isLiked ? "Unlike" : "Like"}
                 >
-                  <Heart className={`h-3 w-3 ${engagementState.isLiked ? 'fill-current' : ''}`} />
+                  <Heart className={`h-3 w-3 ${engagementState.isLiked ? "fill-current" : ""}`} />
                 </Button>
-                
+
                 {/* Hide Save button if item is liked (auto-saved) */}
                 {!engagementState.isLiked && (
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     size="sm"
                     onClick={() => handleEngagementAction("save")}
                     disabled={loadingState}
-                    className={`h-7 w-7 p-0 ${engagementState.isSaved ? 'text-primary' : ''}`}
+                    className={`h-7 w-7 p-0 ${engagementState.isSaved ? "text-primary" : ""}`}
                     aria-pressed={engagementState.isSaved}
-                    aria-label={engagementState.isSaved ? 'Unsave' : 'Save'}
+                    aria-label={engagementState.isSaved ? "Unsave" : "Save"}
                   >
-                    <Bookmark className={`h-3 w-3 ${engagementState.isSaved ? 'fill-current' : ''}`} />
+                    <Bookmark className={`h-3 w-3 ${engagementState.isSaved ? "fill-current" : ""}`} />
                   </Button>
                 )}
-                
-                <ShareButton 
-                  dropId={id}
-                  title={title}
-                  url={href}
-                  disabled={loadingState}
-                />
-                
-                <Button 
-                  variant="ghost" 
+
+                <ShareButton dropId={id} title={title} url={href} disabled={loadingState} />
+
+                <Button
+                  variant="ghost"
                   size="sm"
                   onClick={() => handleEngagementAction("dislike")}
                   disabled={loadingState}
-                  className={`h-7 w-7 p-0 ${engagementState.isDisliked ? 'text-slate-600' : ''}`}
+                  className={`h-7 w-7 p-0 ${engagementState.isDisliked ? "text-slate-600" : ""}`}
                   aria-pressed={engagementState.isDisliked}
-                  aria-label={engagementState.isDisliked ? 'Remove dislike' : 'Dislike'}
+                  aria-label={engagementState.isDisliked ? "Remove dislike" : "Dislike"}
                 >
-                  <ThumbsDown className={`h-3 w-3 ${engagementState.isDisliked ? 'fill-current' : ''}`} />
+                  <ThumbsDown className={`h-3 w-3 ${engagementState.isDisliked ? "fill-current" : ""}`} />
                 </Button>
-                
-                <Button 
-                  variant="ghost" 
+
+                <Button
+                  variant="ghost"
                   size="sm"
                   onClick={() => handleEngagementAction("dismiss")}
                   disabled={loadingState}
