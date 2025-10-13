@@ -497,7 +497,6 @@ Write only the post text, no quotes or extra formatting.`;
         },
         output: {
           format: 'mp4',
-          resolution: 'hd',
           size: { width: 1080, height: 1080 },
           fps: 30,
           scaleTo: 'crop'
@@ -539,7 +538,6 @@ Write only the post text, no quotes or extra formatting.`;
         },
         output: {
           format: 'mp4',
-          resolution: 'hd',
           size: { width: 1080, height: 1080 },
           fps: 30
         }

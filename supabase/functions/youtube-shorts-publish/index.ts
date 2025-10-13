@@ -406,7 +406,6 @@ Return only the script text, one sentence per line.`;
       },
       output: {
         format: "mp4",
-        resolution: "hd",
         fps: 30,
         size: { width: 1080, height: 1920 }
       }
