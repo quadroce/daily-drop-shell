@@ -41,7 +41,7 @@ export function YouTubeJobsManager() {
     }
   };
 
-  const createCommentJobs = async () => {
+  const triggerJobCreator = async () => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke(
@@ -54,20 +54,25 @@ export function YouTubeJobsManager() {
       if (error) throw error;
 
       toast({
-        title: "✅ Comment Jobs Created",
-        description: `Created ${
-          data.jobsCreated || 0
-        } new comment jobs for YouTube videos`,
+        title: "✅ Job Creator Executed",
+        description: `Scanned YouTube videos and created ${
+          data?.jobsCreated || 0
+        } new comment jobs`,
       });
     } catch (error: any) {
       toast({
-        title: "Error creating jobs",
+        title: "Error executing job creator",
         description: error.message,
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const createCommentJobs = async () => {
+    // Deprecated: use triggerJobCreator instead
+    await triggerJobCreator();
   };
 
   const createTestJob = async () => {
@@ -117,7 +122,7 @@ export function YouTubeJobsManager() {
       </CardHeader>
       <CardContent className="space-y-3">
         <Button
-          onClick={createCommentJobs}
+          onClick={triggerJobCreator}
           disabled={isLoading}
           className="w-full gap-2"
         >
@@ -125,13 +130,13 @@ export function YouTubeJobsManager() {
             ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Creating Jobs...
+                Scanning...
               </>
             )
             : (
               <>
                 <Plus className="h-4 w-4" />
-                Create Comment Jobs
+                Scan for New Videos
               </>
             )}
         </Button>
@@ -180,8 +185,8 @@ export function YouTubeJobsManager() {
 
         <div className="text-xs text-muted-foreground p-3 bg-muted/50 rounded space-y-1">
           <p>
-            <strong>Create Comment Jobs:</strong>{" "}
-            Creates up to 20 jobs for new YouTube videos
+            <strong>Scan for New Videos:</strong>{" "}
+            Scans tagged YouTube videos and creates up to 20 comment jobs
           </p>
           <p>
             <strong>Clean Failed Jobs:</strong> Marks all error jobs as 'failed'
