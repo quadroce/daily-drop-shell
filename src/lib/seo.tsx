@@ -1,6 +1,6 @@
 // Utility to check if a date is older than 90 days
 export const isOlderThan90Days = (date: Date | string): boolean => {
-  const targetDate = typeof date === 'string' ? new Date(date) : date;
+  const targetDate = typeof date === "string" ? new Date(date) : date;
   const ninetyDaysAgo = new Date();
   ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
   return targetDate < ninetyDaysAgo;
@@ -15,18 +15,12 @@ export interface SeoMeta {
   ogImage?: string;
 }
 
-export const generateSeoMeta = ({
-  title,
-  description,
-  canonical,
-  noindex,
-  ogImage
-}: SeoMeta) => ({
+export const generateSeoMeta = ({ title, description, canonical, noindex, ogImage }: SeoMeta) => ({
   title,
   description: description.substring(0, 160), // Truncate at 160 chars
   canonical,
   noindex,
-  ogImage: ogImage || `${window.location.origin}/og-dailydrops.jpg`
+  ogImage: ogImage || `${window.location.origin}/og-image.png`,
 });
 
 // Breadcrumb JSON-LD generator
@@ -38,12 +32,12 @@ export interface BreadcrumbItem {
 export const breadcrumbJsonLd = (items: BreadcrumbItem[]) => ({
   "@context": "https://schema.org",
   "@type": "BreadcrumbList",
-  "itemListElement": items.map((item, index) => ({
+  itemListElement: items.map((item, index) => ({
     "@type": "ListItem",
-    "position": index + 1,
-    "name": item.name,
-    "item": item.url
-  }))
+    position: index + 1,
+    name: item.name,
+    item: item.url,
+  })),
 });
 
 // Item List JSON-LD generator
@@ -54,26 +48,21 @@ export interface ItemListItem {
   description?: string;
 }
 
-export const itemListJsonLd = (
-  name: string,
-  description: string,
-  url: string,
-  items: ItemListItem[]
-) => ({
+export const itemListJsonLd = (name: string, description: string, url: string, items: ItemListItem[]) => ({
   "@context": "https://schema.org",
   "@type": "ItemList",
-  "name": name,
-  "description": description,
-  "url": url,
-  "numberOfItems": items.length,
-  "itemListElement": items.map((item, index) => ({
+  name: name,
+  description: description,
+  url: url,
+  numberOfItems: items.length,
+  itemListElement: items.map((item, index) => ({
     "@type": "ListItem",
-    "position": index + 1,
-    "name": item.name,
-    "url": item.url,
-    ...(item.image && { "image": item.image }),
-    ...(item.description && { "description": item.description })
-  }))
+    position: index + 1,
+    name: item.name,
+    url: item.url,
+    ...(item.image && { image: item.image }),
+    ...(item.description && { description: item.description }),
+  })),
 });
 
 // Collection Page JSON-LD for archive pages
@@ -81,14 +70,14 @@ export const collectionPageJsonLd = (
   name: string,
   description: string,
   url: string,
-  breadcrumbs?: BreadcrumbItem[]
+  breadcrumbs?: BreadcrumbItem[],
 ) => ({
   "@context": "https://schema.org",
   "@type": "CollectionPage",
-  "name": name,
-  "description": description,
-  "url": url,
-  ...(breadcrumbs && { "breadcrumb": breadcrumbJsonLd(breadcrumbs) })
+  name: name,
+  description: description,
+  url: url,
+  ...(breadcrumbs && { breadcrumb: breadcrumbJsonLd(breadcrumbs) }),
 });
 
 // Article JSON-LD for individual content items
@@ -98,14 +87,14 @@ export const articleJsonLd = (
   url: string,
   datePublished: string,
   author?: string,
-  image?: string
+  image?: string,
 ) => ({
   "@context": "https://schema.org",
   "@type": "Article",
-  "headline": headline,
-  "description": description,
-  "url": url,
-  "datePublished": datePublished,
-  ...(author && { "author": { "@type": "Person", "name": author } }),
-  ...(image && { "image": image })
+  headline: headline,
+  description: description,
+  url: url,
+  datePublished: datePublished,
+  ...(author && { author: { "@type": "Person", name: author } }),
+  ...(image && { image: image }),
 });
