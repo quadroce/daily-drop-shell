@@ -20,73 +20,70 @@ serve(async (req) => {
 
     console.log('🎬 Starting YouTube job creator...');
 
-    // Find drops with YouTube videos that don't have jobs yet
-    const { data: candidateDrops, error: dropsError } = await supabase
-      .from('drops')
-      .select('id, youtube_video_id, youtube_channel_id, title, summary, tags')
-      .not('youtube_video_id', 'is', null)
-      .not('youtube_channel_id', 'is', null)
-      .eq('tag_done', true)
-      .limit(BATCH_SIZE * 2); // Get more candidates than needed
+    // Query drops that don't have jobs yet using a more efficient approach
+    // We'll use RPC to get drops without existing jobs
+    const { data: dropsWithoutJobs, error: queryError } = await supabase.rpc('get_drops_without_comment_jobs', {
+      batch_limit: BATCH_SIZE
+    });
 
-    if (dropsError) {
-      console.error('Error fetching drops:', dropsError);
-      return new Response(JSON.stringify({ error: dropsError.message }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    if (queryError) {
+      console.error('Error fetching drops without jobs:', queryError);
+      
+      // Fallback to the old method if RPC fails
+      console.log('Falling back to manual filtering...');
+      
+      const { data: allDrops, error: dropsError } = await supabase
+        .from('drops')
+        .select('id, youtube_video_id, youtube_channel_id, title, summary, tags')
+        .not('youtube_video_id', 'is', null)
+        .not('youtube_channel_id', 'is', null)
+        .eq('tag_done', true)
+        .order('created_at', { ascending: false })
+        .limit(500); // Check more videos
+
+      if (dropsError) {
+        console.error('Error fetching drops:', dropsError);
+        return new Response(JSON.stringify({ error: dropsError.message }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      if (!allDrops || allDrops.length === 0) {
+        console.log('No candidate drops found');
+        return new Response(JSON.stringify({ 
+          success: true, 
+          message: 'No videos to process',
+          jobsCreated: 0
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      console.log(`Found ${allDrops.length} candidate drops, filtering...`);
+
+      // Check which ones already have jobs
+      const videoIds = allDrops.map(d => d.youtube_video_id).filter(Boolean);
+      const { data: existingJobs } = await supabase
+        .from('social_comment_jobs')
+        .select('video_id')
+        .in('video_id', videoIds);
+
+      const existingVideoIds = new Set(existingJobs?.map(j => j.video_id) || []);
+      console.log(`Found ${existingVideoIds.size} videos that already have jobs`);
+      
+      var newDrops = allDrops
+        .filter(d => !existingVideoIds.has(d.youtube_video_id))
+        .slice(0, BATCH_SIZE);
+    } else {
+      var newDrops = dropsWithoutJobs || [];
     }
 
-    if (!candidateDrops || candidateDrops.length === 0) {
-      console.log('No candidate drops found');
+    if (!newDrops || newDrops.length === 0) {
+      console.log('No new videos to process');
       return new Response(JSON.stringify({ 
         success: true, 
-        message: 'No videos to process',
-        jobsCreated: 0
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    console.log(`Found ${candidateDrops.length} candidate drops`);
-
-    // Filter out videos that already have jobs (ANY status - we only want one job per video EVER)
-    const videoIds = candidateDrops.map(d => d.youtube_video_id).filter(Boolean);
-    
-    if (videoIds.length === 0) {
-      console.log('No valid video IDs found');
-      return new Response(JSON.stringify({ 
-        success: true, 
-        message: 'No valid video IDs',
-        jobsCreated: 0
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    console.log(`Checking ${videoIds.length} video IDs against existing jobs...`);
-    
-    const { data: existingJobs, error: existingJobsError } = await supabase
-      .from('social_comment_jobs')
-      .select('video_id')
-      .in('video_id', videoIds);
-
-    if (existingJobsError) {
-      console.error('Error checking existing jobs:', existingJobsError);
-    }
-
-    const existingVideoIds = new Set(existingJobs?.map(j => j.video_id) || []);
-    console.log(`Found ${existingVideoIds.size} videos that already have jobs`);
-    
-    const newDrops = candidateDrops
-      .filter(d => !existingVideoIds.has(d.youtube_video_id))
-      .slice(0, BATCH_SIZE);
-
-    if (newDrops.length === 0) {
-      console.log('All candidate videos already have jobs');
-      return new Response(JSON.stringify({ 
-        success: true, 
-        message: 'All videos already processed',
+        message: 'No new videos found',
         jobsCreated: 0
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
