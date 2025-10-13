@@ -287,7 +287,7 @@ Return only the script text, one sentence per line.`;
                 content: scriptPrompt,
               },
             ],
-            max_completion_tokens: 1000,
+            max_completion_tokens: 300,
           }),
         },
       );
@@ -306,9 +306,15 @@ Return only the script text, one sentence per line.`;
       }
 
       if (
-        !scriptData.choices[0].message || !scriptData.choices[0].message.content
+        !scriptData.choices[0].message || 
+        !scriptData.choices[0].message.content ||
+        scriptData.choices[0].message.content.trim() === ""
       ) {
         console.error("Invalid OpenAI response structure:", scriptData);
+        const finishReason = scriptData.choices?.[0]?.finish_reason;
+        if (finishReason === "length") {
+          throw new Error("OpenAI response truncated: max_completion_tokens too low or model used all tokens for reasoning");
+        }
         throw new Error("OpenAI returned invalid response structure");
       }
 
