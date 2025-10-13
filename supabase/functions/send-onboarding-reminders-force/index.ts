@@ -38,38 +38,25 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('📋 Force send options:', { userIds, skipTimingChecks, maxAttempts });
 
     // Query users who need onboarding reminders
-    let query = supabase
+    let profileQuery = supabase
       .from('profiles')
-      .select(`
-        id,
-        email,
-        first_name,
-        language_prefs,
-        created_at,
-        onboarding_reminders (
-          attempt_count,
-          last_sent_at,
-          paused
-        )
-      `)
+      .select('id, email, first_name, language_prefs, created_at')
       .eq('onboarding_completed', false)
       .eq('is_active', true);
 
     // Filter by specific user IDs if provided
     if (userIds && Array.isArray(userIds) && userIds.length > 0) {
-      query = query.in('id', userIds);
+      profileQuery = profileQuery.in('id', userIds);
     }
 
-    const { data: usersToRemind, error: queryError } = await query;
+    const { data: profiles, error: profileError } = await profileQuery;
 
-    if (queryError) {
-      console.error('❌ Error querying users:', queryError);
-      throw queryError;
+    if (profileError) {
+      console.error('❌ Error querying profiles:', profileError);
+      throw profileError;
     }
 
-    console.log(`📊 Found ${usersToRemind?.length || 0} users with incomplete onboarding`);
-
-    if (!usersToRemind || usersToRemind.length === 0) {
+    if (!profiles || profiles.length === 0) {
       return new Response(JSON.stringify({ 
         success: true, 
         sent: 0, 
@@ -80,11 +67,30 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
+    // Get reminder data separately
+    const { data: reminders, error: reminderError } = await supabase
+      .from('onboarding_reminders')
+      .select('user_id, attempt_count, last_sent_at, paused')
+      .in('user_id', profiles.map(p => p.id));
+
+    if (reminderError) {
+      console.warn('⚠️ Error querying reminders:', reminderError);
+      // Continue without reminder data
+    }
+
+    // Create a map of reminders by user_id
+    const reminderMap = new Map(
+      reminders?.map(r => [r.user_id, r]) || []
+    );
+
+    console.log(`📊 Found ${profiles.length} users with incomplete onboarding`);
+
+
     const now = new Date();
 
-    const eligibleUsers: UserToRemind[] = usersToRemind
+    const eligibleUsers: UserToRemind[] = profiles
       .filter(user => {
-        const reminder = user.onboarding_reminders?.[0];
+        const reminder = reminderMap.get(user.id);
         
         // Skip if paused (unless force override)
         if (reminder?.paused && !skipTimingChecks) return false;
@@ -100,7 +106,7 @@ const handler = async (req: Request): Promise<Response> => {
         email: user.email,
         first_name: user.first_name,
         preferred_lang: user.language_prefs?.[0] || 'en',
-        current_attempts: user.onboarding_reminders?.[0]?.attempt_count || 0
+        current_attempts: reminderMap.get(user.id)?.attempt_count || 0
       }));
 
     console.log(`✅ ${eligibleUsers.length} users eligible for FORCE reminders`);
