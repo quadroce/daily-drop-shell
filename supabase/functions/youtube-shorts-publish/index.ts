@@ -53,35 +53,100 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Parse request
-    const { dropId, style = "recap", title, description } = await req.json();
+    // Parse request - support both drop-based and topic-based digest
+    const { dropId, topicSlug, style = "recap", title, description } = await req.json();
 
-    if (!dropId) {
-      return new Response(JSON.stringify({ error: "dropId is required" }), {
+    // Determine mode
+    const isTopicDigest = !!topicSlug;
+
+    if (!dropId && !topicSlug) {
+      return new Response(JSON.stringify({ error: "Either dropId or topicSlug is required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Fetch drop data
-    const { data: drop, error: dropError } = await supabase
-      .from("drops")
-      .select("*, sources(name)")
-      .eq("id", dropId)
-      .single();
+    let drop: any = null;
+    let topicData: any = null;
+    let topicNames = "tech";
+    let recentItems: any[] = [];
+    let scriptLines: string[] = [];
 
-    if (dropError || !drop) {
-      throw new Error("Drop not found");
+    if (isTopicDigest) {
+      // Topic Digest Mode
+      console.log('Topic Digest Mode: fetching topic data...');
+      
+      const { data: topic, error: topicError } = await supabase
+        .from('topics')
+        .select('id, slug, label')
+        .eq('slug', topicSlug)
+        .single();
+
+      if (topicError || !topic) {
+        throw new Error(`Topic not found: ${topicSlug}`);
+      }
+
+      topicData = topic;
+      topicNames = topic.label;
+
+      // Fetch recent content (last 48h, limit 10)
+      const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+      const { data: items } = await supabase
+        .from('content_topics')
+        .select('drops(id, title, summary, published_at)')
+        .eq('topic_id', topic.id)
+        .gte('drops.published_at', twoDaysAgo)
+        .order('drops.published_at', { ascending: false })
+        .limit(10);
+
+      recentItems = items?.map((i: any) => i.drops).filter(Boolean) || [];
+      console.log(`Found ${recentItems.length} recent items for topic ${topic.label}`);
+    } else {
+      // Original Drop Mode
+      const { data: fetchedDrop, error: dropError } = await supabase
+        .from("drops")
+        .select("*, sources(name)")
+        .eq("id", dropId)
+        .single();
+
+      if (dropError || !fetchedDrop) {
+        throw new Error("Drop not found");
+      }
+
+      drop = fetchedDrop;
+
+      // Get topics
+      const { data: topics } = await supabase
+        .from("content_topics")
+        .select("topics(slug, name)")
+        .eq("content_id", dropId);
+
+      topicNames = topics?.map((t: any) => t.topics.name).join(", ") || "tech";
     }
 
-    // Get topics
-    const { data: topics } = await supabase
-      .from("content_topics")
-      .select("topics(slug, name)")
-      .eq("content_id", dropId);
+    // Get logo URL from Storage
+    let logoUrl: string | null = null;
+    try {
+      const { data: logoData } = supabase.storage
+        .from('assets')
+        .getPublicUrl('dailydrops-logo-square.png');
+      logoUrl = logoData?.publicUrl || null;
+    } catch (err) {
+      console.warn('Failed to get logo URL:', err);
+    }
 
-    const topicNames = topics?.map((t: any) => t.topics.name).join(", ") ||
-      "tech";
+    // Get random music track from Storage
+    let musicUrl: string | null = null;
+    try {
+      const musicFiles = ['music1.mp3', 'music2.mp3', 'music3.mp3', 'music4.mp3', 'music5.mp3'];
+      const randomMusic = musicFiles[Math.floor(Math.random() * musicFiles.length)];
+      const { data: musicData } = supabase.storage
+        .from('music')
+        .getPublicUrl(randomMusic);
+      musicUrl = musicData?.publicUrl || null;
+    } catch (err) {
+      console.warn('Failed to get music URL, continuing without soundtrack:', err);
+    }
 
     // Step 1: Generate script using OpenAI GPT-5
     console.log("Step 1/4: Generating script...");
@@ -91,7 +156,80 @@ Deno.serve(async (req) => {
       throw new Error("OPENAI_API_KEY not configured");
     }
 
-    const scriptPrompt = style === "recap"
+    let scriptPrompt: string;
+
+    if (isTopicDigest) {
+      // Topic Digest Mode
+      const itemsJson = recentItems.length > 0
+        ? recentItems.slice(0, 10).map(item => ({
+            title: item.title,
+            summary: item.summary?.substring(0, 100) || ''
+          }))
+        : [];
+
+      const fallbackScript = [
+        `Today in ${topicData.label}.`,
+        'No major headlines in the last 24 hours.',
+        'Explore curated picks and evergreen resources.',
+        'Discover trending sources and fresh perspectives.',
+        `See more on DailyDrops — https://dailydrops.cloud/topics/${topicSlug}`
+      ];
+
+      if (itemsJson.length === 0) {
+        scriptLines = fallbackScript;
+      } else {
+        const scriptPromptText = `Write exactly 5 lines for a short video about recent content in "${topicData.label}". 
+
+Recent items (last 48h):
+${JSON.stringify(itemsJson, null, 2)}
+
+Format (exactly 5 lines, separated by \\n):
+Line 1: "Today in {TopicName}."
+Lines 2-4: Three highlights, each ≤10 words, neutral/informative
+Line 5: "See more on DailyDrops — https://dailydrops.cloud/topics/${topicSlug}"
+
+Total max ~60 words. Return only the 5 lines, no quotes, no markdown.`;
+
+        const scriptResponse = await fetch(
+          "https://api.openai.com/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${openaiApiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "gpt-5-2025-08-07",
+              messages: [
+                {
+                  role: "system",
+                  content: "You write concise, scannable on-screen captions for short social videos. No emojis."
+                },
+                {
+                  role: "user",
+                  content: scriptPromptText
+                }
+              ],
+              max_completion_tokens: 300,
+            }),
+          },
+        );
+
+        if (!scriptResponse.ok) {
+          console.warn('Script generation failed, using fallback');
+          scriptLines = fallbackScript;
+        } else {
+          const scriptData = await scriptResponse.json();
+          const rawScript = scriptData.choices[0].message.content.trim();
+          scriptLines = rawScript.split('\n').filter((l: string) => l.trim()).slice(0, 5);
+          if (scriptLines.length < 5) scriptLines = fallbackScript;
+        }
+      }
+      
+      scriptPrompt = ''; // Not used in Topic Digest mode
+    } else {
+      // Original Drop Mode
+      scriptPrompt = style === "recap"
       ? `Create a 30 second YouTube Shorts script about: "${drop.title}"
 
 Summary: ${drop.summary || "No summary available"}
@@ -122,79 +260,90 @@ Requirements:
 - End with: "Check comments for the full story"
 
 Return only the script text, one sentence per line.`;
+    }
 
-    const scriptResponse = await fetch(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${openaiApiKey}`,
-          "Content-Type": "application/json",
+    let script: string = '';
+
+    if (!isTopicDigest) {
+      // Original Drop Mode - generate script via OpenAI
+      const scriptResponse = await fetch(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${openaiApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "gpt-5-2025-08-07",
+            messages: [
+              {
+                role: "system",
+                content:
+                  "You are a YouTube Shorts script writer. Create engaging, concise scripts optimized for vertical video.",
+              },
+              {
+                role: "user",
+                content: scriptPrompt,
+              },
+            ],
+            max_completion_tokens: 1000,
+          }),
         },
-        body: JSON.stringify({
-          model: "gpt-5-2025-08-07",
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are a YouTube Shorts script writer. Create engaging, concise scripts optimized for vertical video.",
-            },
-            {
-              role: "user",
-              content: scriptPrompt,
-            },
-          ],
-          max_completion_tokens: 1000,
-        }),
-      },
-    );
+      );
 
-    if (!scriptResponse.ok) {
-      const errorData = await scriptResponse.text();
-      console.error("OpenAI API error:", errorData);
-      throw new Error(`Script generation failed: ${errorData}`);
+      if (!scriptResponse.ok) {
+        const errorData = await scriptResponse.text();
+        console.error("OpenAI API error:", errorData);
+        throw new Error(`Script generation failed: ${errorData}`);
+      }
+
+      const scriptData = await scriptResponse.json();
+      console.log("OpenAI response:", JSON.stringify(scriptData, null, 2));
+
+      if (!scriptData.choices || scriptData.choices.length === 0) {
+        throw new Error("OpenAI returned no choices");
+      }
+
+      if (
+        !scriptData.choices[0].message || !scriptData.choices[0].message.content
+      ) {
+        console.error("Invalid OpenAI response structure:", scriptData);
+        throw new Error("OpenAI returned invalid response structure");
+      }
+
+      script = scriptData.choices[0].message.content.trim();
+    } else {
+      // Topic Digest Mode - script already generated in scriptLines
+      script = scriptLines.join('\n');
     }
-
-    const scriptData = await scriptResponse.json();
-    console.log("OpenAI response:", JSON.stringify(scriptData, null, 2));
-
-    if (!scriptData.choices || scriptData.choices.length === 0) {
-      throw new Error("OpenAI returned no choices");
-    }
-
-    if (
-      !scriptData.choices[0].message || !scriptData.choices[0].message.content
-    ) {
-      console.error("Invalid OpenAI response structure:", scriptData);
-      throw new Error("OpenAI returned invalid response structure");
-    }
-
-    const script = scriptData.choices[0].message.content.trim();
 
     console.log("Script generated:", script.substring(0, 100) + "...");
 
     // Generate metadata
-    const ctaUrl =
-      `https://dailydrops.cloud?utm_source=youtube&utm_medium=shorts&utm_campaign=${style}`;
+    const ctaUrl = isTopicDigest
+      ? `https://dailydrops.cloud/topics/${topicSlug}?utm_source=youtube&utm_medium=shorts&utm_campaign=digest`
+      : `https://dailydrops.cloud?utm_source=youtube&utm_medium=shorts&utm_campaign=${style}`;
 
     const metadata = {
-      title: title || `${drop.title.substring(0, 80)} #Shorts`,
-      description: description ||
-        `${
-          drop.summary?.substring(0, 200) || drop.title
-        }\n\nLearn more at ${ctaUrl}\n\n#tech #innovation`,
-      tags: ["tech", "innovation"],
+      title: isTopicDigest
+        ? `Today in ${topicData.label} #Shorts`
+        : (title || `${drop.title.substring(0, 80)} #Shorts`),
+      description: isTopicDigest
+        ? `Quick highlights from ${topicData.label}\n\nLearn more at ${ctaUrl}\n\n#tech #${topicSlug}`
+        : (description || `${drop.summary?.substring(0, 200) || drop.title}\n\nLearn more at ${ctaUrl}\n\n#tech #innovation`),
+      tags: isTopicDigest ? [topicSlug, "tech", "news"] : ["tech", "innovation"],
       categoryId: "28",
     };
 
     console.log("✅ Script generation completed successfully");
     console.log(
-      "⚠️ TTS, video rendering, and YouTube upload not yet implemented",
+      "⚠️ TTS, video rendering, and YouTube upload not yet implemented for both Drop and Topic Digest modes",
     );
 
     // TODO: Implement these production steps:
-    // Step 2: Generate TTS audio using Google Cloud TTS or ElevenLabs
-    // Step 3: Create video with FFmpeg (1080x1920, 30fps, h264 codec)
+    // Step 2: Generate TTS audio OR use text overlays (for Topic Digest)
+    // Step 3: Render video with Shotstack (9:16, 30fps) - similar to LinkedIn implementation
     // Step 4: Upload to YouTube using YouTube Data API v3
 
     // Log success event
@@ -204,48 +353,51 @@ Return only the script text, one sentence per line.`;
       meta: {
         action: "generate_script",
         platform: "youtube",
-        drop_id: dropId,
+        mode: isTopicDigest ? "topic_digest" : "drop",
+        ...(isTopicDigest ? {
+          topic_slug: topicSlug,
+          topic_id: topicData.id,
+          items_count: recentItems.length,
+          music_url: musicUrl,
+          logo_url: logoUrl
+        } : {
+          drop_id: dropId
+        }),
         style,
         model: "gpt-5-2025-08-07",
         note:
-          "Script generated successfully - TTS and video rendering not yet implemented",
+          "Script generated successfully - TTS/rendering/upload not yet implemented",
       },
     });
 
-    const result = {
+    const result: any = {
       success: true,
-      mode: "script_only",
+      mode: isTopicDigest ? "topic_digest_script" : "script_only",
       platform: "youtube",
       script: {
         text: script,
-        words: script.split(/\s+/).length,
-        estimatedDuration: `${audioDuration}s`,
-      },
-      audio: {
-        provider: "Google Cloud TTS",
-        voice: "en-US-Neural2-J",
-        duration: `${audioDuration}s`,
-        size: audioBase64
-          ? `${Math.ceil(audioBase64.length * 0.75 / 1024)}KB`
-          : "N/A",
-      },
-      video: {
-        status: "published",
-        renderId,
-        format: "1080x1920 (9:16), 30fps, h264",
-        size: `${Math.ceil(videoBlob.byteLength / 1024)}KB`,
-        shotstackUrl: videoUrl,
+        words: script.split(/\s+/).length
       },
       metadata,
       note:
-        "✅ Script generato con successo usando GPT-5. ⚠️ TTS, rendering video e caricamento su YouTube non ancora implementati.",
+        "✅ Script generato con successo. ⚠️ Rendering video e caricamento su YouTube non ancora implementati.",
       nextSteps: [
-        "Implementare TTS (Google Cloud TTS o ElevenLabs)",
-        "Implementare rendering video con FFmpeg (1080x1920, 30fps)",
+        "Implementare rendering video con Shotstack (1080x1920, 30fps, 9:16)",
         "Integrare caricamento su YouTube Data API v3",
         "Configurare autenticazione OAuth per YouTube",
       ],
     };
+
+    if (isTopicDigest) {
+      result.topic = {
+        slug: topicSlug,
+        name: topicData.label,
+        id: topicData.id
+      };
+      result.script.lines = scriptLines;
+      if (musicUrl) result.music = { url: musicUrl };
+      if (logoUrl) result.logo = { url: logoUrl };
+    }
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

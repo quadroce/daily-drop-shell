@@ -50,36 +50,101 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Parse request
-    const { dropId, style = 'highlight', text } = await req.json();
+    // Parse request - support both drop-based and topic-based digest
+    const { dropId, topicSlug, style = 'highlight', text } = await req.json();
 
-    if (!dropId) {
-      return new Response(JSON.stringify({ error: 'dropId is required' }), {
+    // Determine mode
+    const isTopicDigest = !!topicSlug;
+
+    if (!dropId && !topicSlug) {
+      return new Response(JSON.stringify({ error: 'Either dropId or topicSlug is required' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    // Fetch drop data
-    const { data: drop, error: dropError } = await supabase
-      .from('drops')
-      .select('*, sources(name)')
-      .eq('id', dropId)
-      .single();
+    let drop: any = null;
+    let topicData: any = null;
+    let topicNames = 'tech';
+    let recentItems: any[] = [];
 
-    if (dropError || !drop) {
-      throw new Error('Drop not found');
+    if (isTopicDigest) {
+      // Topic Digest Mode - fetch topic and recent content
+      console.log('Topic Digest Mode: fetching topic data...');
+      
+      const { data: topic, error: topicError } = await supabase
+        .from('topics')
+        .select('id, slug, label')
+        .eq('slug', topicSlug)
+        .single();
+
+      if (topicError || !topic) {
+        throw new Error(`Topic not found: ${topicSlug}`);
+      }
+
+      topicData = topic;
+      topicNames = topic.label;
+
+      // Fetch recent content (last 48h, limit 10)
+      const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+      const { data: items } = await supabase
+        .from('content_topics')
+        .select('drops(id, title, summary, published_at)')
+        .eq('topic_id', topic.id)
+        .gte('drops.published_at', twoDaysAgo)
+        .order('drops.published_at', { ascending: false })
+        .limit(10);
+
+      recentItems = items?.map((i: any) => i.drops).filter(Boolean) || [];
+      console.log(`Found ${recentItems.length} recent items for topic ${topic.label}`);
+    } else {
+      // Original Drop Mode
+      const { data: fetchedDrop, error: dropError } = await supabase
+        .from('drops')
+        .select('*, sources(name)')
+        .eq('id', dropId)
+        .single();
+
+      if (dropError || !fetchedDrop) {
+        throw new Error('Drop not found');
+      }
+
+      drop = fetchedDrop;
+
+      // Get topics
+      const { data: topics } = await supabase
+        .from('content_topics')
+        .select('topics(slug, name)')
+        .eq('content_id', dropId);
+
+      topicNames = topics?.map((t: any) => t.topics.name).join(', ') || 'tech';
     }
 
-    // Get topics
-    const { data: topics } = await supabase
-      .from('content_topics')
-      .select('topics(slug, name)')
-      .eq('content_id', dropId);
+    console.log('Step 1/5: Generating LinkedIn post text...');
 
-    const topicNames = topics?.map((t: any) => t.topics.name).join(', ') || 'tech';
+    // Get logo URL from Storage
+    let logoUrl: string | null = null;
+    try {
+      const { data: logoData } = supabase.storage
+        .from('assets')
+        .getPublicUrl('dailydrops-logo-square.png');
+      logoUrl = logoData?.publicUrl || null;
+    } catch (err) {
+      console.warn('Failed to get logo URL:', err);
+    }
 
-    console.log('Step 1/3: Generating LinkedIn post text...');
+    // Get random music track from Storage
+    let musicUrl: string | null = null;
+    try {
+      const musicFiles = ['music1.mp3', 'music2.mp3', 'music3.mp3', 'music4.mp3', 'music5.mp3'];
+      const randomMusic = musicFiles[Math.floor(Math.random() * musicFiles.length)];
+      const { data: musicData } = supabase.storage
+        .from('music')
+        .getPublicUrl(randomMusic);
+      musicUrl = musicData?.publicUrl || null;
+    } catch (err) {
+      console.warn('Failed to get music URL, continuing without soundtrack:', err);
+    }
 
     // Generate LinkedIn post text using OpenAI
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
@@ -87,7 +152,83 @@ Deno.serve(async (req) => {
       throw new Error('OPENAI_API_KEY not configured');
     }
 
-    const postPrompt = text || `Create an engaging LinkedIn post for a 20-30 second video about: "${drop.title}"
+    let postPrompt: string;
+    let scriptLines: string[];
+
+    if (isTopicDigest) {
+      // Topic Digest Mode
+      const itemsJson = recentItems.length > 0
+        ? recentItems.slice(0, 10).map(item => ({
+            title: item.title,
+            summary: item.summary?.substring(0, 100) || ''
+          }))
+        : [];
+
+      const fallbackScript = [
+        `Today in ${topicData.label}.`,
+        'No major headlines in the last 24 hours.',
+        'Explore curated picks and evergreen resources.',
+        'Discover trending sources and fresh perspectives.',
+        `See more on DailyDrops — https://dailydrops.cloud/topics/${topicSlug}`
+      ];
+
+      if (itemsJson.length === 0) {
+        scriptLines = fallbackScript;
+      } else {
+        const scriptPromptText = `Write exactly 5 lines for a short video about recent content in "${topicData.label}". 
+
+Recent items (last 48h):
+${JSON.stringify(itemsJson, null, 2)}
+
+Format (exactly 5 lines, separated by \\n):
+Line 1: "Today in {TopicName}."
+Lines 2-4: Three highlights, each ≤10 words, neutral/informative
+Line 5: "See more on DailyDrops — https://dailydrops.cloud/topics/${topicSlug}"
+
+Total max ~60 words. Return only the 5 lines, no quotes, no markdown.`;
+
+        const scriptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openaiApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-5-2025-08-07',
+            messages: [
+              {
+                role: 'system',
+                content: 'You write concise, scannable on-screen captions for short social videos. No emojis.'
+              },
+              {
+                role: 'user',
+                content: scriptPromptText
+              }
+            ],
+            max_completion_tokens: 300,
+          }),
+        });
+
+        if (!scriptResponse.ok) {
+          console.warn('Script generation failed, using fallback');
+          scriptLines = fallbackScript;
+        } else {
+          const scriptData = await scriptResponse.json();
+          const rawScript = scriptData.choices[0].message.content.trim();
+          scriptLines = rawScript.split('\n').filter((l: string) => l.trim()).slice(0, 5);
+          if (scriptLines.length < 5) scriptLines = fallbackScript;
+        }
+      }
+
+      // LinkedIn post text for Topic Digest
+      const hashtags = topicData.label.toLowerCase().split(/\s+/).slice(0, 2)
+        .map((w: string) => `#${w}`)
+        .join(' ');
+      
+      postPrompt = `Today in ${topicData.label}: 3 quick highlights.\nhttps://dailydrops.cloud/topics/${topicSlug}\n\n${hashtags} #tech`;
+    } else {
+      // Original Drop Mode
+      postPrompt = text || `Create an engaging LinkedIn post for a 20-30 second video about: "${drop.title}"
 
 Summary: ${drop.summary || 'No summary available'}
 Topics: ${topicNames}
@@ -101,44 +242,53 @@ Requirements:
 - Emphasize ONE key insight
 
 Write only the post text, no quotes or extra formatting.`;
-
-    const scriptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-5-2025-08-07',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a LinkedIn content strategist. Create professional, engaging posts for tech and innovation content.'
-          },
-          {
-            role: 'user',
-            content: postPrompt
-          }
-        ],
-        max_completion_tokens: 500,
-      }),
-    });
-
-    if (!scriptResponse.ok) {
-      const error = await scriptResponse.text();
-      throw new Error(`Post generation failed: ${error}`);
     }
 
-    const scriptData = await scriptResponse.json();
-    const postText = scriptData.choices[0].message.content.trim();
+    let postText: string;
+
+    if (!isTopicDigest) {
+      const scriptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-5-2025-08-07',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a LinkedIn content strategist. Create professional, engaging posts for tech and innovation content.'
+            },
+            {
+              role: 'user',
+              content: postPrompt
+            }
+          ],
+          max_completion_tokens: 500,
+        }),
+      });
+
+      if (!scriptResponse.ok) {
+        const error = await scriptResponse.text();
+        throw new Error(`Post generation failed: ${error}`);
+      }
+
+      const scriptData = await scriptResponse.json();
+      postText = scriptData.choices[0].message.content.trim();
+    } else {
+      postText = postPrompt;
+    }
 
     console.log('Post text generated:', postText);
 
-    // Step 2: Generate TTS audio
+    // Step 2: Generate TTS audio (or use script lines for Topic Digest)
     console.log('Step 2/5: Generating TTS audio...');
     
-    // Generate shorter script for LinkedIn (15-25s, max 50 words)
-    const linkedInScript = postText.split(/\s+/).slice(0, 50).join(' ');
+    // For Topic Digest, skip TTS (will use text overlays only)
+    const linkedInScript = isTopicDigest
+      ? scriptLines.join(' ')
+      : postText.split(/\s+/).slice(0, 50).join(' ');
     
     const gcpProject = Deno.env.get('GCLOUD_TTS_PROJECT');
     const gcpKeyBase64 = Deno.env.get('GCLOUD_TTS_SA_JSON_BASE64');
@@ -236,51 +386,149 @@ Write only the post text, no quotes or extra formatting.`;
       throw new Error('SHOTSTACK_API_KEY not configured');
     }
 
-    const shotstackPayload = {
-      timeline: {
-        soundtrack: audioBase64 ? {
-          src: `data:audio/mp3;base64,${audioBase64}`,
-          effect: 'fadeInFadeOut'
-        } : undefined,
-        background: '#0a66c2', // LinkedIn blue gradient
-        tracks: [
-          {
-            clips: [
-              {
-                asset: {
-                  type: 'title',
-                  text: linkedInScript,
-                  style: 'minimal',
-                  color: '#ffffff',
-                  size: 'medium',
-                  background: 'transparent',
-                  position: 'center'
-                },
-                start: 0,
-                length: audioDuration,
-                fit: 'none',
-                scale: 1,
-                transition: {
-                  in: 'fade',
-                  out: 'fade'
-                }
-              }
-            ]
-          }
-        ]
-      },
-      output: {
-        format: 'mp4',
-        resolution: 'hd',
-        aspectRatio: '1:1', // Square for LinkedIn
-        size: {
-          width: 1080,
-          height: 1080
-        },
-        fps: 30,
-        scaleTo: 'crop'
+    let shotstackPayload: any;
+
+    if (isTopicDigest) {
+      // Topic Digest timeline with logo, title clips, and soundtrack
+      const clips: any[] = [];
+      let currentStart = 0;
+
+      // Clip 1: Logo intro (1.2s)
+      if (logoUrl) {
+        clips.push({
+          asset: {
+            type: 'image',
+            src: logoUrl
+          },
+          start: currentStart,
+          length: 1.2,
+          fit: 'none',
+          scale: 0.5,
+          position: 'center',
+          transition: { in: 'fade', out: 'fade' }
+        });
+        currentStart += 1.2;
       }
-    };
+
+      // Clip 2: "Today in {Topic}" (2.0s)
+      clips.push({
+        asset: {
+          type: 'title',
+          text: scriptLines[0] || `Today in ${topicData.label}.`,
+          style: 'minimal',
+          color: '#ffffff',
+          size: 'large',
+          background: 'transparent',
+          position: 'center'
+        },
+        start: currentStart,
+        length: 2.0,
+        fit: 'none',
+        scale: 1,
+        transition: { in: 'fade', out: 'fade' }
+      });
+      currentStart += 2.0;
+
+      // Clips 3-5: Highlights (~7s each)
+      for (let i = 1; i < 4 && i < scriptLines.length - 1; i++) {
+        clips.push({
+          asset: {
+            type: 'title',
+            text: scriptLines[i],
+            style: 'minimal',
+            color: '#ffffff',
+            size: 'medium',
+            background: 'transparent',
+            position: 'center'
+          },
+          start: currentStart,
+          length: 7.0,
+          fit: 'none',
+          scale: 1,
+          transition: { in: 'fade', out: 'fade' }
+        });
+        currentStart += 7.0;
+      }
+
+      // Clip 6: CTA (~4.5s)
+      clips.push({
+        asset: {
+          type: 'title',
+          text: scriptLines[scriptLines.length - 1] || `See more on DailyDrops`,
+          style: 'minimal',
+          color: '#ffffff',
+          size: 'medium',
+          background: 'transparent',
+          position: 'center'
+        },
+        start: currentStart,
+        length: 4.5,
+        fit: 'none',
+        scale: 1,
+        transition: { in: 'fade', out: 'fade' }
+      });
+
+      shotstackPayload = {
+        timeline: {
+          soundtrack: musicUrl ? {
+            src: musicUrl,
+            effect: 'fadeInFadeOut'
+          } : undefined,
+          background: '#0a66c2',
+          tracks: [{ clips }]
+        },
+        output: {
+          format: 'mp4',
+          resolution: 'hd',
+          size: { width: 1080, height: 1080 },
+          fps: 30,
+          scaleTo: 'crop'
+        }
+      };
+    } else {
+      // Original drop-based rendering
+      shotstackPayload = {
+        timeline: {
+          soundtrack: audioBase64 ? {
+            src: `data:audio/mp3;base64,${audioBase64}`,
+            effect: 'fadeInFadeOut'
+          } : undefined,
+          background: '#0a66c2',
+          tracks: [
+            {
+              clips: [
+                {
+                  asset: {
+                    type: 'title',
+                    text: linkedInScript,
+                    style: 'minimal',
+                    color: '#ffffff',
+                    size: 'medium',
+                    background: 'transparent',
+                    position: 'center'
+                  },
+                  start: 0,
+                  length: audioDuration,
+                  fit: 'none',
+                  scale: 1,
+                  transition: {
+                    in: 'fade',
+                    out: 'fade'
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        output: {
+          format: 'mp4',
+          resolution: 'hd',
+          size: { width: 1080, height: 1080 },
+          fps: 30,
+          scaleTo: 'crop'
+        }
+      };
+    }
 
     const renderResponse = await fetch('https://api.shotstack.io/v1/render', {
       method: 'POST',
@@ -300,10 +548,10 @@ Write only the post text, no quotes or extra formatting.`;
     const renderId = renderData.response.id;
     console.log('Render started, ID:', renderId);
 
-    // Poll for render completion
+    // Poll for render completion (increased to 90s for Topic Digest)
     let videoUrl: string | null = null;
     let pollAttempts = 0;
-    const maxAttempts = 20;
+    const maxAttempts = 30;
 
     while (pollAttempts < maxAttempts && !videoUrl) {
       await new Promise(resolve => setTimeout(resolve, 3000));
@@ -331,7 +579,7 @@ Write only the post text, no quotes or extra formatting.`;
     }
 
     if (!videoUrl) {
-      throw new Error('Video render timeout after 60s');
+      throw new Error('Video render timeout after 90s');
     }
 
     // Step 4: Download video
@@ -403,7 +651,9 @@ Write only the post text, no quotes or extra formatting.`;
     console.log('✅ Video uploaded to LinkedIn');
 
     // C. Create Post
-    const utmUrl = `https://dailydrops.io/drops/${drop.id}?utm_source=linkedin&utm_medium=video&utm_campaign=${style}`;
+    const utmUrl = isTopicDigest
+      ? `https://dailydrops.cloud/topics/${topicSlug}?utm_source=linkedin&utm_medium=video&utm_campaign=digest`
+      : `https://dailydrops.io/drops/${drop.id}?utm_source=linkedin&utm_medium=video&utm_campaign=${style}`;
     const finalPostText = `${postText}\n\n🔗 ${utmUrl}`;
 
     const createPostResponse = await fetch('https://api.linkedin.com/v2/ugcPosts', {
@@ -426,11 +676,13 @@ Write only the post text, no quotes or extra formatting.`;
               {
                 status: 'READY',
                 description: {
-                  text: drop.summary?.substring(0, 200) || drop.title
+                  text: isTopicDigest
+                    ? `Today in ${topicData.label}: highlights from DailyDrops`
+                    : (drop.summary?.substring(0, 200) || drop.title)
                 },
                 media: assetUrn,
                 title: {
-                  text: drop.title
+                  text: isTopicDigest ? `Today in ${topicData.label}` : drop.title
                 }
               }
             ]
@@ -449,7 +701,7 @@ Write only the post text, no quotes or extra formatting.`;
 
     const createPostData = await createPostResponse.json();
     const postUrn = createPostData.id;
-    const postUrl = `https://www.linkedin.com/feed/update/${postUrn}`;
+    const postUrl = `https://www.linkedin.com/feed/update/${encodeURIComponent(postUrn)}`;
     
     console.log('✅ LinkedIn post created:', postUrl);
 
@@ -457,51 +709,76 @@ Write only the post text, no quotes or extra formatting.`;
     await supabase.from('admin_audit_log').insert({
       user_id: user.id,
       action: 'linkedin_video_publish',
-      resource_type: 'drop',
-      resource_id: dropId.toString(),
+      resource_type: isTopicDigest ? 'topic' : 'drop',
+      resource_id: isTopicDigest ? topicSlug : dropId.toString(),
       details: {
+        mode: isTopicDigest ? 'topic_digest' : 'drop',
         post_urn: postUrn,
         asset_urn: assetUrn,
         style,
         script_length: linkedInScript.split(/\s+/).length,
         render_id: renderId,
-        upload_status: 'success'
+        upload_status: 'success',
+        ...(isTopicDigest && {
+          topic_slug: topicSlug,
+          topic_id: topicData.id,
+          items_count: recentItems.length,
+          music_url: musicUrl,
+          logo_url: logoUrl
+        })
       }
     });
 
-    const result = {
+    const result: any = {
       success: true,
-      mode: 'production',
+      mode: isTopicDigest ? 'topic_digest' : 'production',
       platform: 'linkedin',
       postUrn,
       assetUrn,
       postUrl,
       postText: finalPostText,
-      script: {
-        text: linkedInScript,
-        words: linkedInScript.split(/\s+/).length,
-        estimatedDuration: `${audioDuration}s`
-      },
-      audio: {
-        provider: 'Google Cloud TTS',
-        voice: 'en-US-Neural2-D',
-        duration: `${audioDuration}s`,
-        size: audioBase64 ? `${Math.ceil(audioBase64.length * 0.75 / 1024)}KB` : 'N/A'
-      },
       video: {
         status: 'published',
         renderId,
         format: '1080x1080 (1:1), 30fps, h264',
         size: `${Math.ceil(videoBlob.byteLength / 1024)}KB`,
         shotstackUrl: videoUrl
-      },
-      drop: {
+      }
+    };
+
+    if (isTopicDigest) {
+      result.topic = {
+        slug: topicSlug,
+        name: topicData.label,
+        id: topicData.id
+      };
+      result.script = {
+        lines: scriptLines,
+        words: scriptLines.join(' ').split(/\s+/).length
+      };
+      if (musicUrl) result.music = { url: musicUrl };
+    } else {
+      result.script = {
+        text: linkedInScript,
+        words: linkedInScript.split(/\s+/).length,
+        estimatedDuration: `${audioDuration}s`
+      };
+      result.audio = {
+        provider: 'Google Cloud TTS',
+        voice: 'en-US-Neural2-D',
+        duration: `${audioDuration}s`,
+        size: audioBase64 ? `${Math.ceil(audioBase64.length * 0.75 / 1024)}KB` : 'N/A'
+      };
+      result.drop = {
         id: drop.id,
         title: drop.title,
         topics: topicNames
-      },
-      note: '✅ Video pubblicato con successo su LinkedIn!'
-    };
+      };
+      result.utm = {
+        url: utmUrl,
+        campaign: style
+      };
+    }
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
