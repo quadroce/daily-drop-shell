@@ -417,6 +417,17 @@ serve(async (req) => {
       );
     }
 
+    // Reset stuck jobs (processing for more than 10 minutes)
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    await supabase
+      .from("social_comment_jobs")
+      .update({ 
+        status: "queued",
+        tries: supabase.sql`tries + 1`
+      })
+      .eq("status", "processing")
+      .lt("created_at", tenMinutesAgo);
+
     // Get pending jobs that are due (scheduled_for <= now OR no schedule)
     const now = new Date().toISOString();
     const { data: jobs, error: jobsError } = await supabase

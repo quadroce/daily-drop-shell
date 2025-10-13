@@ -1809,6 +1809,10 @@ export type Database = {
         Args: { _action: string; _channel?: string; _drop_id: number }
         Returns: undefined
       }
+      reset_stuck_comment_jobs: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       set_article_topics: {
         Args:
           | { _content_id: number; _topic_ids: number[] }
