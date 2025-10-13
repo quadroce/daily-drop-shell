@@ -60,14 +60,33 @@ serve(async (req) => {
 
     console.log(`Found ${candidateDrops.length} candidate drops`);
 
-    // Filter out videos that already have jobs
-    const videoIds = candidateDrops.map(d => d.youtube_video_id);
-    const { data: existingJobs } = await supabase
+    // Filter out videos that already have jobs (ANY status - we only want one job per video EVER)
+    const videoIds = candidateDrops.map(d => d.youtube_video_id).filter(Boolean);
+    
+    if (videoIds.length === 0) {
+      console.log('No valid video IDs found');
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: 'No valid video IDs',
+        jobsCreated: 0
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    console.log(`Checking ${videoIds.length} video IDs against existing jobs...`);
+    
+    const { data: existingJobs, error: existingJobsError } = await supabase
       .from('social_comment_jobs')
       .select('video_id')
       .in('video_id', videoIds);
 
+    if (existingJobsError) {
+      console.error('Error checking existing jobs:', existingJobsError);
+    }
+
     const existingVideoIds = new Set(existingJobs?.map(j => j.video_id) || []);
+    console.log(`Found ${existingVideoIds.size} videos that already have jobs`);
     
     const newDrops = candidateDrops
       .filter(d => !existingVideoIds.has(d.youtube_video_id))
