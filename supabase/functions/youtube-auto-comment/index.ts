@@ -418,15 +418,15 @@ serve(async (req) => {
     }
 
     // Reset stuck jobs (processing for more than 10 minutes)
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-    await supabase
-      .from("social_comment_jobs")
-      .update({ 
-        status: "queued",
-        tries: supabase.sql`tries + 1`
-      })
-      .eq("status", "processing")
-      .lt("created_at", tenMinutesAgo);
+    const { data: resetCount, error: resetError } = await supabase
+      .rpc('reset_stuck_comment_jobs', { minutes_threshold: 10 });
+    
+    if (resetError) {
+      console.error('⚠️ Error resetting stuck jobs:', resetError);
+      // Log but don't fail - continue processing
+    } else if (resetCount && resetCount > 0) {
+      console.log(`🔄 Reset ${resetCount} stuck job(s) from processing to queued`);
+    }
 
     // Get pending jobs that are due (scheduled_for <= now OR no schedule)
     const now = new Date().toISOString();
