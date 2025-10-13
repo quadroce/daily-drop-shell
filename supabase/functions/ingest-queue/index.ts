@@ -79,7 +79,7 @@ async function callScrapeOg(url: string, sourceId: number | null) {
   return result;
 }
 
-async function processQueueItems(limit = 50): Promise<ProcessResult> {
+async function processQueueItems(limit = 200): Promise<ProcessResult> {
   console.log(`Starting queue processing with limit: ${limit}`);
   
   // Fetch pending queue items using REST API
@@ -109,8 +109,8 @@ async function processQueueItems(limit = 50): Promise<ProcessResult> {
 
   const result: ProcessResult = { processed: 0, done: 0, errors: 0, details: [] };
 
-  // Process items in smaller batches to prevent WORKER_LIMIT errors
-  const batchSize = 5;
+  // Process items in batches for better parallelism
+  const batchSize = 20; // Increased from 5 to 20 for better throughput
   for (let i = 0; i < queueItems.length; i += batchSize) {
     const batch = queueItems.slice(i, i + batchSize);
     
@@ -306,7 +306,7 @@ async function processQueueItems(limit = 50): Promise<ProcessResult> {
 
 // Get intelligent delay based on source health and error history
 async function getIntelligentDelay(sourceId: number | null, currentTries: number): Promise<number> {
-  if (!sourceId) return 100 + Math.random() * 400; // Random delay for items without source
+  if (!sourceId) return 50 + Math.random() * 100; // Minimal delay for items without source
   
   try {
     const healthResponse = await fetch(
@@ -324,32 +324,38 @@ async function getIntelligentDelay(sourceId: number | null, currentTries: number
       const healthData = await healthResponse.json();
       if (healthData.length > 0) {
         const health = healthData[0];
-        const baseDelay = 500;
+        
+        // Only add delay for sources with errors
+        if (health.consecutive_errors === 0) {
+          return 50 + Math.random() * 100; // Minimal delay for healthy sources
+        }
+        
+        const baseDelay = 200; // Reduced from 500
         
         // Increase delay based on consecutive errors
-        const errorMultiplier = Math.min(health.consecutive_errors, 10);
+        const errorMultiplier = Math.min(health.consecutive_errors, 5); // Reduced cap from 10 to 5
         
         // Additional delay for specific error types
         let typeMultiplier = 1;
         if (health.error_type === '429') {
-          typeMultiplier = 3; // Extra delay for rate limiting
+          typeMultiplier = 2; // Reduced from 3
         } else if (health.error_type === '403') {
-          typeMultiplier = 5; // Even more delay for forbidden
+          typeMultiplier = 3; // Reduced from 5
         }
         
         // Exponential backoff based on current tries
-        const retryMultiplier = Math.pow(1.5, currentTries);
+        const retryMultiplier = Math.pow(1.3, currentTries); // Reduced from 1.5
         
         const totalDelay = baseDelay * errorMultiplier * typeMultiplier * retryMultiplier;
-        return Math.min(30000, totalDelay); // Max 30 seconds
+        return Math.min(15000, totalDelay); // Reduced max from 30s to 15s
       }
     }
   } catch (error) {
     console.warn(`Failed to get source health for ${sourceId}:`, error instanceof Error ? error.message : String(error));
   }
   
-  // Fallback to basic random delay
-  return 100 + Math.random() * 400;
+  // Fallback to minimal delay
+  return 50 + Math.random() * 100;
 }
 
 serve(async (req) => {
@@ -359,14 +365,14 @@ serve(async (req) => {
   }
 
   try {
-    let limit = 100;
+    let limit = 200;
 
     // Parse limit from request body if POST
     if (req.method === 'POST') {
       try {
         const body = await req.json();
         if (body.limit && typeof body.limit === 'number') {
-          limit = Math.min(Math.max(1, body.limit), 100); // Reduced max from 200 to 100 to prevent resource limits
+          limit = Math.min(Math.max(1, body.limit), 300); // Increased to 300 for better throughput
         }
       } catch (e) {
         // Invalid JSON, use default limit
