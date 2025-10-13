@@ -23,17 +23,7 @@ serve(async (req) => {
     // Find drops with YouTube videos that don't have jobs yet
     const { data: candidateDrops, error: dropsError } = await supabase
       .from('drops')
-      .select(`
-        id,
-        youtube_video_id,
-        youtube_channel_id,
-        title,
-        summary,
-        content_topics!inner(
-          topic_id,
-          topics(slug, label)
-        )
-      `)
+      .select('id, youtube_video_id, youtube_channel_id, title, summary, tags')
       .not('youtube_video_id', 'is', null)
       .not('youtube_channel_id', 'is', null)
       .eq('tag_done', true)
@@ -109,27 +99,27 @@ serve(async (req) => {
     const jobsToCreate = [];
     
     for (const drop of newDrops) {
-      // Get first topic (primary topic)
-      const topic = drop.content_topics?.[0]?.topics;
-      if (!topic) {
-        console.log(`Drop ${drop.id} has no topics, skipping`);
+      // Get first tag as topic slug (tags array contains topic slugs)
+      const topicSlug = drop.tags?.[0];
+      if (!topicSlug) {
+        console.log(`Drop ${drop.id} has no tags, skipping`);
         continue;
       }
 
-      const textHash = `${drop.youtube_video_id}-${topic.slug}`;
+      const textHash = `${drop.youtube_video_id}-${topicSlug}`;
       
       jobsToCreate.push({
         video_id: drop.youtube_video_id,
         channel_id: drop.youtube_channel_id,
         video_title: drop.title,
         video_description: drop.summary || '',
-        topic_slug: topic.slug,
+        topic_slug: topicSlug,
         text_hash: textHash,
         status: 'queued',
         platform: 'youtube',
         locale: 'en',
         utm_campaign: 'auto-comment',
-        utm_content: topic.slug,
+        utm_content: topicSlug,
         tries: 0
       });
     }
@@ -168,7 +158,7 @@ serve(async (req) => {
       processedVideos: newDrops.map(d => ({
         videoId: d.youtube_video_id,
         title: d.title,
-        topic: d.content_topics?.[0]?.topics?.label
+        topic: d.tags?.[0]
       }))
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
