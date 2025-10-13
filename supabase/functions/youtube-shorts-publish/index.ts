@@ -199,7 +199,7 @@ Total max ~60 words. Return only the 5 lines, no quotes, no markdown.`;
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: "gpt-5-mini-2025-08-07",
+              model: "gpt-4o-mini",
               messages: [
                 {
                   role: "system",
@@ -210,7 +210,8 @@ Total max ~60 words. Return only the 5 lines, no quotes, no markdown.`;
                   content: scriptPromptText
                 }
               ],
-              max_completion_tokens: 300,
+              max_tokens: 300,
+              temperature: 0.7,
             }),
           },
         );
@@ -275,7 +276,7 @@ Return only the script text, one sentence per line.`;
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "gpt-5-mini-2025-08-07",
+            model: "gpt-4o-mini",
             messages: [
               {
                 role: "system",
@@ -287,7 +288,8 @@ Return only the script text, one sentence per line.`;
                 content: scriptPrompt,
               },
             ],
-            max_completion_tokens: 300,
+            max_tokens: 300,
+            temperature: 0.7,
           }),
         },
       );
@@ -590,7 +592,7 @@ Return only the script text, one sentence per line.`;
           drop_id: dropId
         }),
         style,
-        model: "gpt-5-mini-2025-08-07",
+        model: "gpt-4o-mini",
         render_id: renderId,
         video_url: videoUrl,
         youtube_video_id: videoId,

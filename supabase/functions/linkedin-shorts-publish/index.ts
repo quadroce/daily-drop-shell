@@ -350,7 +350,7 @@ Write only the post text, no quotes or extra formatting.`;
             input: { text: linkedInScript },
             voice: {
               languageCode: 'en-US',
-              name: 'en-US-Neural2-D', // Professional female voice for LinkedIn
+              name: 'en-US-Neural2-F', // Professional female voice for LinkedIn
               ssmlGender: 'FEMALE'
             },
             audioConfig: {
@@ -765,7 +765,7 @@ Write only the post text, no quotes or extra formatting.`;
       };
       result.audio = {
         provider: 'Google Cloud TTS',
-        voice: 'en-US-Neural2-D',
+        voice: 'en-US-Neural2-F',
         duration: `${audioDuration}s`,
         size: audioBase64 ? `${Math.ceil(audioBase64.length * 0.75 / 1024)}KB` : 'N/A'
       };
