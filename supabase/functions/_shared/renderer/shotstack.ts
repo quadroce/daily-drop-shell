@@ -109,25 +109,25 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
   const ctaStart = withOpening(lastSegmentEnd);
   const totalDuration = ctaStart + cta.durationSec;
   
-  // Track 0: Content underlay (black background for content + CTA, starts after opening)
-  // Using solid black image instead of HTML for better compatibility
-  const contentUnderlayTrack = {
+  // Track 0: White background for opening only (0 to opening.durationSec)
+  const openingBackgroundTrack = {
     clips: [
       {
         asset: {
           type: 'image' as const,
-          src: 'https://dummyimage.com/1920x1080/000000/000000.png'  // Solid black 1x1 image scaled to fill
+          src: 'https://dailydrops.cloud/favicon.png'  // Solid white background
         },
-        start: opening.durationSec,
-        length: totalDuration - opening.durationSec,
+        start: 0,
+        length: opening.durationSec,
         fit: 'cover',
-        scale: 1.0,
-        position: 'center'
+        scale: 10.0,  // Scale up to fill, will blur but it's just white
+        position: 'center',
+        opacity: 0.0  // Transparent, we just use timeline.background white
       }
     ]
   };
   
-  // Track 1: Opening logo (white background via timeline.background)
+  // Track 1: Opening logo
   const openingTrack = {
     clips: [
       {
@@ -215,18 +215,19 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
 
   // Build tracks array - audio tracks first (invisible), then visual tracks bottom-to-top
   // In Shotstack, tracks are layered from bottom to top, so order matters for visuals
+  // Background is BLACK, we add a white overlay ONLY for opening (0-2s)
   const tracks = [
     voiceTrack,            // Track 0: TTS voice audio (invisible, always plays)
     ...(musicTrack ? [musicTrack] : []), // Track 1: Background music (invisible, optional)
-    contentUnderlayTrack,  // Track 2: Black background (bottom visual layer, starts at 2s)
-    openingTrack,          // Track 3: Opening logo (shows 0-2s on white background)
-    { clips: textClips },  // Track 4: Text subtitles (shows 4s+ on black background, MUST be above underlay)
+    openingBackgroundTrack, // Track 2: White background overlay (only 0-2s for opening)
+    openingTrack,          // Track 3: Opening logo (shows 0-2s)
+    { clips: textClips },  // Track 4: Text subtitles WHITE on BLACK background (shows 2s+)
     ctaTrack               // Track 5: CTA (top layer, shows at end)
   ];
 
   return {
     timeline: {
-      background: bgOpening,  // White background for opening only
+      background: bgContent,  // Black background for entire video (content is black)
       tracks
     },
     output: {

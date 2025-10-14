@@ -510,7 +510,12 @@ Return only the script text, one sentence per line.`;
         title: metadata.title,
         description: metadata.description,
         tags: metadata.tags,
-        categoryId: metadata.categoryId
+        categoryId: metadata.categoryId,
+        thumbnails: {
+          default: {
+            url: 'https://dailydrops.cloud/favicon.png'
+          }
+        }
       },
       status: {
         privacyStatus: "public",
