@@ -159,7 +159,6 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
     position: 'center',  // Center position for maximum visibility
     offset: { x: 0, y: 0.25 },  // Slightly below center
     opacity: 1.0,
-    background: null,  // No background, transparent
     transition: { in: 'fade', out: 'fade' }
   }));
   
