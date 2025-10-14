@@ -194,9 +194,7 @@ Deno.serve(async (req) => {
 
       const fallbackScript = [
         `Today in ${topicData.label}.`,
-        'No major headlines recently.',
-        'Explore curated picks and evergreen resources.',
-        'Discover trending sources and fresh perspectives.',
+        'Explore curated picks and resources.',
         `See more on DailyDrops — https://dailydrops.cloud/topics/${topicSlug}`
       ];
 
@@ -206,17 +204,17 @@ Deno.serve(async (req) => {
         console.log('Using fallback script - no items found');
         scriptLines = fallbackScript;
       } else {
-        const scriptPromptText = `Write exactly 5 lines for a short video about recent content in "${topicData.label}". 
+        const scriptPromptText = `Write exactly 3 lines for a 15-second short video about recent content in "${topicData.label}". 
 
 Recent items (last 48h):
 ${JSON.stringify(itemsJson, null, 2)}
 
-Format (exactly 5 lines, separated by \\n):
-Line 1: "Today in {TopicName}."
-Lines 2-4: Three highlights, each ≤10 words, neutral/informative
-Line 5: "See more on DailyDrops — https://dailydrops.cloud/topics/${topicSlug}"
+Format (exactly 3 lines, separated by \\n):
+Line 1: "Today in {TopicName}." (≤6 words)
+Line 2: One key highlight, ≤10 words, neutral/informative
+Line 3: "See more on DailyDrops — https://dailydrops.cloud/topics/${topicSlug}"
 
-Total max ~60 words. Return only the 5 lines, no quotes, no markdown.`;
+Total max ~35 words. Return only the 3 lines, no quotes, no markdown.`;
 
         const scriptResponse = await fetch(
           "https://api.openai.com/v1/chat/completions",
@@ -251,8 +249,8 @@ Total max ~60 words. Return only the 5 lines, no quotes, no markdown.`;
           const scriptData = await scriptResponse.json();
           const rawScript = scriptData.choices[0].message.content.trim();
           console.log('Generated script from AI:', rawScript);
-          scriptLines = rawScript.split('\n').filter((l: string) => l.trim()).slice(0, 5);
-          if (scriptLines.length < 5) {
+          scriptLines = rawScript.split('\n').filter((l: string) => l.trim()).slice(0, 3);
+          if (scriptLines.length < 3) {
             console.log('Script too short, using fallback');
             scriptLines = fallbackScript;
           }
@@ -438,10 +436,10 @@ Return only the script text, one sentence per line.`;
     // Prepare script lines and create video segments with timing
     const lines = isTopicDigest ? scriptLines : script.split('\n').filter(l => l.trim());
     
-    // Create segments with timing (assuming 6-8 seconds per line after 2s opening)
+    // Create segments with timing for 20-second video (2s opening + ~15s content + 3s CTA)
     let currentTime = 2.0; // Start after 2s logo opening
     const segments = lines.map(line => {
-      const duration = Math.max(6, Math.min(10, line.length / 2.5)); // 6-10s based on length
+      const duration = Math.max(4, Math.min(5, line.length / 3)); // 4-5s based on length
       const segment = {
         text: line,
         start: currentTime,

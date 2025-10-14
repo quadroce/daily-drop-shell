@@ -149,14 +149,15 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
     asset: {
       type: 'title' as const,
       text: segment.text,
-      style: 'subtitle',  // Use subtitle style for proper caption display
+      style: 'blockbuster',  // Bold, highly visible style for captions
       color: textColor,
-      size: 'large'  // Larger size for better readability on mobile
+      size: 'x-large',  // Extra large for maximum readability
+      background: 'rgba(0,0,0,0.8)'  // Dark semi-transparent background for contrast
     },
     start: withOpening(segment.start),
     length: Math.max(0.1, segment.end - segment.start),  // Clamp to at least 0.1s
-    position: 'bottom',  // Position at bottom like traditional subtitles
-    offset: { x: 0, y: -0.15 },  // Offset from bottom edge
+    position: 'center',  // Center position for maximum visibility
+    offset: { x: 0, y: 0.25 },  // Slightly below center
     opacity: 1.0,
     transition: { in: 'fade', out: 'fade' }
   }));
@@ -260,7 +261,7 @@ export function buildYouTubeShortsPayload(
         `See all links on DailyDrops → ${topicUrl}`,
         'Join free.'
       ],
-      durationSec: 6,
+      durationSec: 3,  // Reduced from 6s to 3s for 20-second video
       topicUrl
     },
     audioUrl,

@@ -367,10 +367,24 @@ const YouTubeShorts = () => {
           {publishResult && (
             <Card>
               <CardHeader>
-                <CardTitle>📝 Generated Script</CardTitle>
+                <CardTitle>📝 Video Details</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {publishResult.metadata && (
+                  <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Title</p>
+                      <p className="text-sm font-semibold">{publishResult.metadata.title}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
+                      <p className="text-sm whitespace-pre-wrap">{publishResult.metadata.description}</p>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">Script Lines</p>
                   {publishResult.script?.lines?.map((line: string, idx: number) => (
                     <p key={idx} className="text-sm border-l-2 border-primary pl-3 py-1 bg-muted/30">
                       {line}
