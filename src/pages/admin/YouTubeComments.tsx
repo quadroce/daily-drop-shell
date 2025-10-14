@@ -3,24 +3,22 @@ import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Youtube, MessageSquare, Video } from "lucide-react";
-import { YouTubeCredentialsStatus } from "@/components/admin/youtube/YouTubeCredentialsStatus";
-import { YouTubeOAuthPanel } from "@/components/admin/youtube/YouTubeOAuthPanel";
-import { YouTubeShortsConfig } from "@/components/admin/youtube/YouTubeShortsConfig";
-import { YouTubeUtilities } from "@/components/admin/youtube/YouTubeUtilities";
-import { YouTubeLogsTable } from "@/components/admin/youtube/YouTubeLogsTable";
-import { ShortsPublishPanel } from "@/components/admin/ShortsPublishPanel";
+import { ArrowLeft, Youtube, MessageSquare, Play, Pause, Settings as SettingsIcon } from "lucide-react";
 import { YouTubeCommentsTable } from "@/components/admin/youtube/YouTubeCommentsTable";
-import { YouTubeTokenPanel } from "@/components/admin/YouTubeTokenPanel";
 import { YouTubeJobsManager } from "@/components/admin/YouTubeJobsManager";
+import { useToast } from "@/hooks/use-toast";
 
-const YouTubeAdmin = () => {
-  const { user, loading: authLoading } = useAuth();
+const YouTubeComments = () => {
+  const { loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [systemEnabled, setSystemEnabled] = useState(false);
+  const [toggling, setToggling] = useState(false);
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -53,6 +51,14 @@ const YouTubeAdmin = () => {
           navigate("/");
         }
         
+        // Check system status
+        const { data: settings } = await supabase
+          .from("app_settings")
+          .select("value")
+          .eq("key", "youtube_comments_enabled")
+          .single();
+        
+        setSystemEnabled((settings?.value as { enabled?: boolean })?.enabled ?? false);
         setLoading(false);
       } catch (error) {
         console.error("Access check error:", error);
@@ -62,6 +68,36 @@ const YouTubeAdmin = () => {
 
     checkAccess();
   }, [authLoading, navigate]);
+
+  const toggleSystem = async () => {
+    setToggling(true);
+    try {
+      const newState = !systemEnabled;
+      const { error } = await supabase
+        .from("app_settings")
+        .upsert({
+          key: "youtube_comments_enabled",
+          value: { enabled: newState },
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+
+      setSystemEnabled(newState);
+      toast({
+        title: newState ? "System Enabled" : "System Disabled",
+        description: `YouTube auto-comments are now ${newState ? 'active' : 'paused'}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setToggling(false);
+    }
+  };
 
   if (loading || authLoading) {
     return (
@@ -99,86 +135,51 @@ const YouTubeAdmin = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link to="/admin">
+          <Link to="/admin/youtube">
             <Button variant="ghost" size="icon">
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
           <div className="flex items-center gap-3">
-            <Youtube className="h-8 w-8 text-red-600" />
+            <MessageSquare className="h-8 w-8 text-primary" />
             <div>
-              <h1 className="text-3xl font-bold">YouTube Administration</h1>
-              <p className="text-muted-foreground">Manage YouTube integration, OAuth, and automation</p>
+              <h1 className="text-3xl font-bold">YouTube Comments</h1>
+              <p className="text-muted-foreground">Auto-comment system for awareness</p>
             </div>
           </div>
         </div>
-        <Badge variant="outline" className="text-sm">
-          Admin Only
-        </Badge>
+        <div className="flex items-center gap-3">
+          <Badge variant={systemEnabled ? "default" : "secondary"}>
+            {systemEnabled ? "Enabled" : "Paused"}
+          </Badge>
+          <Button
+            onClick={toggleSystem}
+            disabled={toggling}
+            variant={systemEnabled ? "destructive" : "default"}
+            size="sm"
+          >
+            {systemEnabled ? <Pause className="h-4 w-4 mr-2" /> : <Play className="h-4 w-4 mr-2" />}
+            {systemEnabled ? "Disable" : "Enable"}
+          </Button>
+        </div>
       </div>
 
-      {/* Quick Links */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <Link to="/admin/youtube/comments">
-          <Card className="hover:border-primary transition-colors cursor-pointer">
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <MessageSquare className="h-6 w-6 text-primary" />
-                <div>
-                  <CardTitle>Comments Automation</CardTitle>
-                  <CardDescription>Manage auto-comments on ingested videos</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-          </Card>
-        </Link>
-        
-        <Link to="/admin/youtube/shorts">
-          <Card className="hover:border-primary transition-colors cursor-pointer">
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <Video className="h-6 w-6 text-primary" />
-                <div>
-                  <CardTitle>Shorts Automation</CardTitle>
-                  <CardDescription>Control center for YouTube & LinkedIn shorts</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-          </Card>
-        </Link>
-      </div>
+      <Tabs defaultValue="jobs" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="jobs">Jobs</TabsTrigger>
+          <TabsTrigger value="manager">Manager</TabsTrigger>
+        </TabsList>
 
-      {/* Dashboard Grid */}
-      <div className="grid gap-6">
-        {/* Credentials Status */}
-        <YouTubeCredentialsStatus />
+        <TabsContent value="jobs" className="space-y-6">
+          <YouTubeCommentsTable />
+        </TabsContent>
 
-        {/* OAuth & Channel */}
-        <YouTubeOAuthPanel />
-
-        {/* Shorts Automation Config */}
-        <YouTubeShortsConfig />
-
-        {/* Shorts Publish Panel */}
-        <ShortsPublishPanel />
-
-        {/* Utilities */}
-        <YouTubeUtilities />
-
-        {/* Token Manager */}
-        <YouTubeTokenPanel />
-
-        {/* Jobs Manager */}
-        <YouTubeJobsManager />
-
-        {/* Comments Management */}
-        <YouTubeCommentsTable />
-
-        {/* Logs Table */}
-        <YouTubeLogsTable />
-      </div>
+        <TabsContent value="manager" className="space-y-6">
+          <YouTubeJobsManager />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
 
-export default YouTubeAdmin;
+export default YouTubeComments;

@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { ChevronDown, Droplets, Menu, Settings, Users } from "lucide-react";
+import { ChevronDown, Droplets, Menu, Settings, Users, Youtube } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -86,6 +86,16 @@ const Header = () => {
     ? [
       { label: "Dashboard", path: "/admin/dashboard", icon: Settings },
       { label: "Users", path: "/admin/users", icon: Users },
+      { 
+        label: "YouTube", 
+        path: "/admin/youtube", 
+        icon: Youtube,
+        submenu: [
+          { label: "Overview", path: "/admin/youtube" },
+          { label: "Comments", path: "/admin/youtube/comments" },
+          { label: "Shorts", path: "/admin/youtube/shorts" },
+        ]
+      },
     ]
     : [];
 
@@ -131,6 +141,34 @@ const Header = () => {
               <div className="flex items-center space-x-6 border-l pl-6 ml-6">
                 {adminNavLinks.map((link) => {
                   const Icon = link.icon;
+                  const hasSubmenu = 'submenu' in link && link.submenu;
+                  
+                  if (hasSubmenu) {
+                    return (
+                      <DropdownMenu key={link.path}>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            className="flex items-center space-x-2 hover:text-primary text-muted-foreground p-0 h-auto font-normal"
+                          >
+                            <Icon className="h-4 w-4" />
+                            <span>{link.label}</span>
+                            <ChevronDown className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {link.submenu?.map((sublink) => (
+                            <DropdownMenuItem key={sublink.path} asChild>
+                              <Link to={sublink.path} className="cursor-pointer">
+                                {sublink.label}
+                              </Link>
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    );
+                  }
+                  
                   return (
                     <Link
                       key={link.path}

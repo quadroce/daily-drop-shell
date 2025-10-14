@@ -52,6 +52,24 @@ export type Database = {
           },
         ]
       }
+      app_settings: {
+        Row: {
+          key: string
+          updated_at: string | null
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string | null
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       bookmarks: {
         Row: {
           created_at: string
@@ -936,6 +954,92 @@ export type Database = {
         }
         Relationships: []
       }
+      short_job_events: {
+        Row: {
+          created_at: string | null
+          id: number
+          job_id: number | null
+          meta: Json | null
+          ok: boolean | null
+          stage: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number
+          job_id?: number | null
+          meta?: Json | null
+          ok?: boolean | null
+          stage: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          job_id?: number | null
+          meta?: Json | null
+          ok?: boolean | null
+          stage?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "short_job_events_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "short_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      short_jobs: {
+        Row: {
+          created_at: string | null
+          error_code: string | null
+          error_message: string | null
+          external_id: string | null
+          id: number
+          kind: string
+          platform: string
+          scheduled_for: string
+          script_data: Json | null
+          slot: number
+          status: string | null
+          topic_slug: string
+          tries: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          external_id?: string | null
+          id?: number
+          kind: string
+          platform: string
+          scheduled_for: string
+          script_data?: Json | null
+          slot: number
+          status?: string | null
+          topic_slug: string
+          tries?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          external_id?: string | null
+          id?: number
+          kind?: string
+          platform?: string
+          scheduled_for?: string
+          script_data?: Json | null
+          slot?: number
+          status?: string | null
+          topic_slug?: string
+          tries?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       sitemap_runs: {
         Row: {
           archive_urls_count: number | null
@@ -1026,6 +1130,7 @@ export type Database = {
           posted_at: string | null
           scheduled_for: string | null
           status: string
+          template_id: number | null
           text_hash: string
           text_original: string | null
           text_variant: string | null
@@ -1049,6 +1154,7 @@ export type Database = {
           posted_at?: string | null
           scheduled_for?: string | null
           status?: string
+          template_id?: number | null
           text_hash: string
           text_original?: string | null
           text_variant?: string | null
@@ -1072,6 +1178,7 @@ export type Database = {
           posted_at?: string | null
           scheduled_for?: string | null
           status?: string
+          template_id?: number | null
           text_hash?: string
           text_original?: string | null
           text_variant?: string | null
@@ -1083,7 +1190,15 @@ export type Database = {
           video_id?: string
           video_title?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "social_comment_jobs_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "youtube_comment_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       source_health: {
         Row: {
@@ -1486,6 +1601,92 @@ export type Database = {
           id?: never
           payload?: Json
           video_id?: string
+        }
+        Relationships: []
+      }
+      youtube_comment_events: {
+        Row: {
+          created_at: string | null
+          id: number
+          job_id: number | null
+          meta: Json | null
+          ok: boolean | null
+          stage: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number
+          job_id?: number | null
+          meta?: Json | null
+          ok?: boolean | null
+          stage: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          job_id?: number | null
+          meta?: Json | null
+          ok?: boolean | null
+          stage?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "youtube_comment_events_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "social_comment_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      youtube_comment_templates: {
+        Row: {
+          active: boolean | null
+          ai_system_prompt: string | null
+          body_template: string
+          created_at: string | null
+          id: number
+          include_topic_name: boolean | null
+          include_topic_url_every_n: number | null
+          label: string
+          max_length: number | null
+          min_interval_minutes: number | null
+          must_start_with_prefixes: string[] | null
+          no_emojis: boolean | null
+          updated_at: string | null
+          uses_ai_variation: boolean | null
+        }
+        Insert: {
+          active?: boolean | null
+          ai_system_prompt?: string | null
+          body_template: string
+          created_at?: string | null
+          id?: number
+          include_topic_name?: boolean | null
+          include_topic_url_every_n?: number | null
+          label: string
+          max_length?: number | null
+          min_interval_minutes?: number | null
+          must_start_with_prefixes?: string[] | null
+          no_emojis?: boolean | null
+          updated_at?: string | null
+          uses_ai_variation?: boolean | null
+        }
+        Update: {
+          active?: boolean | null
+          ai_system_prompt?: string | null
+          body_template?: string
+          created_at?: string | null
+          id?: number
+          include_topic_name?: boolean | null
+          include_topic_url_every_n?: number | null
+          label?: string
+          max_length?: number | null
+          min_interval_minutes?: number | null
+          must_start_with_prefixes?: string[] | null
+          no_emojis?: boolean | null
+          updated_at?: string | null
+          uses_ai_variation?: boolean | null
         }
         Relationships: []
       }
