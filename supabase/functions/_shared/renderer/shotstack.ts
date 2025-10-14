@@ -149,10 +149,9 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
     asset: {
       type: 'title' as const,
       text: segment.text,
-      style: 'blockbuster',  // Bold, highly visible style for captions
+      style: 'blockbuster',  // Bold style with built-in shadow/outline for visibility
       color: textColor,
-      size: 'x-large',  // Extra large for maximum readability
-      background: 'rgba(0,0,0,0.8)'  // Dark semi-transparent background for contrast
+      size: 'x-large'  // Extra large for maximum readability
     },
     start: withOpening(segment.start),
     length: Math.max(0.1, segment.end - segment.start),  // Clamp to at least 0.1s
