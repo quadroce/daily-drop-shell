@@ -147,17 +147,24 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
   // Track 2: Text segments synced to TTS (offset by opening duration)
   const textClips = validSegments.map((segment) => ({
     asset: {
-      type: "title" as const,
+      type: "text" as const,
       text: segment.text,
-      style: "subtitle", // Subtitle style - most reliable for text on video
-      color: textColor,
-      size: "large", // Large size for good readability
-      background: "none", // Explicit transparent background
+      width: 900, // Width in pixels for text wrapping
+      height: 200, // Height in pixels for text container
+      alignment: {
+        horizontal: "center" as const,
+        vertical: "center" as const,
+      },
+      font: {
+        family: "Clear Sans",
+        color: textColor,
+        size: 60, // Font size in points
+      },
     },
     start: withOpening(segment.start),
     length: Math.max(0.1, segment.end - segment.start), // Clamp to at least 0.1s
-    position: "center", // Center position for maximum visibility
-    offset: { x: 0, y: 0.1 }, // Slightly lower than center for better visibility
+    position: "center" as const,
+    offset: { x: 0, y: 0.1 }, // Slightly lower than center
     opacity: 1.0,
     transition: { in: "fade", out: "fade" },
   }));
