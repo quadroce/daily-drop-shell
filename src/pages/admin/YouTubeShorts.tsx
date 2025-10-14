@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Video, Play, Pause, Youtube, Linkedin } from "lucide-react";
 import { ShortsPublishPanel } from "@/components/admin/ShortsPublishPanel";
 import { YouTubeShortsConfig } from "@/components/admin/youtube/YouTubeShortsConfig";
+import { ShortsLiveLog } from "@/components/admin/ShortsLiveLog";
 import { useToast } from "@/hooks/use-toast";
 
 interface ShortJob {
@@ -357,6 +358,7 @@ const YouTubeShorts = () => {
         </TabsContent>
 
         <TabsContent value="publishers" className="space-y-6">
+          <ShortsLiveLog isPublishing={publishing} />
           <ShortsPublishPanel />
         </TabsContent>
 
