@@ -201,11 +201,11 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
     timeline: {
       background: bgOpening,  // White background for opening only
       tracks: [
-        audioTrack,            // Audio track (bottom layer)
-        contentUnderlayTrack,  // Black background for content + CTA
-        openingTrack,          // Logo on white
-        { clips: textClips },  // Text segments (must be above background)
-        ctaTrack              // Call to action (top layer)
+        contentUnderlayTrack,  // Track 0: Black background (bottom layer, renders behind everything)
+        audioTrack,            // Track 1: Audio
+        openingTrack,          // Track 2: Opening logo (on white background)
+        { clips: textClips },  // Track 3: Text segments (on black background, above underlay)
+        ctaTrack               // Track 4: CTA (top layer, on black background)
       ]
     },
     output: {
