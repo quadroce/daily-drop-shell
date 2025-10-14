@@ -339,8 +339,8 @@ Return only the script text, one sentence per line.`;
         ? `Today in ${topicData.label} #Shorts`
         : (title || `${drop.title.substring(0, 80)} #Shorts`),
       description: isTopicDigest
-        ? `Quick highlights from ${topicData.label}\n\nLearn more at ${ctaUrl}\n\n#tech #${topicSlug}`
-        : (description || `${drop.summary?.substring(0, 200) || drop.title}\n\nLearn more at ${ctaUrl}\n\n#tech #innovation`),
+        ? `Quick highlights from ${topicData.label}\n\n${script}\n\nLearn more at ${ctaUrl}\n\n#tech #${topicSlug}`
+        : (description || `${drop.summary?.substring(0, 200) || drop.title}\n\n${script}\n\nLearn more at ${ctaUrl}\n\n#tech #innovation`),
       tags: isTopicDigest ? [topicSlug, "tech", "news"] : ["tech", "innovation"],
       categoryId: "28",
     };
