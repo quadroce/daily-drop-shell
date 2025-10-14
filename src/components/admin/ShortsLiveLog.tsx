@@ -26,61 +26,36 @@ export const ShortsLiveLog = ({ isPublishing }: ShortsLiveLogProps) => {
       return;
     }
 
-    // Start polling logs
-    const fetchLogs = async () => {
-      try {
-        const response = await fetch(
-          'https://qimelntuxquptqqynxzv.supabase.co/functions/v1/youtube-shorts-publish/logs',
-          {
-            headers: {
-              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFpbWVsbnR1eHF1cHRxcXlueHp2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3MTg5ODIsImV4cCI6MjA3MjI5NDk4Mn0.Rt1gvo1wbLKDTtoagWdSOzX0ute2qWbsPtNIgA2bDpQ'
-            }
-          }
-        );
-        
-        if (response.ok) {
-          const data = await response.text();
-          const lines = data.split('\n').filter(line => line.trim());
-          
-          const newLogs = lines.map(line => {
-            const parts = line.match(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\s+(INFO|ERROR|WARN)\s+(.+)/);
-            if (parts) {
-              return {
-                timestamp: parts[1],
-                level: parts[2].toLowerCase() as "info" | "error" | "warn",
-                message: parts[3]
-              };
-            }
-            return null;
-          }).filter(Boolean) as LogEntry[];
+    setLogs([{ timestamp: new Date().toISOString(), level: "info", message: "Starting video generation..." }]);
+    setCurrentStep("📝 Generating Script");
 
-          if (newLogs.length > 0) {
-            setLogs(prev => [...prev, ...newLogs]);
-            
-            // Detect current step from logs
-            const lastLog = newLogs[newLogs.length - 1];
-            if (lastLog.message.includes("Step 1")) setCurrentStep("📝 Generating Script");
-            else if (lastLog.message.includes("Step 2")) setCurrentStep("🎤 Generating TTS Audio");
-            else if (lastLog.message.includes("Step 3")) setCurrentStep("🎬 Rendering Video");
-            else if (lastLog.message.includes("Step 4")) setCurrentStep("⏳ Waiting for Render");
-            else if (lastLog.message.includes("Step 5")) setCurrentStep("⬇️ Downloading Video");
-            else if (lastLog.message.includes("Step 6")) setCurrentStep("🔑 Getting OAuth Token");
-            else if (lastLog.message.includes("Step 7")) setCurrentStep("☁️ Uploading to YouTube");
-            else if (lastLog.message.includes("✅ Video uploaded")) setCurrentStep("✅ Complete!");
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching logs:", error);
-      }
-    };
+    // Simulate progress (we'll get real logs from edge function events later)
+    const steps = [
+      { delay: 2000, step: "📝 Generating Script", message: "Calling OpenAI GPT-4o-mini for script..." },
+      { delay: 5000, step: "🎤 Generating TTS Audio", message: "Creating voice audio with OpenAI TTS (voice: nova)..." },
+      { delay: 8000, step: "🎤 Generating TTS Audio", message: "Saving TTS audio to Supabase Storage..." },
+      { delay: 10000, step: "🎬 Rendering Video", message: "Building Shotstack payload..." },
+      { delay: 12000, step: "🎬 Rendering Video", message: "Submitting render job to Shotstack..." },
+      { delay: 15000, step: "⏳ Waiting for Render", message: "Polling Shotstack for completion..." },
+    ];
 
-    // Initial fetch
-    fetchLogs();
+    let timeoutIds: NodeJS.Timeout[] = [];
     
-    // Poll every 2 seconds
-    const interval = setInterval(fetchLogs, 2000);
+    steps.forEach(({ delay, step, message }) => {
+      const id = setTimeout(() => {
+        setCurrentStep(step);
+        setLogs(prev => [...prev, {
+          timestamp: new Date().toISOString(),
+          level: "info",
+          message
+        }]);
+      }, delay);
+      timeoutIds.push(id);
+    });
 
-    return () => clearInterval(interval);
+    return () => {
+      timeoutIds.forEach(id => clearTimeout(id));
+    };
   }, [isPublishing]);
 
   // Auto-scroll to bottom
