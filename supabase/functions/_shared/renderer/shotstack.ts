@@ -109,18 +109,17 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
   const totalDuration = ctaStart + cta.durationSec;
   
   // Track 0: Content underlay (black background for content + CTA, starts after opening)
+  // Using HTML asset to create a solid color background (Shotstack doesn't accept empty text in title assets)
   const contentUnderlayTrack = {
     clips: [
       {
         asset: {
-          type: 'title' as const,
-          text: '',  // Empty text, just for background
-          style: 'minimal'
+          type: 'html' as const,
+          html: `<div style="width:100%;height:100%;background-color:${bgContent};"></div>`
         },
         start: opening.durationSec,
         length: totalDuration - opening.durationSec,
-        background: bgContent,
-        opacity: 1.0
+        position: 'center'
       }
     ]
   };
