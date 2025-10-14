@@ -90,18 +90,41 @@ Deno.serve(async (req) => {
       topicData = topic;
       topicNames = topic.label;
 
-      // Fetch recent content (last 7 days, limit 10)
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-      const { data: items, error: itemsError } = await supabase
-        .from('content_topics')
-        .select('drops(id, title, summary, published_at)')
-        .eq('topic_id', topic.id)
-        .gte('drops.published_at', sevenDaysAgo)
-        .order('drops.published_at', { ascending: false })
-        .limit(10);
+      // Get all topics to find children
+      const { data: allTopics } = await supabase
+        .from('topics')
+        .select('id, slug, level, parent_id')
+        .eq('is_active', true);
 
-      recentItems = items?.map((i: any) => i.drops).filter(Boolean) || [];
-      console.log(`Found ${recentItems.length} recent items for topic ${topic.label}`);
+      // Get relevant topic IDs (current topic + children if L1 or L2)
+      let relevantTopicIds = [topic.id];
+      
+      if (topic.level <= 2 && allTopics) {
+        const children = allTopics.filter(t => t.parent_id === topic.id);
+        relevantTopicIds.push(...children.map(c => c.id));
+        
+        // For L1 topics, also include grandchildren
+        if (topic.level === 1) {
+          const grandchildren = allTopics.filter(t => children.some(c => c.id === t.parent_id));
+          relevantTopicIds.push(...grandchildren.map(gc => gc.id));
+        }
+      }
+
+      console.log(`Topic IDs to search: ${relevantTopicIds.join(', ')}`);
+
+      // Fetch recent content (last 30 days to have more articles, limit 15)
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: drops, error: itemsError } = await supabase
+        .from('drops')
+        .select('id, title, summary, published_at, content_topics!inner(topic_id)')
+        .in('content_topics.topic_id', relevantTopicIds)
+        .gte('published_at', thirtyDaysAgo)
+        .eq('tag_done', true)
+        .order('published_at', { ascending: false })
+        .limit(15);
+
+      recentItems = drops || [];
+      console.log(`Found ${recentItems.length} recent items for topic ${topic.label} (including children)`);
       console.log('Recent items:', JSON.stringify(recentItems.map(i => ({ title: i.title, date: i.published_at })), null, 2));
     } else {
       // Original Drop Mode
