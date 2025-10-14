@@ -237,7 +237,6 @@ Total max ~60 words. Return only the 5 lines, no quotes, no markdown.`;
       }
       
       console.log('Final script lines:', scriptLines);
-      }
       
       scriptPrompt = ''; // Not used in Topic Digest mode
     } else {
