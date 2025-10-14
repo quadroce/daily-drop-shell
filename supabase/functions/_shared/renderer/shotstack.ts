@@ -188,11 +188,11 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
       {
         asset: {
           type: 'audio' as const,
-          src: audioUrl
+          src: audioUrl,
+          volume: 1.0  // Volume goes inside the asset, not at clip level
         },
         start: opening.durationSec,
-        length: totalDuration - opening.durationSec,
-        volume: 1.0
+        length: totalDuration - opening.durationSec
       }
     ]
   };
