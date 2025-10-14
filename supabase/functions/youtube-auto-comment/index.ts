@@ -419,7 +419,7 @@ serve(async (req) => {
 
     // Reset stuck jobs (processing for more than 10 minutes)
     const { data: resetCount, error: resetError } = await supabase
-      .rpc('reset_stuck_comment_jobs', { minutes_threshold: 10 });
+      .rpc('reset_stuck_comment_jobs');
     
     if (resetError) {
       console.error('⚠️ Error resetting stuck jobs:', resetError);
