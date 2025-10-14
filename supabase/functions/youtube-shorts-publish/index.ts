@@ -14,7 +14,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    console.log("Publishing YouTube Shorts video...");
+    console.log("Publishing YouTube Shorts video with TTS audio...");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
