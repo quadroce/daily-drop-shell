@@ -109,23 +109,7 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
     ]
   };
   
-  // Track 1: Background fill for content (black)
-  const contentBgTrack = {
-    clips: [
-      {
-        asset: {
-          type: 'title' as const,
-          text: '',
-          style: 'minimal'
-        },
-        start: opening.durationSec,
-        length: totalDuration - opening.durationSec,
-        background: bgContent
-      }
-    ]
-  };
-  
-  // Track 2: Text segments synced to TTS
+  // Track 1: Text segments synced to TTS (on black background after opening)
   const textClips = segments.map((segment, idx) => ({
     asset: {
       type: 'title' as const,
@@ -140,11 +124,11 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
     offset: { x: 0, y: 0 },
     opacity: 1.0,
     transition: { in: 'fade', out: 'fade' },
-    background: null,
+    background: bgContent,
     effect: idx === 0 ? 'zoom' : undefined
   }));
   
-  // Track 3: CTA
+  // Track 2: CTA
   const ctaTrack = {
     clips: [
       {
@@ -164,7 +148,7 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
     ]
   };
   
-  // Track 4: Audio
+  // Track 3: Audio
   const audioTrack = {
     clips: [
       {
@@ -184,7 +168,6 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
       background: bgOpening,
       tracks: [
         openingTrack,
-        contentBgTrack,
         { clips: textClips },
         ctaTrack,
         audioTrack
