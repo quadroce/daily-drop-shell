@@ -110,16 +110,18 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
   const totalDuration = ctaStart + cta.durationSec;
   
   // Track 0: Content underlay (black background for content + CTA, starts after opening)
-  // Using HTML asset to create a solid color background (Shotstack doesn't accept empty text in title assets)
+  // Using solid black image instead of HTML for better compatibility
   const contentUnderlayTrack = {
     clips: [
       {
         asset: {
-          type: 'html' as const,
-          html: `<div style="width:100%;height:100%;background-color:${bgContent};"></div>`
+          type: 'image' as const,
+          src: 'https://dummyimage.com/1920x1080/000000/000000.png'  // Solid black 1x1 image scaled to fill
         },
         start: opening.durationSec,
         length: totalDuration - opening.durationSec,
+        fit: 'cover',
+        scale: 1.0,
         position: 'center'
       }
     ]
@@ -211,14 +213,15 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
     ]
   } : null;
 
-  // Build tracks array (filter out null music track if no background music)
+  // Build tracks array - audio tracks first (invisible), then visual tracks bottom-to-top
+  // In Shotstack, tracks are layered from bottom to top, so order matters for visuals
   const tracks = [
-    contentUnderlayTrack,  // Track 0: Black background (bottom layer)
-    voiceTrack,            // Track 1: TTS voice audio (primary)
-    ...(musicTrack ? [musicTrack] : []), // Track 2: Background music (optional, low volume)
-    openingTrack,          // Track 3: Opening logo (on white background)
-    { clips: textClips },  // Track 4: Text segments (on black background)
-    ctaTrack               // Track 5: CTA (top layer)
+    voiceTrack,            // Track 0: TTS voice audio (invisible, always plays)
+    ...(musicTrack ? [musicTrack] : []), // Track 1: Background music (invisible, optional)
+    contentUnderlayTrack,  // Track 2: Black background (bottom visual layer, starts at 2s)
+    openingTrack,          // Track 3: Opening logo (shows 0-2s on white background)
+    { clips: textClips },  // Track 4: Text subtitles (shows 4s+ on black background, MUST be above underlay)
+    ctaTrack               // Track 5: CTA (top layer, shows at end)
   ];
 
   return {
