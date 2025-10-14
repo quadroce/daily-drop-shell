@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { buildLinkedInVideoPayload, submitShotstackRender, pollShotstackRender } from '../_shared/renderer/shotstack.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -407,194 +408,21 @@ Write only the post text, no quotes or extra formatting.`;
       throw new Error('SHOTSTACK_API_KEY not configured');
     }
 
-    let shotstackPayload: any;
+    // Use shared renderer module (fixes resolution/size conflict)
+    const shotstackPayload = buildLinkedInVideoPayload(
+      scriptLines,
+      logoUrl,
+      musicUrl,
+      isTopicDigest
+    );
 
-    if (isTopicDigest) {
-      // Topic Digest timeline with logo, title clips, and soundtrack
-      const clips: any[] = [];
-      let currentStart = 0;
-
-      // Clip 1: Logo intro (1.2s)
-      if (logoUrl) {
-        clips.push({
-          asset: {
-            type: 'image',
-            src: logoUrl
-          },
-          start: currentStart,
-          length: 1.2,
-          fit: 'none',
-          scale: 0.5,
-          position: 'center',
-          transition: { in: 'fade', out: 'fade' }
-        });
-        currentStart += 1.2;
-      }
-
-      // Clip 2: "Today in {Topic}" (2.0s)
-      clips.push({
-          asset: {
-            type: 'title',
-            text: scriptLines[0] || `Today in ${topicData.label}.`,
-            style: 'minimal',
-            color: '#ffffff',
-            size: 'large',
-            position: 'center'
-          },
-        start: currentStart,
-        length: 2.0,
-        fit: 'none',
-        scale: 1,
-        transition: { in: 'fade', out: 'fade' }
-      });
-      currentStart += 2.0;
-
-      // Clips 3-5: Highlights (~7s each)
-      for (let i = 1; i < 4 && i < scriptLines.length - 1; i++) {
-        clips.push({
-          asset: {
-            type: 'title',
-            text: scriptLines[i],
-            style: 'minimal',
-            color: '#ffffff',
-            size: 'medium',
-            position: 'center'
-          },
-          start: currentStart,
-          length: 7.0,
-          fit: 'none',
-          scale: 1,
-          transition: { in: 'fade', out: 'fade' }
-        });
-        currentStart += 7.0;
-      }
-
-      // Clip 6: CTA (~4.5s)
-      clips.push({
-          asset: {
-            type: 'title',
-            text: scriptLines[scriptLines.length - 1] || `See more on DailyDrops`,
-            style: 'minimal',
-            color: '#ffffff',
-            size: 'medium',
-            position: 'center'
-          },
-        start: currentStart,
-        length: 4.5,
-        fit: 'none',
-        scale: 1,
-        transition: { in: 'fade', out: 'fade' }
-      });
-
-      shotstackPayload = {
-        timeline: {
-          soundtrack: musicUrl ? {
-            src: musicUrl,
-            effect: 'fadeInFadeOut'
-          } : undefined,
-          background: '#0a66c2',
-          tracks: [{ clips }]
-        },
-        output: {
-          format: 'mp4',
-          size: { width: 1080, height: 1080 },
-          fps: 30,
-          scaleTo: 'crop'
-        }
-      };
-    } else {
-      // Original drop-based rendering with TTS audio
-      shotstackPayload = {
-        timeline: {
-          soundtrack: ttsAudioUrl ? {
-            src: ttsAudioUrl,
-            effect: 'fadeInFadeOut'
-          } : undefined,
-          background: '#0a66c2',
-          tracks: [
-            {
-              clips: [
-                {
-                  asset: {
-                    type: 'title',
-                    text: linkedInScript,
-                    style: 'minimal',
-                    color: '#ffffff',
-                    size: 'medium',
-                    position: 'center'
-                  },
-                  start: 0,
-                  length: audioDuration,
-                  fit: 'none',
-                  scale: 1,
-                  transition: {
-                    in: 'fade',
-                    out: 'fade'
-                  }
-                }
-              ]
-            }
-          ]
-        },
-        output: {
-          format: 'mp4',
-          size: { width: 1080, height: 1080 },
-          fps: 30
-        }
-      };
-    }
-
-    const renderResponse = await fetch('https://api.shotstack.io/v1/render', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': shotstackApiKey
-      },
-      body: JSON.stringify(shotstackPayload)
-    });
-
-    if (!renderResponse.ok) {
-      const error = await renderResponse.text();
-      throw new Error(`Shotstack render failed: ${error}`);
-    }
-
-    const renderData = await renderResponse.json();
-    const renderId = renderData.response.id;
+    // Submit render job
+    const renderId = await submitShotstackRender(shotstackPayload, shotstackApiKey);
     console.log('Render started, ID:', renderId);
 
-    // Poll for render completion (increased to 90s for Topic Digest)
-    let videoUrl: string | null = null;
-    let pollAttempts = 0;
-    const maxAttempts = 30;
-
-    while (pollAttempts < maxAttempts && !videoUrl) {
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      const statusResponse = await fetch(`https://api.shotstack.io/v1/render/${renderId}`, {
-        headers: { 'x-api-key': shotstackApiKey }
-      });
-
-      if (statusResponse.ok) {
-        const statusData = await statusResponse.json();
-        const status = statusData.response.status;
-        
-        console.log(`Render status (${pollAttempts + 1}/${maxAttempts}):`, status);
-        
-        if (status === 'done') {
-          videoUrl = statusData.response.url;
-          console.log('✅ Video rendered:', videoUrl);
-          break;
-        } else if (status === 'failed') {
-          throw new Error('Shotstack render failed');
-        }
-      }
-      
-      pollAttempts++;
-    }
-
-    if (!videoUrl) {
-      throw new Error('Video render timeout after 90s');
-    }
+    // Poll for completion
+    const { videoUrl } = await pollShotstackRender(renderId, shotstackApiKey, 30, 3000);
+    console.log('✅ Video rendered:', videoUrl);
 
     // Step 4: Download video
     console.log('Step 4/5: Downloading rendered video...');

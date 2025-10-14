@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildYouTubeShortsPayload, submitShotstackRender, pollShotstackRender } from '../_shared/renderer/shotstack.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -347,154 +348,32 @@ Return only the script text, one sentence per line.`;
     console.log("✅ Script generation completed successfully");
 
     // Step 2: Render video with Shotstack (9:16, 30fps)
-    console.log("Step 2/4: Rendering video with Shotstack...");
+    console.log("Step 2/6: Rendering video with Shotstack...");
 
     const shotstackApiKey = Deno.env.get("SHOTSTACK_API_KEY");
     if (!shotstackApiKey) {
       throw new Error("SHOTSTACK_API_KEY not configured");
     }
 
-    // Build Shotstack timeline
-    const clips: any[] = [];
-    const logoIntroUrl = "https://dailydrops.cloud/favicon.png";
-
-    // Logo intro (1.2s) - always show
-    clips.push({
-      asset: { type: "image", src: logoIntroUrl },
-      start: 0,
-      length: 1.2,
-      fit: "contain",
-      scale: 0.4,
-      transition: { in: "fade", out: "fade" }
-    });
-
-    let currentTime = 1.2;
-
-    // Add text clips
+    // Prepare script lines
     const lines = isTopicDigest ? scriptLines : script.split('\n').filter(l => l.trim());
     
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
+    // Use shared renderer module (fixes resolution/size conflict)
+    const timelinePayload = buildYouTubeShortsPayload(
+      lines,
+      "https://dailydrops.cloud/favicon.png", // Logo URL
+      musicUrl,
+      "https://dailydrops.cloud/og-image.png" // Background image
+    );
 
-      const isTitle = i === 0;
-      const isCTA = i === lines.length - 1;
-      const duration = isTitle ? 2.0 : (isCTA ? 4.5 : 7.0);
-
-      clips.push({
-        asset: {
-          type: "title",
-          text: line,
-          style: "minimal",
-          size: isTitle ? "large" : "medium",
-          position: "center",
-          color: "#000000",
-          offset: {
-            x: 0,
-            y: 0
-          }
-        },
-        start: currentTime,
-        length: duration,
-        transition: { in: "fade", out: "fade" }
-      });
-
-      currentTime += duration;
-    }
-
-    // Background image (blurred og-image) for entire video duration
-    const backgroundClip = {
-      asset: {
-        type: "image",
-        src: "https://dailydrops.cloud/og-image.png"
-      },
-      start: 0,
-      length: currentTime,
-      fit: "cover",
-      scale: 1.2,
-      filter: "blur"
-    };
-
-    const timelinePayload: any = {
-      timeline: {
-        tracks: [
-          { clips: [backgroundClip] }, // Background track
-          { clips } // Foreground track (logo + text)
-        ]
-      },
-      output: {
-        format: "mp4",
-        fps: 30,
-        size: { width: 1080, height: 1920 }
-      }
-    };
-
-    if (musicUrl) {
-      timelinePayload.timeline.soundtrack = {
-        src: musicUrl,
-        effect: "fadeInFadeOut"
-      };
-    }
-
-    const renderResponse = await fetch("https://api.shotstack.io/v1/render", {
-      method: "POST",
-      headers: {
-        "x-api-key": shotstackApiKey,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(timelinePayload)
-    });
-
-    if (!renderResponse.ok) {
-      const errorText = await renderResponse.text();
-      console.error("Shotstack render error:", errorText);
-      throw new Error(`Shotstack render failed: ${errorText}`);
-    }
-
-    const renderData = await renderResponse.json();
-    const renderId = renderData.response.id;
+    // Submit render job
+    const renderId = await submitShotstackRender(timelinePayload, shotstackApiKey);
     console.log(`Render started: ${renderId}`);
 
     // Step 3: Poll for render completion (up to 90s)
-    console.log("Step 3/4: Waiting for render completion...");
-    
-    let renderStatus = "queued";
-    let videoUrl: string | null = null;
-    const maxAttempts = 30;
-    const pollInterval = 3000;
-
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      await new Promise(resolve => setTimeout(resolve, pollInterval));
-
-      const statusResponse = await fetch(
-        `https://api.shotstack.io/v1/render/${renderId}`,
-        {
-          headers: { "x-api-key": shotstackApiKey }
-        }
-      );
-
-      if (!statusResponse.ok) {
-        console.warn(`Poll attempt ${attempt + 1} failed`);
-        continue;
-      }
-
-      const statusData = await statusResponse.json();
-      renderStatus = statusData.response.status;
-      
-      console.log(`Render status: ${renderStatus} (attempt ${attempt + 1}/${maxAttempts})`);
-
-      if (renderStatus === "done") {
-        videoUrl = statusData.response.url;
-        console.log(`✅ Render completed: ${videoUrl}`);
-        break;
-      } else if (renderStatus === "failed") {
-        throw new Error(`Render failed: ${JSON.stringify(statusData.response)}`);
-      }
-    }
-
-    if (renderStatus !== "done" || !videoUrl) {
-      throw new Error(`Render timeout after ${maxAttempts * pollInterval / 1000}s`);
-    }
+    console.log("Step 3/6: Waiting for render completion...");
+    const { videoUrl } = await pollShotstackRender(renderId, shotstackApiKey, 30, 3000);
+    console.log(`✅ Render completed: ${videoUrl}`);
 
     // Step 4: Download video from Shotstack
     console.log("Step 4/6: Downloading video from Shotstack...");
