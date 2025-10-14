@@ -26,7 +26,8 @@ export interface VideoComposition {
     durationSec: number;
     topicUrl: string;
   };
-  audioUrl: string;
+  audioUrl: string; // TTS voice audio
+  backgroundMusicUrl?: string; // Optional background music
   brand?: {
     textColor?: string;
     bgContent?: string;
@@ -77,7 +78,7 @@ export interface ShotstackPayload {
  * This is more reliable than relying on timeline.background which doesn't support mid-video transitions.
  */
 export function buildShotstackPayload(composition: VideoComposition): ShotstackPayload {
-  const { aspect, opening, segments, cta, audioUrl, brand = {} } = composition;
+  const { aspect, opening, segments, cta, audioUrl, backgroundMusicUrl, brand = {} } = composition;
   
   const textColor = brand.textColor || '#FFFFFF';
   const bgContent = brand.bgContent || '#000000';
@@ -182,14 +183,14 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
     ]
   };
   
-  // Track 4: Audio (starts after opening, runs through content + CTA)
-  const audioTrack = {
+  // Track 4: TTS Voice audio (primary)
+  const voiceTrack = {
     clips: [
       {
         asset: {
           type: 'audio' as const,
           src: audioUrl,
-          volume: 1.0  // Volume goes inside the asset, not at clip level
+          volume: 1.0  // Full volume for voice
         },
         start: opening.durationSec,
         length: totalDuration - opening.durationSec
@@ -197,16 +198,35 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
     ]
   };
 
+  // Track 5: Background music (optional, lower volume)
+  const musicTrack = backgroundMusicUrl ? {
+    clips: [
+      {
+        asset: {
+          type: 'audio' as const,
+          src: backgroundMusicUrl,
+          volume: 0.15  // Low volume for background music
+        },
+        start: opening.durationSec,
+        length: totalDuration - opening.durationSec
+      }
+    ]
+  } : null;
+
+  // Build tracks array (filter out null music track if no background music)
+  const tracks = [
+    contentUnderlayTrack,  // Track 0: Black background (bottom layer)
+    voiceTrack,            // Track 1: TTS voice audio (primary)
+    ...(musicTrack ? [musicTrack] : []), // Track 2: Background music (optional, low volume)
+    openingTrack,          // Track 3: Opening logo (on white background)
+    { clips: textClips },  // Track 4: Text segments (on black background)
+    ctaTrack               // Track 5: CTA (top layer)
+  ];
+
   return {
     timeline: {
       background: bgOpening,  // White background for opening only
-      tracks: [
-        contentUnderlayTrack,  // Track 0: Black background (bottom layer, renders behind everything)
-        audioTrack,            // Track 1: Audio
-        openingTrack,          // Track 2: Opening logo (on white background)
-        { clips: textClips },  // Track 3: Text segments (on black background, above underlay)
-        ctaTrack               // Track 4: CTA (top layer, on black background)
-      ]
+      tracks
     },
     output: {
       format: 'mp4',
@@ -224,7 +244,8 @@ export function buildYouTubeShortsPayload(
   segments: VideoSegment[],
   audioUrl: string,
   topicSlug: string,
-  kind: 'recap' | 'highlight' | 'digest'
+  kind: 'recap' | 'highlight' | 'digest',
+  backgroundMusicUrl?: string
 ): ShotstackPayload {
   const logoUrl = 'https://dailydrops.cloud/favicon.png';
   const topicUrl = `https://dailydrops.cloud/topics/${topicSlug}`;  // HTTPS required
@@ -245,6 +266,7 @@ export function buildYouTubeShortsPayload(
       topicUrl
     },
     audioUrl,
+    backgroundMusicUrl,
     brand: {
       textColor: '#FFFFFF',
       bgContent: '#000000',

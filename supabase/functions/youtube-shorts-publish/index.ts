@@ -347,8 +347,55 @@ Return only the script text, one sentence per line.`;
 
     console.log("✅ Script generation completed successfully");
 
-    // Step 2: Render video with Shotstack (9:16, 30fps)
-    console.log("Step 2/6: Rendering video with Shotstack...");
+    // Step 2: Generate TTS audio from script
+    console.log("Step 2/6: Generating TTS audio...");
+
+    const ttsResponse = await fetch('https://api.openai.com/v1/audio/speech', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'tts-1',
+        input: script,
+        voice: 'nova', // Female voice, clear and professional
+        response_format: 'mp3',
+        speed: 1.0
+      }),
+    });
+
+    if (!ttsResponse.ok) {
+      const errorText = await ttsResponse.text();
+      console.error("OpenAI TTS error:", errorText);
+      throw new Error(`TTS generation failed: ${errorText}`);
+    }
+
+    // Save TTS audio to Supabase Storage
+    const ttsArrayBuffer = await ttsResponse.arrayBuffer();
+    const ttsFileName = `tts-${Date.now()}.mp3`;
+    
+    const { data: ttsUpload, error: ttsUploadError } = await supabase.storage
+      .from('music')
+      .upload(ttsFileName, ttsArrayBuffer, {
+        contentType: 'audio/mpeg',
+        upsert: false
+      });
+
+    if (ttsUploadError) {
+      console.error("TTS upload error:", ttsUploadError);
+      throw new Error(`Failed to save TTS audio: ${ttsUploadError.message}`);
+    }
+
+    const { data: ttsUrlData } = supabase.storage
+      .from('music')
+      .getPublicUrl(ttsFileName);
+
+    const ttsAudioUrl = ttsUrlData.publicUrl;
+    console.log(`✅ TTS audio generated: ${ttsAudioUrl}`);
+
+    // Step 3: Render video with Shotstack (9:16, 30fps)
+    console.log("Step 3/6: Rendering video with Shotstack...");
 
     const shotstackApiKey = Deno.env.get("SHOTSTACK_API_KEY");
     if (!shotstackApiKey) {
@@ -371,28 +418,29 @@ Return only the script text, one sentence per line.`;
       return segment;
     });
     
-    // Generate mock TTS audio URL (replace with actual TTS later)
-    const audioUrl = musicUrl || "https://dailydrops.cloud/silence.mp3"; // Placeholder
+    // Use TTS audio as primary audio
+    const audioUrl = ttsAudioUrl;
     
     // Use shared renderer module (new API with segments)
     const timelinePayload = buildYouTubeShortsPayload(
       segments,
-      audioUrl,
+      audioUrl, // TTS voice
       topicSlug,
-      style || 'recap'
+      style || 'recap',
+      musicUrl // Background music (optional)
     );
 
     // Submit render job
     const renderId = await submitShotstackRender(timelinePayload, shotstackApiKey);
     console.log(`Render started: ${renderId}`);
 
-    // Step 3: Poll for render completion (up to 90s)
-    console.log("Step 3/6: Waiting for render completion...");
+    // Step 4: Poll for render completion (up to 90s)
+    console.log("Step 4/6: Waiting for render completion...");
     const { videoUrl } = await pollShotstackRender(renderId, shotstackApiKey, 30, 3000);
     console.log(`✅ Render completed: ${videoUrl}`);
 
-    // Step 4: Download video from Shotstack
-    console.log("Step 4/6: Downloading video from Shotstack...");
+    // Step 5: Download video from Shotstack
+    console.log("Step 5/6: Downloading video from Shotstack...");
 
     const videoResponse = await fetch(videoUrl);
     if (!videoResponse.ok) {
@@ -403,8 +451,8 @@ Return only the script text, one sentence per line.`;
     const videoBuffer = await videoBlob.arrayBuffer();
     console.log(`Video downloaded: ${videoBuffer.byteLength} bytes`);
 
-    // Step 5: Get YouTube OAuth token
-    console.log("Step 5/6: Getting YouTube OAuth token...");
+    // Step 6: Get YouTube OAuth token
+    console.log("Step 6/6: Getting YouTube OAuth token...");
 
     const { data: tokenData } = await supabase
       .from("youtube_oauth_cache")
@@ -422,8 +470,8 @@ Return only the script text, one sentence per line.`;
 
     const youtubeToken = tokenData.access_token;
 
-    // Step 6: Upload to YouTube
-    console.log("Step 6/6: Uploading to YouTube...");
+    // Step 7: Upload to YouTube
+    console.log("Step 7/7: Uploading to YouTube...");
 
     // Create video metadata
     const videoMetadata = {
@@ -497,7 +545,8 @@ Return only the script text, one sentence per line.`;
           topic_slug: topicSlug,
           topic_id: topicData.id,
           items_count: recentItems.length,
-          music_url: musicUrl,
+          tts_audio_url: ttsAudioUrl,
+          background_music_url: musicUrl,
           logo_url: logoUrl
         } : {
           drop_id: dropId
