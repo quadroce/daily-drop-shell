@@ -175,6 +175,16 @@ const YouTubeShorts = () => {
 
       setPublishResult(data);
 
+      // Check for Shotstack quota/credit warnings
+      if (data?.error?.includes("quota") || data?.error?.includes("credit") || data?.error?.includes("insufficient")) {
+        toast({
+          title: "⚠️ Shotstack Credits Low",
+          description: "Shotstack API quota exceeded or credits insufficient. Please top up your Shotstack account.",
+          variant: "destructive",
+          duration: 10000,
+        });
+      }
+
       toast({
         title: "Success! 🎉",
         description: `YouTube Short published: ${data.youtubeUrl || 'Video ID: ' + data.videoId}`,
@@ -183,11 +193,23 @@ const YouTubeShorts = () => {
       await loadJobs();
     } catch (error: any) {
       console.error("YouTube publish error:", error);
-      toast({
-        title: "Publishing failed",
-        description: error.message || "Unknown error occurred",
-        variant: "destructive",
-      });
+      
+      // Check if error is related to Shotstack credits
+      const errorMsg = error.message || "";
+      if (errorMsg.includes("quota") || errorMsg.includes("credit") || errorMsg.includes("insufficient") || errorMsg.includes("Shotstack")) {
+        toast({
+          title: "⚠️ Shotstack Credits Exhausted",
+          description: "Unable to render video due to Shotstack API limits. Please check your Shotstack account credits.",
+          variant: "destructive",
+          duration: 10000,
+        });
+      } else {
+        toast({
+          title: "Publishing failed",
+          description: error.message || "Unknown error occurred",
+          variant: "destructive",
+        });
+      }
     } finally {
       setPublishing(false);
     }
