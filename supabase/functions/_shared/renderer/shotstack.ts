@@ -41,12 +41,14 @@ export interface ShotstackPayload {
     tracks: Array<{
       clips: Array<{
         asset: {
-          type: "image" | "title" | "audio";
+          type: "image" | "title" | "audio" | "html";
           src?: string;
           text?: string;
+          html?: string;
           style?: string;
           color?: string;
           size?: string;
+          volume?: number;
         };
         start: number;
         length: number;
@@ -58,7 +60,6 @@ export interface ShotstackPayload {
         transition?: { in?: string; out?: string };
         background?: string | null;
         effect?: string;
-        volume?: number;
       }>;
     }>;
   };
@@ -66,7 +67,6 @@ export interface ShotstackPayload {
     format: "mp4";
     fps: number;
     size: { width: number; height: number };
-    scaleTo?: "crop";
   };
 }
 
@@ -74,15 +74,12 @@ export interface ShotstackPayload {
  * Build Shotstack payload with proper video composition:
  * Opening (white + favicon) → Content (black + text synced to TTS) → CTA (black + link)
  *
- * Note: We use an underlay track to switch background from white (opening) to black (content + CTA).
- * This is more reliable than relying on timeline.background which doesn't support mid-video transitions.
+ * Uses HTML asset for white opening background, timeline.background="#000000" for rest.
  */
 export function buildShotstackPayload(composition: VideoComposition): ShotstackPayload {
   const { aspect, opening, segments, cta, audioUrl, backgroundMusicUrl, brand = {} } = composition;
 
   const textColor = brand.textColor || "#FFFFFF";
-  const bgContent = brand.bgContent || "#000000";
-  const bgOpening = brand.bgOpening || "#FFFFFF";
 
   // Determine output size based on aspect ratio
   const size =
@@ -108,25 +105,23 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
   const ctaStart = withOpening(lastSegmentEnd);
   const totalDuration = ctaStart + cta.durationSec;
 
-  // Track 0: Black background for entire video EXCEPT opening (starts at 2s)
-  const blackBackgroundTrack = {
+  // Track 0: White background for opening (0-2s) using HTML asset
+  const whiteOpeningTrack = {
     clips: [
       {
         asset: {
-          type: "image" as const,
-          src: "https://dummyimage.com/1920x1080/000000/000000.png", // Solid black
+          type: "html" as const,
+          html: "<div style='width:100%;height:100%;background:#ffffff;'></div>",
         },
-        start: opening.durationSec, // Starts AFTER opening (at 2s)
-        length: totalDuration - opening.durationSec,
-        fit: "cover",
-        scale: 1.0,
+        start: 0,
+        length: opening.durationSec,
         position: "center",
       },
     ],
   };
 
-  // Track 1: Opening logo
-  const openingTrack = {
+  // Track 1: Opening logo (over white background)
+  const openingLogoTrack = {
     clips: [
       {
         asset: {
@@ -135,7 +130,7 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
         },
         start: 0,
         length: opening.durationSec,
-        fit: "contain", // Valid fit value (not 'none')
+        fit: "contain",
         scale: 0.6,
         position: "center",
         opacity: 1.0,
@@ -147,24 +142,16 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
   // Track 2: Text segments synced to TTS (offset by opening duration)
   const textClips = validSegments.map((segment) => ({
     asset: {
-      type: "text" as const,
+      type: "title" as const,
       text: segment.text,
-      width: 900, // Width in pixels for text wrapping
-      height: 200, // Height in pixels for text container
-      alignment: {
-        horizontal: "center" as const,
-        vertical: "center" as const,
-      },
-      font: {
-        family: "Clear Sans",
-        color: textColor,
-        size: 60, // Font size in points
-      },
+      style: "minimal",
+      color: textColor,
+      size: "medium",
     },
     start: withOpening(segment.start),
     length: Math.max(0.1, segment.end - segment.start), // Clamp to at least 0.1s
     position: "center" as const,
-    offset: { x: 0, y: 0.1 }, // Slightly lower than center
+    offset: { x: 0, y: 0 },
     opacity: 1.0,
     transition: { in: "fade", out: "fade" },
   }));
@@ -184,7 +171,6 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
         length: cta.durationSec,
         position: "center",
         transition: { in: "fade", out: "fade" },
-        // Note: background handled by underlay track
       },
     ],
   };
@@ -222,25 +208,25 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
     : null;
 
   // Build tracks array - audio tracks first (invisible), then visual tracks bottom-to-top
-  // Background is WHITE (for opening 0-2s), black overlay kicks in at 2s for rest of video
+  // Background is BLACK (timeline.background), white HTML overlay for opening (0-2s)
   const tracks = [
     voiceTrack, // Track 0: TTS voice audio (invisible, always plays)
     ...(musicTrack ? [musicTrack] : []), // Track 1: Background music (invisible, optional)
-    blackBackgroundTrack, // Track 2: Black background (starts at 2s, covers rest of video)
-    openingTrack, // Track 3: Opening logo (shows 0-2s on white background)
-    { clips: textClips }, // Track 4: Text subtitles WHITE on BLACK (shows 2s+)
+    whiteOpeningTrack, // Track 2: White HTML background (0-2s only)
+    openingLogoTrack, // Track 3: Opening logo (shows 0-2s on white background)
+    { clips: textClips }, // Track 4: Text subtitles (shows 2s+)
     ctaTrack, // Track 5: CTA (top layer, shows at end)
   ];
 
   return {
     timeline: {
-      background: "#FFFFFF", // White for opening (0-2s), black overlay covers rest
+      background: "#000000", // Black background for entire video (white HTML covers opening)
       tracks,
     },
     output: {
       format: "mp4",
       fps: 30,
-      size, // Use ONLY size, no resolution or scaleTo per schema requirements
+      size,
     },
   };
 }
