@@ -71,10 +71,31 @@ export interface ShotstackPayload {
 }
 
 /**
+ * Helper: Split text into lines with max characters per line
+ */
+function wrapText(text: string, maxCharsPerLine: number): string {
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    if (testLine.length <= maxCharsPerLine) {
+      currentLine = testLine;
+    } else {
+      if (currentLine) lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+  return lines.join('\n');
+}
+
+/**
  * Build Shotstack payload with proper video composition:
- * Opening (white + favicon) → Content (black + text synced to TTS) → CTA (black + link)
+ * Content (black + text synced to TTS) → CTA (black + link)
  *
- * Uses HTML asset for white opening background, timeline.background="#000000" for rest.
+ * Uses timeline.background="#000000" for black background.
  */
 export function buildShotstackPayload(composition: VideoComposition): ShotstackPayload {
   const { aspect, opening, segments, cta, audioUrl, backgroundMusicUrl, brand = {} } = composition;
@@ -105,48 +126,14 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
   const ctaStart = withOpening(lastSegmentEnd);
   const totalDuration = ctaStart + cta.durationSec;
 
-  // Track 0: White background for opening (0-2s) using HTML asset
-  const whiteOpeningTrack = {
-    clips: [
-      {
-        asset: {
-          type: "html" as const,
-          html: "<div style='width:100%;height:100%;background:#ffffff;'></div>",
-        },
-        start: 0,
-        length: opening.durationSec,
-        position: "center",
-      },
-    ],
-  };
-
-  // Track 1: Opening logo (over white background)
-  const openingLogoTrack = {
-    clips: [
-      {
-        asset: {
-          type: "image" as const,
-          src: opening.logoUrl,
-        },
-        start: 0,
-        length: opening.durationSec,
-        fit: "contain",
-        scale: 0.6,
-        position: "center",
-        opacity: 1.0,
-        transition: { in: "fade", out: "fade" },
-      },
-    ],
-  };
-
-  // Track 2: Text segments synced to TTS (offset by opening duration)
+  // Text segments synced to TTS (offset by opening duration) - wrapped to max 10 chars per line
   const textClips = validSegments.map((segment) => ({
     asset: {
       type: "title" as const,
-      text: segment.text,
+      text: wrapText(segment.text, 10),
       style: "minimal",
       color: textColor,
-      size: "medium",
+      size: "small",
     },
     start: withOpening(segment.start),
     length: Math.max(0.1, segment.end - segment.start), // Clamp to at least 0.1s
@@ -156,16 +143,16 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
     transition: { in: "fade", out: "fade" },
   }));
 
-  // Track 3: CTA (starts after last segment, offset by opening)
+  // CTA (starts after last segment, offset by opening) - wrapped to max 10 chars per line
   const ctaTrack = {
     clips: [
       {
         asset: {
           type: "title" as const,
-          text: cta.textLines.join("\n"),
+          text: wrapText(cta.textLines.join(" "), 10),
           style: "minimal",
           color: textColor,
-          size: "medium",
+          size: "small",
         },
         start: ctaStart,
         length: cta.durationSec,
@@ -208,14 +195,12 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
     : null;
 
   // Build tracks array - audio tracks first (invisible), then visual tracks bottom-to-top
-  // Background is BLACK (timeline.background), white HTML overlay for opening (0-2s)
+  // Background is BLACK (timeline.background)
   const tracks = [
     voiceTrack, // Track 0: TTS voice audio (invisible, always plays)
     ...(musicTrack ? [musicTrack] : []), // Track 1: Background music (invisible, optional)
-    whiteOpeningTrack, // Track 2: White HTML background (0-2s only)
-    openingLogoTrack, // Track 3: Opening logo (shows 0-2s on white background)
-    { clips: textClips }, // Track 4: Text subtitles (shows 2s+)
-    ctaTrack, // Track 5: CTA (top layer, shows at end)
+    { clips: textClips }, // Track 2: Text subtitles
+    ctaTrack, // Track 3: CTA (top layer, shows at end)
   ];
 
   return {
