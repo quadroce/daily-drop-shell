@@ -378,28 +378,64 @@ Return only the script text, one sentence per line.`;
 
     console.log("✅ Script generation completed successfully");
 
-    // Step 2: Generate TTS audio from script
+    // Step 2: Generate TTS audio from script with retry logic
     console.log("Step 2/6: Generating TTS audio...");
 
-    const ttsResponse = await fetch('https://api.openai.com/v1/audio/speech', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'tts-1',
-        input: script,
-        voice: 'nova', // Female voice, clear and professional
-        response_format: 'mp3',
-        speed: 1.0
-      }),
-    });
+    // Retry TTS with exponential backoff for temporary OpenAI errors
+    let ttsResponse: Response | null = null;
+    let lastError = "";
+    const maxRetries = 3;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`TTS attempt ${attempt}/${maxRetries}...`);
+        
+        ttsResponse = await fetch('https://api.openai.com/v1/audio/speech', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openaiApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'tts-1',
+            input: script,
+            voice: 'nova', // Female voice, clear and professional
+            response_format: 'mp3',
+            speed: 1.0
+          }),
+        });
 
-    if (!ttsResponse.ok) {
-      const errorText = await ttsResponse.text();
-      console.error("OpenAI TTS error:", errorText);
-      throw new Error(`TTS generation failed: ${errorText}`);
+        if (ttsResponse.ok) {
+          console.log(`✅ TTS succeeded on attempt ${attempt}`);
+          break; // Success!
+        }
+        
+        // Check error type
+        const errorText = await ttsResponse.text();
+        lastError = errorText;
+        console.error(`OpenAI TTS error (attempt ${attempt}):`, errorText);
+        
+        // Don't retry on client errors (4xx)
+        if (ttsResponse.status >= 400 && ttsResponse.status < 500) {
+          throw new Error(`TTS generation failed (client error): ${errorText}`);
+        }
+        
+        // Retry on server errors (5xx) with exponential backoff
+        if (attempt < maxRetries) {
+          const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+          console.log(`Retrying TTS in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      } catch (error) {
+        if (attempt === maxRetries) {
+          throw error;
+        }
+        console.error(`TTS attempt ${attempt} failed:`, error);
+      }
+    }
+
+    if (!ttsResponse || !ttsResponse.ok) {
+      throw new Error(`TTS generation failed after ${maxRetries} attempts: ${lastError}`);
     }
 
     // Save TTS audio to Supabase Storage
