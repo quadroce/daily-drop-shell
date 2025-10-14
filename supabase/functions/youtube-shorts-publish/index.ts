@@ -355,15 +355,31 @@ Return only the script text, one sentence per line.`;
       throw new Error("SHOTSTACK_API_KEY not configured");
     }
 
-    // Prepare script lines
+    // Prepare script lines and create video segments with timing
     const lines = isTopicDigest ? scriptLines : script.split('\n').filter(l => l.trim());
     
-    // Use shared renderer module (fixes resolution/size conflict)
+    // Create segments with timing (assuming 6-8 seconds per line after 2s opening)
+    let currentTime = 2.0; // Start after 2s logo opening
+    const segments = lines.map(line => {
+      const duration = Math.max(6, Math.min(10, line.length / 2.5)); // 6-10s based on length
+      const segment = {
+        text: line,
+        start: currentTime,
+        end: currentTime + duration
+      };
+      currentTime += duration;
+      return segment;
+    });
+    
+    // Generate mock TTS audio URL (replace with actual TTS later)
+    const audioUrl = musicUrl || "https://dailydrops.cloud/silence.mp3"; // Placeholder
+    
+    // Use shared renderer module (new API with segments)
     const timelinePayload = buildYouTubeShortsPayload(
-      lines,
-      "https://dailydrops.cloud/favicon.png", // Logo URL
-      musicUrl,
-      "https://dailydrops.cloud/og-image.png" // Background image
+      segments,
+      audioUrl,
+      topicSlug,
+      style || 'recap'
     );
 
     // Submit render job
