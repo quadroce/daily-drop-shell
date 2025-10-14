@@ -72,6 +72,9 @@ export interface ShotstackPayload {
 /**
  * Build Shotstack payload with proper video composition:
  * Opening (white + favicon) → Content (black + text synced to TTS) → CTA (black + link)
+ * 
+ * Note: We use an underlay track to switch background from white (opening) to black (content + CTA).
+ * This is more reliable than relying on timeline.background which doesn't support mid-video transitions.
  */
 export function buildShotstackPayload(composition: VideoComposition): ShotstackPayload {
   const { aspect, opening, segments, cta, audioUrl, brand = {} } = composition;
@@ -85,12 +88,44 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
     ? { width: 1080, height: 1920 }  // YouTube Shorts
     : { width: 1080, height: 1080 };  // LinkedIn
   
-  // Calculate total duration
-  const lastSegmentEnd = segments.length > 0 ? segments[segments.length - 1].end : opening.durationSec;
-  const ctaStart = lastSegmentEnd;
+  // Helper to apply opening offset
+  const withOpening = (t: number) => opening.durationSec + t;
+  
+  // Filter and validate segments (remove invalid ones where end <= start)
+  const validSegments = segments.filter(seg => {
+    const duration = seg.end - seg.start;
+    if (duration <= 0) {
+      console.warn(`Skipping invalid segment with duration ${duration}:`, seg);
+      return false;
+    }
+    return true;
+  });
+  
+  // Calculate total duration with opening offset
+  const lastSegmentEnd = validSegments.length > 0 
+    ? validSegments[validSegments.length - 1].end 
+    : 0;
+  const ctaStart = withOpening(lastSegmentEnd);
   const totalDuration = ctaStart + cta.durationSec;
   
-  // Track 0: Opening logo (white background)
+  // Track 0: Content underlay (black background for content + CTA, starts after opening)
+  const contentUnderlayTrack = {
+    clips: [
+      {
+        asset: {
+          type: 'title' as const,
+          text: '',  // Empty text, just for background
+          style: 'minimal'
+        },
+        start: opening.durationSec,
+        length: totalDuration - opening.durationSec,
+        background: bgContent,
+        opacity: 1.0
+      }
+    ]
+  };
+  
+  // Track 1: Opening logo (white background via timeline.background)
   const openingTrack = {
     clips: [
       {
@@ -100,7 +135,7 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
         },
         start: 0,
         length: opening.durationSec,
-        fit: 'none',
+        fit: 'contain',  // Valid fit value (not 'none')
         scale: 0.6,
         position: 'center',
         opacity: 1.0,
@@ -109,8 +144,8 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
     ]
   };
   
-  // Track 1: Text segments synced to TTS (on black background after opening)
-  const textClips = segments.map((segment, idx) => ({
+  // Track 2: Text segments synced to TTS (offset by opening duration)
+  const textClips = validSegments.map((segment) => ({
     asset: {
       type: 'title' as const,
       text: segment.text,
@@ -118,17 +153,17 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
       color: textColor,
       size: 'medium'
     },
-    start: segment.start,
-    length: segment.end - segment.start,
+    start: withOpening(segment.start),
+    length: Math.max(0.1, segment.end - segment.start),  // Clamp to at least 0.1s
     position: 'center',
     offset: { x: 0, y: 0 },
     opacity: 1.0,
-    transition: { in: 'fade', out: 'fade' },
-    background: bgContent,
-    effect: idx === 0 ? 'zoomIn' : undefined
+    transition: { in: 'fade', out: 'fade' }
+    // Note: removed background and effect to avoid Shotstack validation issues
+    // Background is handled by underlay track
   }));
   
-  // Track 2: CTA
+  // Track 3: CTA (starts after last segment, offset by opening)
   const ctaTrack = {
     clips: [
       {
@@ -142,13 +177,13 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
         start: ctaStart,
         length: cta.durationSec,
         position: 'center',
-        background: bgContent,
         transition: { in: 'fade', out: 'fade' }
+        // Note: background handled by underlay track
       }
     ]
   };
   
-  // Track 3: Audio
+  // Track 4: Audio (starts after opening, runs through content + CTA)
   const audioTrack = {
     clips: [
       {
@@ -165,19 +200,19 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
 
   return {
     timeline: {
-      background: bgOpening,
+      background: bgOpening,  // White background for opening only
       tracks: [
-        openingTrack,
-        { clips: textClips },
-        ctaTrack,
-        audioTrack
+        contentUnderlayTrack,  // Black background for content + CTA
+        openingTrack,          // Logo on white
+        { clips: textClips },  // Text segments
+        ctaTrack,              // Call to action
+        audioTrack             // Audio track
       ]
     },
     output: {
       format: 'mp4',
       fps: 30,
-      size,  // Use ONLY size, NOT resolution
-      ...(aspect === 'li-1x1' && { scaleTo: 'crop' as const })
+      size  // Use ONLY size, no resolution or scaleTo per schema requirements
     }
   };
 }
@@ -193,7 +228,7 @@ export function buildYouTubeShortsPayload(
   kind: 'recap' | 'highlight' | 'digest'
 ): ShotstackPayload {
   const logoUrl = 'https://dailydrops.cloud/favicon.png';
-  const topicUrl = `dailydrops.cloud/topics/${topicSlug}`;
+  const topicUrl = `https://dailydrops.cloud/topics/${topicSlug}`;  // HTTPS required
   
   return buildShotstackPayload({
     aspect: 'yt-9x16',
@@ -230,7 +265,7 @@ export function buildLinkedInVideoPayload(
   kind: 'recap' | 'highlight' | 'digest'
 ): ShotstackPayload {
   const logoUrl = 'https://dailydrops.cloud/favicon.png';
-  const topicUrl = `dailydrops.cloud/topics/${topicSlug}`;
+  const topicUrl = `https://dailydrops.cloud/topics/${topicSlug}`;  // HTTPS required
   
   return buildShotstackPayload({
     aspect: 'li-1x1',
@@ -276,7 +311,7 @@ export async function pollShotstackRender(
     );
 
     if (!statusResponse.ok) {
-      console.warn(`Poll attempt ${attempt + 1} failed`);
+      console.warn(`Poll attempt ${attempt + 1} failed with status ${statusResponse.status}`);
       continue;
     }
 
@@ -291,7 +326,8 @@ export async function pollShotstackRender(
         status: 'done'
       };
     } else if (status === 'failed') {
-      throw new Error(`Shotstack render failed: ${JSON.stringify(statusData.response)}`);
+      // Include full Shotstack response in error for debugging
+      throw new Error(`Shotstack render failed: ${JSON.stringify(statusData.response, null, 2)}`);
     }
   }
 
@@ -305,6 +341,8 @@ export async function submitShotstackRender(
   payload: ShotstackPayload,
   apiKey: string
 ): Promise<string> {
+  console.log('Submitting Shotstack render with payload:', JSON.stringify(payload, null, 2));
+  
   const renderResponse = await fetch('https://api.shotstack.io/v1/render', {
     method: 'POST',
     headers: {
@@ -316,10 +354,11 @@ export async function submitShotstackRender(
 
   if (!renderResponse.ok) {
     const errorText = await renderResponse.text();
-    console.error('Shotstack render error:', errorText);
-    throw new Error(`Shotstack render failed: ${errorText}`);
+    console.error('Shotstack render submission failed:', errorText);
+    throw new Error(`Shotstack render failed (${renderResponse.status}): ${errorText}`);
   }
 
   const renderData = await renderResponse.json();
+  console.log('Shotstack render submitted successfully, render ID:', renderData.response.id);
   return renderData.response.id;
 }
