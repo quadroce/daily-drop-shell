@@ -150,14 +150,14 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
     asset: {
       type: 'title' as const,
       text: segment.text,
-      style: 'minimal',  // Minimal style without background
+      style: 'future',  // Future style with transparent background - better visibility
       color: textColor,
       size: 'x-large'  // Extra large for maximum readability
     },
     start: withOpening(segment.start),
     length: Math.max(0.1, segment.end - segment.start),  // Clamp to at least 0.1s
     position: 'center',  // Center position for maximum visibility
-    offset: { x: 0, y: 0.25 },  // Slightly below center
+    offset: { x: 0, y: 0 },  // Centered vertically
     opacity: 1.0,
     transition: { in: 'fade', out: 'fade' }
   }));
