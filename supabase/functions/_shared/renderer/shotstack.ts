@@ -125,7 +125,7 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
     opacity: 1.0,
     transition: { in: 'fade', out: 'fade' },
     background: bgContent,
-    effect: idx === 0 ? 'zoom' : undefined
+    effect: idx === 0 ? 'zoomIn' : undefined
   }));
   
   // Track 2: CTA
