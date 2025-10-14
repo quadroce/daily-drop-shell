@@ -100,7 +100,8 @@ function wrapText(text: string, maxCharsPerLine: number): string {
 export function buildShotstackPayload(composition: VideoComposition): ShotstackPayload {
   const { aspect, opening, segments, cta, audioUrl, backgroundMusicUrl, brand = {} } = composition;
 
-  const textColor = brand.textColor || "#FFFFFF";
+  const textColor = brand.textColor || "#000000"; // Black text on white background
+  const linkColor = "#0EA5E9"; // Blue color for links (sky-500)
 
   // Determine output size based on aspect ratio
   const size =
@@ -170,7 +171,7 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
           type: "title" as const,
           text: wrapText(cta.textLines.join(" "), 10),
           style: "minimal",
-          color: textColor,
+          color: linkColor, // Blue color for links
           size: "x-small",
         },
         start: ctaStart,
@@ -214,7 +215,7 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
     : null;
 
   // Build tracks array - audio tracks first (invisible), then visual tracks bottom-to-top
-  // Background is BLACK (timeline.background)
+  // Background is WHITE (timeline.background)
   const tracks = [
     voiceTrack, // Track 0: TTS voice audio (invisible, always plays)
     ...(musicTrack ? [musicTrack] : []), // Track 1: Background music (invisible, optional)
@@ -225,7 +226,7 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
 
   return {
     timeline: {
-      background: "#000000", // Black background for entire video (white HTML covers opening)
+      background: "#FFFFFF", // White background for entire video
       tracks,
     },
     output: {
@@ -265,9 +266,9 @@ export function buildYouTubeShortsPayload(
     audioUrl,
     backgroundMusicUrl,
     brand: {
-      textColor: "#FFFFFF",
-      bgContent: "#000000",
-      bgOpening: "#FFFFFF",
+      textColor: "#000000", // Black text
+      bgContent: "#FFFFFF", // White background
+      bgOpening: "#FFFFFF", // White background
     },
   });
 }
@@ -299,9 +300,9 @@ export function buildLinkedInVideoPayload(
     },
     audioUrl,
     brand: {
-      textColor: "#FFFFFF",
-      bgContent: "#000000",
-      bgOpening: "#FFFFFF",
+      textColor: "#000000", // Black text
+      bgContent: "#FFFFFF", // White background
+      bgOpening: "#FFFFFF", // White background
     },
   });
 }
