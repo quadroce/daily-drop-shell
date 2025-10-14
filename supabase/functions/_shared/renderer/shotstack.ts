@@ -126,6 +126,25 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
   const ctaStart = withOpening(lastSegmentEnd);
   const totalDuration = ctaStart + cta.durationSec;
 
+  // Opening logo
+  const openingLogoTrack = {
+    clips: [
+      {
+        asset: {
+          type: "image" as const,
+          src: opening.logoUrl,
+        },
+        start: 0,
+        length: opening.durationSec,
+        fit: "contain",
+        scale: 0.6,
+        position: "center",
+        opacity: 1.0,
+        transition: { in: "fade", out: "fade" },
+      },
+    ],
+  };
+
   // Text segments synced to TTS (offset by opening duration) - wrapped to max 10 chars per line
   const textClips = validSegments.map((segment) => ({
     asset: {
@@ -133,7 +152,7 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
       text: wrapText(segment.text, 10),
       style: "minimal",
       color: textColor,
-      size: "small",
+      size: "x-small",
     },
     start: withOpening(segment.start),
     length: Math.max(0.1, segment.end - segment.start), // Clamp to at least 0.1s
@@ -152,7 +171,7 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
           text: wrapText(cta.textLines.join(" "), 10),
           style: "minimal",
           color: textColor,
-          size: "small",
+          size: "x-small",
         },
         start: ctaStart,
         length: cta.durationSec,
@@ -199,8 +218,9 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
   const tracks = [
     voiceTrack, // Track 0: TTS voice audio (invisible, always plays)
     ...(musicTrack ? [musicTrack] : []), // Track 1: Background music (invisible, optional)
-    { clips: textClips }, // Track 2: Text subtitles
-    ctaTrack, // Track 3: CTA (top layer, shows at end)
+    openingLogoTrack, // Track 2: Opening logo (shows 0-2s)
+    { clips: textClips }, // Track 3: Text subtitles
+    ctaTrack, // Track 4: CTA (top layer, shows at end)
   ];
 
   return {
@@ -238,7 +258,7 @@ export function buildYouTubeShortsPayload(
     },
     segments,
     cta: {
-      textLines: [`See all links on DailyDrops → ${topicUrl}`, "Join free."],
+      textLines: ["See all links on DailyDrops → https://dailydrops.cloud/", "Join free."],
       durationSec: 3, // Reduced from 6s to 3s for 20-second video
       topicUrl,
     },
@@ -273,7 +293,7 @@ export function buildLinkedInVideoPayload(
     },
     segments,
     cta: {
-      textLines: [`See all links on DailyDrops → ${topicUrl}`, "Join free."],
+      textLines: ["See all links on DailyDrops → https://dailydrops.cloud/", "Join free."],
       durationSec: 6,
       topicUrl,
     },
