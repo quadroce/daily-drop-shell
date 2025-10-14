@@ -8,13 +8,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Youtube, MessageSquare, Video } from "lucide-react";
 import { YouTubeCredentialsStatus } from "@/components/admin/youtube/YouTubeCredentialsStatus";
 import { YouTubeOAuthPanel } from "@/components/admin/youtube/YouTubeOAuthPanel";
-import { YouTubeShortsConfig } from "@/components/admin/youtube/YouTubeShortsConfig";
 import { YouTubeUtilities } from "@/components/admin/youtube/YouTubeUtilities";
 import { YouTubeLogsTable } from "@/components/admin/youtube/YouTubeLogsTable";
-import { ShortsPublishPanel } from "@/components/admin/ShortsPublishPanel";
-import { YouTubeCommentsTable } from "@/components/admin/youtube/YouTubeCommentsTable";
 import { YouTubeTokenPanel } from "@/components/admin/YouTubeTokenPanel";
-import { YouTubeJobsManager } from "@/components/admin/YouTubeJobsManager";
 
 const YouTubeAdmin = () => {
   const { user, loading: authLoading } = useAuth();
@@ -156,23 +152,11 @@ const YouTubeAdmin = () => {
         {/* OAuth & Channel */}
         <YouTubeOAuthPanel />
 
-        {/* Shorts Automation Config */}
-        <YouTubeShortsConfig />
-
-        {/* Shorts Publish Panel */}
-        <ShortsPublishPanel />
-
         {/* Utilities */}
         <YouTubeUtilities />
 
         {/* Token Manager */}
         <YouTubeTokenPanel />
-
-        {/* Jobs Manager */}
-        <YouTubeJobsManager />
-
-        {/* Comments Management */}
-        <YouTubeCommentsTable />
 
         {/* Logs Table */}
         <YouTubeLogsTable />
