@@ -150,7 +150,7 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
     asset: {
       type: 'title' as const,
       text: segment.text,
-      style: 'blockbuster',  // Bold style with built-in shadow/outline for visibility
+      style: 'minimal',  // Minimal style without background
       color: textColor,
       size: 'x-large'  // Extra large for maximum readability
     },
@@ -159,6 +159,7 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
     position: 'center',  // Center position for maximum visibility
     offset: { x: 0, y: 0.25 },  // Slightly below center
     opacity: 1.0,
+    background: null,  // No background, transparent
     transition: { in: 'fade', out: 'fade' }
   }));
   

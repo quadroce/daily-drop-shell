@@ -510,12 +510,7 @@ Return only the script text, one sentence per line.`;
         title: metadata.title,
         description: metadata.description,
         tags: metadata.tags,
-        categoryId: metadata.categoryId,
-        thumbnails: {
-          default: {
-            url: 'https://dailydrops.cloud/favicon.png'
-          }
-        }
+        categoryId: metadata.categoryId
       },
       status: {
         privacyStatus: "public",
@@ -567,7 +562,37 @@ Return only the script text, one sentence per line.`;
     const videoId = uploadResult.id;
     const videoPublicUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
-    console.log(`✅ Video uploaded successfully: ${videoPublicUrl}`)
+    console.log(`✅ Video uploaded successfully: ${videoPublicUrl}`);
+
+    // Upload custom thumbnail
+    console.log('🖼️ Setting custom thumbnail...');
+    try {
+      const thumbnailUrl = 'https://dailydrops.cloud/favicon.png';
+      const thumbnailResponse = await fetch(thumbnailUrl);
+      const thumbnailBlob = await thumbnailResponse.arrayBuffer();
+      
+      const thumbnailUploadResponse = await fetch(
+        `https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId=${videoId}`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${youtubeToken}`,
+            'Content-Type': 'image/png',
+          },
+          body: thumbnailBlob,
+        }
+      );
+
+      if (thumbnailUploadResponse.ok) {
+        console.log('✅ Thumbnail set successfully');
+      } else {
+        const thumbnailError = await thumbnailUploadResponse.text();
+        console.warn('⚠️ Failed to set thumbnail:', thumbnailError);
+      }
+    } catch (thumbnailError) {
+      console.warn('⚠️ Thumbnail upload error:', thumbnailError);
+      // Non-fatal, continue anyway
+    }
 
     // Log success event
     await supabase.from("short_job_events").insert({
