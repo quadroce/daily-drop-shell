@@ -43,6 +43,7 @@ const YouTubeShorts = () => {
   const [toggling, setToggling] = useState(false);
   const [jobs, setJobs] = useState<ShortJob[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
+  const [publishing, setPublishing] = useState(false);
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -146,6 +147,47 @@ const YouTubeShorts = () => {
     }
   };
 
+  const testYouTubeShort = async () => {
+    setPublishing(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      // Use AI/ML topic for test
+      const topicSlug = "ai_ml";
+      
+      toast({
+        title: "Publishing YouTube Short...",
+        description: `Creating test video for ${topicSlug} topic`,
+      });
+
+      const { data, error } = await supabase.functions.invoke('youtube-shorts-publish', {
+        body: {
+          topicSlug,
+          style: "recap"
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success! 🎉",
+        description: `YouTube Short published: ${data.youtubeUrl || 'Video ID: ' + data.videoId}`,
+      });
+
+      await loadJobs();
+    } catch (error: any) {
+      console.error("YouTube publish error:", error);
+      toast({
+        title: "Publishing failed",
+        description: error.message || "Unknown error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
       queued: "secondary",
@@ -217,6 +259,15 @@ const YouTubeShorts = () => {
           <Badge variant={systemEnabled ? "default" : "secondary"}>
             {systemEnabled ? "Enabled" : "Paused"}
           </Badge>
+          <Button
+            onClick={testYouTubeShort}
+            disabled={publishing}
+            variant="outline"
+            size="sm"
+          >
+            <Youtube className="h-4 w-4 mr-2" />
+            {publishing ? "Publishing..." : "Test YouTube Now"}
+          </Button>
           <Button
             onClick={toggleSystem}
             disabled={toggling}
