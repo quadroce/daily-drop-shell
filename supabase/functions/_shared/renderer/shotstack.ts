@@ -149,18 +149,16 @@ export function buildShotstackPayload(composition: VideoComposition): ShotstackP
     asset: {
       type: 'title' as const,
       text: segment.text,
-      style: 'minimal',
+      style: 'subtitle',  // Use subtitle style for proper caption display
       color: textColor,
-      size: 'medium'
+      size: 'large'  // Larger size for better readability on mobile
     },
     start: withOpening(segment.start),
     length: Math.max(0.1, segment.end - segment.start),  // Clamp to at least 0.1s
-    position: 'center',
-    offset: { x: 0, y: 0 },
+    position: 'bottom',  // Position at bottom like traditional subtitles
+    offset: { x: 0, y: -0.15 },  // Offset from bottom edge
     opacity: 1.0,
     transition: { in: 'fade', out: 'fade' }
-    // Note: removed background and effect to avoid Shotstack validation issues
-    // Background is handled by underlay track
   }));
   
   // Track 3: CTA (starts after last segment, offset by opening)

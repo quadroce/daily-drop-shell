@@ -45,6 +45,7 @@ const YouTubeShorts = () => {
   const [jobs, setJobs] = useState<ShortJob[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [publishResult, setPublishResult] = useState<any>(null);
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -150,6 +151,7 @@ const YouTubeShorts = () => {
 
   const testYouTubeShort = async () => {
     setPublishing(true);
+    setPublishResult(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
@@ -170,6 +172,8 @@ const YouTubeShorts = () => {
       });
 
       if (error) throw error;
+
+      setPublishResult(data);
 
       toast({
         title: "Success! 🎉",
@@ -359,6 +363,70 @@ const YouTubeShorts = () => {
 
         <TabsContent value="publishers" className="space-y-6">
           <ShortsLiveLog isPublishing={publishing} />
+          
+          {publishResult && (
+            <Card>
+              <CardHeader>
+                <CardTitle>📝 Generated Script</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  {publishResult.script?.lines?.map((line: string, idx: number) => (
+                    <p key={idx} className="text-sm border-l-2 border-primary pl-3 py-1 bg-muted/30">
+                      {line}
+                    </p>
+                  ))}
+                </div>
+                
+                {publishResult.youtube?.url && (
+                  <div className="p-3 bg-green-500/10 border border-green-500/20 rounded">
+                    <p className="text-sm font-medium text-green-600 dark:text-green-400 mb-2">
+                      ✅ Published to YouTube
+                    </p>
+                    <a 
+                      href={publishResult.youtube.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 hover:underline"
+                    >
+                      {publishResult.youtube.url}
+                    </a>
+                  </div>
+                )}
+                
+                {publishResult.shotstack?.videoUrl && !publishResult.youtube?.url && (
+                  <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded">
+                    <p className="text-sm font-medium text-yellow-600 dark:text-yellow-400 mb-2">
+                      ⚠️ YouTube upload failed - Video ready on Shotstack
+                    </p>
+                    <a 
+                      href={publishResult.shotstack.videoUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 hover:underline mb-2 block"
+                    >
+                      View video on Shotstack
+                    </a>
+                    <p className="text-xs text-muted-foreground">
+                      Note: YouTube has daily upload limits. The error was likely "uploadLimitExceeded".
+                    </p>
+                  </div>
+                )}
+
+                {publishResult.tts?.audioUrl && (
+                  <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded">
+                    <p className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">
+                      🎵 TTS Audio Generated
+                    </p>
+                    <audio controls className="w-full">
+                      <source src={publishResult.tts.audioUrl} type="audio/mpeg" />
+                    </audio>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+          
           <ShortsPublishPanel />
         </TabsContent>
 

@@ -90,18 +90,19 @@ Deno.serve(async (req) => {
       topicData = topic;
       topicNames = topic.label;
 
-      // Fetch recent content (last 48h, limit 10)
-      const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
-      const { data: items } = await supabase
+      // Fetch recent content (last 7 days, limit 10)
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: items, error: itemsError } = await supabase
         .from('content_topics')
         .select('drops(id, title, summary, published_at)')
         .eq('topic_id', topic.id)
-        .gte('drops.published_at', twoDaysAgo)
+        .gte('drops.published_at', sevenDaysAgo)
         .order('drops.published_at', { ascending: false })
         .limit(10);
 
       recentItems = items?.map((i: any) => i.drops).filter(Boolean) || [];
       console.log(`Found ${recentItems.length} recent items for topic ${topic.label}`);
+      console.log('Recent items:', JSON.stringify(recentItems.map(i => ({ title: i.title, date: i.published_at })), null, 2));
     } else {
       // Original Drop Mode
       const { data: fetchedDrop, error: dropError } = await supabase
@@ -170,13 +171,16 @@ Deno.serve(async (req) => {
 
       const fallbackScript = [
         `Today in ${topicData.label}.`,
-        'No major headlines in the last 24 hours.',
+        'No major headlines recently.',
         'Explore curated picks and evergreen resources.',
         'Discover trending sources and fresh perspectives.',
         `See more on DailyDrops — https://dailydrops.cloud/topics/${topicSlug}`
       ];
 
+      console.log(`Items for script generation: ${itemsJson.length} items found`);
+      
       if (itemsJson.length === 0) {
+        console.log('Using fallback script - no items found');
         scriptLines = fallbackScript;
       } else {
         const scriptPromptText = `Write exactly 5 lines for a short video about recent content in "${topicData.label}". 
@@ -223,9 +227,16 @@ Total max ~60 words. Return only the 5 lines, no quotes, no markdown.`;
         } else {
           const scriptData = await scriptResponse.json();
           const rawScript = scriptData.choices[0].message.content.trim();
+          console.log('Generated script from AI:', rawScript);
           scriptLines = rawScript.split('\n').filter((l: string) => l.trim()).slice(0, 5);
-          if (scriptLines.length < 5) scriptLines = fallbackScript;
+          if (scriptLines.length < 5) {
+            console.log('Script too short, using fallback');
+            scriptLines = fallbackScript;
+          }
         }
+      }
+      
+      console.log('Final script lines:', scriptLines);
       }
       
       scriptPrompt = ''; // Not used in Topic Digest mode
@@ -566,7 +577,7 @@ Return only the script text, one sentence per line.`;
       platform: "youtube",
       script: {
         text: script,
-        lines: isTopicDigest ? scriptLines : undefined,
+        lines: isTopicDigest ? scriptLines : script.split('\n').filter(l => l.trim()),
         words: script.split(/\s+/).length
       },
       shotstack: {
@@ -577,6 +588,9 @@ Return only the script text, one sentence per line.`;
       youtube: {
         videoId,
         url: videoPublicUrl
+      },
+      tts: {
+        audioUrl: ttsAudioUrl
       },
       metadata
     };
