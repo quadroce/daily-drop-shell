@@ -1,308 +1,276 @@
 /**
  * Shared Shotstack renderer module
- * Generates Shotstack API payloads for both YouTube (9:16) and LinkedIn (1:1) videos
+ * Generates Shotstack API payloads for YouTube (9:16) and LinkedIn (1:1) videos
+ * 
+ * Video composition:
+ * - Opening: white background + DailyDrops favicon (2s)
+ * - Content: black background + text synced to TTS
+ * - CTA: black background + call-to-action with topic link
  */
 
-export interface ShotstackClip {
-  asset: {
-    type: 'image' | 'title';
-    src?: string;
-    text?: string;
-    style?: string;
-    color?: string;
-    size?: 'small' | 'medium' | 'large';
-    position?: 'center' | 'top' | 'bottom';
-  };
+export interface VideoSegment {
+  text: string;
   start: number;
-  length: number;
-  fit?: 'crop' | 'cover' | 'contain' | 'none';
-  scale?: number;
-  position?: 'center' | 'top' | 'bottom';
-  filter?: 'blur';
-  transition?: {
-    in?: 'fade' | 'slideLeft' | 'slideRight';
-    out?: 'fade' | 'slideLeft' | 'slideRight';
-  };
+  end: number;
 }
 
-export interface ShotstackOptions {
-  platform: 'youtube' | 'linkedin';
-  clips: ShotstackClip[];
-  totalDuration: number;
-  musicUrl?: string;
-  backgroundColor?: string;
+export interface VideoComposition {
+  aspect: 'yt-9x16' | 'li-1x1';
+  opening: {
+    logoUrl: string;
+    durationSec: number;
+  };
+  segments: VideoSegment[];
+  cta: {
+    textLines: string[];
+    durationSec: number;
+    topicUrl: string;
+  };
+  audioUrl: string;
+  brand?: {
+    textColor?: string;
+    bgContent?: string;
+    bgOpening?: string;
+  };
 }
 
 export interface ShotstackPayload {
   timeline: {
-    soundtrack?: {
-      src: string;
-      effect: 'fadeInFadeOut';
-    };
-    background?: string;
-    tracks: Array<{ clips: ShotstackClip[] }>;
+    background: string;
+    tracks: Array<{
+      clips: Array<{
+        asset: {
+          type: 'image' | 'title' | 'audio';
+          src?: string;
+          text?: string;
+          style?: string;
+          color?: string;
+          size?: string;
+        };
+        start: number;
+        length: number;
+        fit?: string;
+        scale?: number;
+        position?: string;
+        offset?: { x: number; y: number };
+        opacity?: number;
+        transition?: { in?: string; out?: string };
+        background?: string | null;
+        effect?: string;
+        volume?: number;
+      }>
+    }>;
   };
   output: {
     format: 'mp4';
-    size: { width: number; height: number };
     fps: number;
+    size: { width: number; height: number };
     scaleTo?: 'crop';
   };
 }
 
 /**
- * Generate Shotstack payload
- * CRITICAL: Only uses `size` field, never `resolution` to avoid API conflicts
+ * Build Shotstack payload with proper video composition:
+ * Opening (white + favicon) → Content (black + text synced to TTS) → CTA (black + link)
  */
-export function buildShotstackPayload(options: ShotstackOptions): ShotstackPayload {
-  const { platform, clips, totalDuration, musicUrl, backgroundColor = '#0a66c2' } = options;
+export function buildShotstackPayload(composition: VideoComposition): ShotstackPayload {
+  const { aspect, opening, segments, cta, audioUrl, brand = {} } = composition;
+  
+  const textColor = brand.textColor || '#FFFFFF';
+  const bgContent = brand.bgContent || '#000000';
+  const bgOpening = brand.bgOpening || '#FFFFFF';
+  
+  // Determine output size based on aspect ratio
+  const size = aspect === 'yt-9x16' 
+    ? { width: 1080, height: 1920 }  // YouTube Shorts
+    : { width: 1080, height: 1080 };  // LinkedIn
+  
+  // Calculate total duration
+  const lastSegmentEnd = segments.length > 0 ? segments[segments.length - 1].end : opening.durationSec;
+  const ctaStart = lastSegmentEnd;
+  const totalDuration = ctaStart + cta.durationSec;
+  
+  // Track 0: Opening logo (white background)
+  const openingTrack = {
+    clips: [
+      {
+        asset: {
+          type: 'image' as const,
+          src: opening.logoUrl
+        },
+        start: 0,
+        length: opening.durationSec,
+        fit: 'none',
+        scale: 0.6,
+        position: 'center',
+        opacity: 1.0,
+        transition: { in: 'fade', out: 'fade' }
+      }
+    ]
+  };
+  
+  // Track 1: Background fill for content (black)
+  const contentBgTrack = {
+    clips: [
+      {
+        asset: {
+          type: 'title' as const,
+          text: '',
+          style: 'minimal'
+        },
+        start: opening.durationSec,
+        length: totalDuration - opening.durationSec,
+        background: bgContent
+      }
+    ]
+  };
+  
+  // Track 2: Text segments synced to TTS
+  const textClips = segments.map((segment, idx) => ({
+    asset: {
+      type: 'title' as const,
+      text: segment.text,
+      style: 'minimal',
+      color: textColor,
+      size: 'medium'
+    },
+    start: segment.start,
+    length: segment.end - segment.start,
+    position: 'center',
+    offset: { x: 0, y: 0 },
+    opacity: 1.0,
+    transition: { in: 'fade', out: 'fade' },
+    background: null,
+    effect: idx === 0 ? 'zoom' : undefined
+  }));
+  
+  // Track 3: CTA
+  const ctaTrack = {
+    clips: [
+      {
+        asset: {
+          type: 'title' as const,
+          text: cta.textLines.join('\n'),
+          style: 'minimal',
+          color: textColor,
+          size: 'medium'
+        },
+        start: ctaStart,
+        length: cta.durationSec,
+        position: 'center',
+        background: bgContent,
+        transition: { in: 'fade', out: 'fade' }
+      }
+    ]
+  };
+  
+  // Track 4: Audio
+  const audioTrack = {
+    clips: [
+      {
+        asset: {
+          type: 'audio' as const,
+          src: audioUrl
+        },
+        start: opening.durationSec,
+        length: totalDuration - opening.durationSec,
+        volume: 1.0
+      }
+    ]
+  };
 
-  // Determine output size based on platform
-  const outputSize = platform === 'youtube'
-    ? { width: 1080, height: 1920 } // 9:16 vertical
-    : { width: 1080, height: 1080 }; // 1:1 square
-
-  const payload: ShotstackPayload = {
+  return {
     timeline: {
-      background: backgroundColor,
-      tracks: [{ clips }]
+      background: bgOpening,
+      tracks: [
+        openingTrack,
+        contentBgTrack,
+        { clips: textClips },
+        ctaTrack,
+        audioTrack
+      ]
     },
     output: {
       format: 'mp4',
-      size: outputSize, // ONLY use size, not resolution
-      fps: 30
+      fps: 30,
+      size,  // Use ONLY size, NOT resolution
+      ...(aspect === 'li-1x1' && { scaleTo: 'crop' as const })
     }
   };
-
-  // Add soundtrack if provided
-  if (musicUrl) {
-    payload.timeline.soundtrack = {
-      src: musicUrl,
-      effect: 'fadeInFadeOut'
-    };
-  }
-
-  // Add scaleTo for LinkedIn to ensure proper cropping
-  if (platform === 'linkedin') {
-    payload.output.scaleTo = 'crop';
-  }
-
-  return payload;
 }
 
 /**
- * Build YouTube Shorts payload with background image and text overlays
+ * Build YouTube Shorts payload (9:16 aspect ratio)
+ * Opening → Content → CTA
  */
 export function buildYouTubeShortsPayload(
-  scriptLines: string[],
-  logoUrl: string | null,
-  musicUrl: string | null,
-  backgroundImageUrl?: string
+  segments: VideoSegment[],
+  audioUrl: string,
+  topicSlug: string,
+  kind: 'recap' | 'highlight' | 'digest'
 ): ShotstackPayload {
-  const clips: ShotstackClip[] = [];
-  let currentTime = 0;
-
-  // Logo intro (1.2s)
-  if (logoUrl) {
-    clips.push({
-      asset: {
-        type: 'image',
-        src: logoUrl
-      },
-      start: currentTime,
-      length: 1.2,
-      fit: 'contain',
-      scale: 0.4,
-      position: 'center',
-      transition: { in: 'fade', out: 'fade' }
-    });
-    currentTime += 1.2;
-  }
-
-  // Text clips (6s each)
-  for (const line of scriptLines) {
-    const duration = 6;
-    clips.push({
-      asset: {
-        type: 'title',
-        text: line,
-        style: 'minimal',
-        color: '#000000',
-        size: 'medium',
-        position: 'center'
-      },
-      start: currentTime,
-      length: duration,
-      fit: 'none',
-      scale: 1,
-      transition: { in: 'fade', out: 'fade' }
-    });
-    currentTime += duration;
-  }
-
-  // Background track (blurred image if provided)
-  const tracks: Array<{ clips: ShotstackClip[] }> = [];
+  const logoUrl = 'https://dailydrops.cloud/favicon.png';
+  const topicUrl = `dailydrops.cloud/topics/${topicSlug}`;
   
-  if (backgroundImageUrl) {
-    const backgroundClip: ShotstackClip = {
-      asset: {
-        type: 'image',
-        src: backgroundImageUrl
-      },
-      start: 0,
-      length: currentTime,
-      fit: 'cover',
-      scale: 1.2,
-      filter: 'blur'
-    };
-    tracks.push({ clips: [backgroundClip] });
-  }
-  
-  // Foreground track (logo + text)
-  tracks.push({ clips });
-
-  return {
-    timeline: {
-      ...(musicUrl && {
-        soundtrack: {
-          src: musicUrl,
-          effect: 'fadeInFadeOut' as const
-        }
-      }),
-      tracks
+  return buildShotstackPayload({
+    aspect: 'yt-9x16',
+    opening: {
+      logoUrl,
+      durationSec: 2
     },
-    output: {
-      format: 'mp4',
-      size: { width: 1080, height: 1920 },
-      fps: 30
+    segments,
+    cta: {
+      textLines: [
+        `See all links on DailyDrops → ${topicUrl}`,
+        'Join free.'
+      ],
+      durationSec: 6,
+      topicUrl
+    },
+    audioUrl,
+    brand: {
+      textColor: '#FFFFFF',
+      bgContent: '#000000',
+      bgOpening: '#FFFFFF'
     }
-  };
+  });
 }
 
 /**
- * Build LinkedIn video payload (square format)
+ * Build LinkedIn video payload (1:1 aspect ratio)
+ * Opening → Content → CTA
  */
 export function buildLinkedInVideoPayload(
-  scriptLines: string[],
-  logoUrl: string | null,
-  musicUrl: string | null,
-  isTopicDigest: boolean
+  segments: VideoSegment[],
+  audioUrl: string,
+  topicSlug: string,
+  kind: 'recap' | 'highlight' | 'digest'
 ): ShotstackPayload {
-  const clips: ShotstackClip[] = [];
-  let currentTime = 0;
-
-  if (isTopicDigest) {
-    // Logo intro (1.2s)
-    if (logoUrl) {
-      clips.push({
-        asset: {
-          type: 'image',
-          src: logoUrl
-        },
-        start: currentTime,
-        length: 1.2,
-        fit: 'none',
-        scale: 0.5,
-        position: 'center',
-        transition: { in: 'fade', out: 'fade' }
-      });
-      currentTime += 1.2;
-    }
-
-    // Title (2s)
-    clips.push({
-      asset: {
-        type: 'title',
-        text: scriptLines[0],
-        style: 'minimal',
-        color: '#ffffff',
-        size: 'large',
-        position: 'center'
-      },
-      start: currentTime,
-      length: 2.0,
-      fit: 'none',
-      scale: 1,
-      transition: { in: 'fade', out: 'fade' }
-    });
-    currentTime += 2.0;
-
-    // Highlights (7s each)
-    for (let i = 1; i < scriptLines.length - 1 && i < 4; i++) {
-      clips.push({
-        asset: {
-          type: 'title',
-          text: scriptLines[i],
-          style: 'minimal',
-          color: '#ffffff',
-          size: 'medium',
-          position: 'center'
-        },
-        start: currentTime,
-        length: 7.0,
-        fit: 'none',
-        scale: 1,
-        transition: { in: 'fade', out: 'fade' }
-      });
-      currentTime += 7.0;
-    }
-
-    // CTA (4.5s)
-    clips.push({
-      asset: {
-        type: 'title',
-        text: scriptLines[scriptLines.length - 1],
-        style: 'minimal',
-        color: '#ffffff',
-        size: 'medium',
-        position: 'center'
-      },
-      start: currentTime,
-      length: 4.5,
-      fit: 'none',
-      scale: 1,
-      transition: { in: 'fade', out: 'fade' }
-    });
-    currentTime += 4.5;
-  } else {
-    // Single text clip for drop-based videos
-    const audioDuration = Math.ceil(scriptLines.join(' ').split(/\s+/).length / 2.5);
-    clips.push({
-      asset: {
-        type: 'title',
-        text: scriptLines.join(' '),
-        style: 'minimal',
-        color: '#ffffff',
-        size: 'medium',
-        position: 'center'
-      },
-      start: 0,
-      length: audioDuration,
-      fit: 'none',
-      scale: 1,
-      transition: { in: 'fade', out: 'fade' }
-    });
-    currentTime = audioDuration;
-  }
-
-  return {
-    timeline: {
-      background: '#0a66c2',
-      ...(musicUrl && {
-        soundtrack: {
-          src: musicUrl,
-          effect: 'fadeInFadeOut' as const
-        }
-      }),
-      tracks: [{ clips }]
+  const logoUrl = 'https://dailydrops.cloud/favicon.png';
+  const topicUrl = `dailydrops.cloud/topics/${topicSlug}`;
+  
+  return buildShotstackPayload({
+    aspect: 'li-1x1',
+    opening: {
+      logoUrl,
+      durationSec: 2
     },
-    output: {
-      format: 'mp4',
-      size: { width: 1080, height: 1080 },
-      fps: 30,
-      scaleTo: 'crop'
+    segments,
+    cta: {
+      textLines: [
+        `See all links on DailyDrops → ${topicUrl}`,
+        'Join free.'
+      ],
+      durationSec: 6,
+      topicUrl
+    },
+    audioUrl,
+    brand: {
+      textColor: '#FFFFFF',
+      bgContent: '#000000',
+      bgOpening: '#FFFFFF'
     }
-  };
+  });
 }
 
 /**
