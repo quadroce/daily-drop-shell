@@ -153,12 +153,12 @@ const YouTubeShorts = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
 
-      // Use AI/ML topic for test
-      const topicSlug = "ai_ml";
+      // Use AI topic for test (correct slug from database)
+      const topicSlug = "ai";
       
       toast({
         title: "Publishing YouTube Short...",
-        description: `Creating test video for ${topicSlug} topic`,
+        description: `Creating test video for AI & ML topic`,
       });
 
       const { data, error } = await supabase.functions.invoke('youtube-shorts-publish', {
