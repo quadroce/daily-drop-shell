@@ -26,10 +26,13 @@ export default function PartnerForm() {
   const isEdit = !!id;
 
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [topics, setTopics] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     slug: '',
     name: '',
+    title: '',
+    logo_url: '',
     status: 'draft',
     scheduled_at: '',
     banner_url: '',
@@ -70,17 +73,57 @@ export default function PartnerForm() {
       setFormData({
         slug: data.partner.slug,
         name: data.partner.name,
+        title: data.partner.title || '',
+        logo_url: data.partner.logo_url || '',
         status: data.partner.status,
         scheduled_at: data.partner.scheduled_at || '',
         banner_url: data.partner.banner_url || '',
         youtube_url: data.partner.youtube_url || '',
         description_md: data.partner.description_md || '',
-        links: data.links.length === 2 ? data.links.map(l => ({ ...l, utm: l.utm || '' })) : [
+        links: data.links.length > 0 ? data.links.map(l => ({ ...l, utm: l.utm || '' })) : [
           { label: '', url: '', utm: '' },
           { label: '', url: '', utm: '' },
         ],
         topicIds: data.topics.map(t => t.id),
       });
+    }
+  }
+
+  async function handleFileUpload(file: File, type: 'banner' | 'logo') {
+    try {
+      setUploading(true);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${formData.slug || 'new'}-${type}-${Date.now()}.${fileExt}`;
+      const filePath = `partners/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('partner-assets')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('partner-assets')
+        .getPublicUrl(filePath);
+
+      if (type === 'banner') {
+        setFormData({ ...formData, banner_url: publicUrl });
+      } else {
+        setFormData({ ...formData, logo_url: publicUrl });
+      }
+
+      toast({
+        title: 'Success',
+        description: `${type === 'banner' ? 'Banner' : 'Logo'} uploaded successfully`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -96,10 +139,12 @@ export default function PartnerForm() {
       return;
     }
 
-    if (formData.links.some(l => !l.label || !l.url)) {
+    // Validate only filled links
+    const filledLinks = formData.links.filter(l => l.label || l.url);
+    if (filledLinks.some(l => !l.label || !l.url)) {
       toast({
         title: 'Error',
-        description: 'Both links must have label and URL',
+        description: 'If you provide a link, both label and URL are required',
         variant: 'destructive',
       });
       return;
@@ -190,6 +235,37 @@ export default function PartnerForm() {
                 </div>
               </div>
 
+              {/* Title and Logo */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="title">Page Title (optional)</Label>
+                  <Input
+                    id="title"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    placeholder="Defaults to name if empty"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="logo">Logo</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="logo-file"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleFileUpload(file, 'logo');
+                      }}
+                      disabled={uploading}
+                    />
+                  </div>
+                  {formData.logo_url && (
+                    <img src={formData.logo_url} alt="Logo preview" className="mt-2 h-12 w-auto" />
+                  )}
+                </div>
+              </div>
+
               {/* Status */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -219,13 +295,24 @@ export default function PartnerForm() {
 
               {/* Media */}
               <div>
-                <Label htmlFor="banner_url">Banner URL</Label>
-                <Input
-                  id="banner_url"
-                  value={formData.banner_url}
-                  onChange={(e) => setFormData({ ...formData, banner_url: e.target.value })}
-                  placeholder="https://example.com/banner.jpg"
-                />
+                <Label htmlFor="banner">Banner (16:9)</Label>
+                <div className="space-y-2">
+                  <Input
+                    id="banner-file"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleFileUpload(file, 'banner');
+                    }}
+                    disabled={uploading}
+                  />
+                  {formData.banner_url && (
+                    <div className="relative aspect-video w-full max-w-md rounded-lg overflow-hidden">
+                      <img src={formData.banner_url} alt="Banner preview" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                </div>
               </div>
               
               <div>
@@ -252,7 +339,7 @@ export default function PartnerForm() {
 
               {/* Links */}
               <div className="space-y-4">
-                <Label>Links (2 required)</Label>
+                <Label>Links (optional, max 2)</Label>
                 {formData.links.map((link, idx) => (
                   <Card key={idx} className="p-4 space-y-3">
                     <h4 className="font-medium">Link {idx + 1}</h4>
@@ -323,12 +410,12 @@ export default function PartnerForm() {
 
               {/* Actions */}
               <div className="flex gap-3 pt-4">
-                <Button type="submit" disabled={loading}>
+                <Button type="submit" disabled={loading || uploading}>
                   <Save className="h-4 w-4 mr-2" />
                   Save Draft
                 </Button>
                 {isEdit && (
-                  <Button type="button" onClick={handlePublish} disabled={loading}>
+                  <Button type="button" onClick={handlePublish} disabled={loading || uploading}>
                     <Send className="h-4 w-4 mr-2" />
                     Publish
                   </Button>

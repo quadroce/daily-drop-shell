@@ -975,10 +975,12 @@ export type Database = {
           created_by: string | null
           description_md: string | null
           id: number
+          logo_url: string | null
           name: string
           scheduled_at: string | null
           slug: string
           status: string
+          title: string | null
           updated_at: string
           youtube_url: string | null
         }
@@ -988,10 +990,12 @@ export type Database = {
           created_by?: string | null
           description_md?: string | null
           id?: number
+          logo_url?: string | null
           name: string
           scheduled_at?: string | null
           slug: string
           status?: string
+          title?: string | null
           updated_at?: string
           youtube_url?: string | null
         }
@@ -1001,10 +1005,12 @@ export type Database = {
           created_by?: string | null
           description_md?: string | null
           id?: number
+          logo_url?: string | null
           name?: string
           scheduled_at?: string | null
           slug?: string
           status?: string
+          title?: string | null
           updated_at?: string
           youtube_url?: string | null
         }

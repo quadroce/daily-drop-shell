@@ -167,9 +167,9 @@ export default function Partner() {
   return (
     <>
       <Seo
-        title={`${partner.name} | DailyDrops`}
+        title={`${partner.title || partner.name} | DailyDrops`}
         description={partner.description_md?.substring(0, 160) || `Latest updates from ${partner.name}`}
-        ogImage={partner.banner_url}
+        ogImage={partner.banner_url || partner.logo_url}
       />
 
       {/* Hero Section */}
@@ -197,20 +197,29 @@ export default function Partner() {
 
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-4xl font-bold mb-2">{partner.name}</h1>
-              {topics.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {topics.map(topic => (
-                    <span 
-                      key={topic.id}
-                      className="text-sm px-3 py-1 bg-primary/10 text-primary rounded-full"
-                    >
-                      {topic.label}
-                    </span>
-                  ))}
-                </div>
+            <div className="flex items-start gap-4">
+              {partner.logo_url && (
+                <img 
+                  src={partner.logo_url} 
+                  alt={`${partner.name} logo`}
+                  className="h-16 w-auto object-contain"
+                />
               )}
+              <div>
+                <h1 className="text-4xl font-bold mb-2">{partner.title || partner.name}</h1>
+                {topics.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {topics.map(topic => (
+                      <span 
+                        key={topic.id}
+                        className="text-sm px-3 py-1 bg-primary/10 text-primary rounded-full"
+                      >
+                        {topic.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             
             <Button 

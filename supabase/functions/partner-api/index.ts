@@ -189,20 +189,15 @@ Deno.serve(async (req) => {
       }
 
       const body = await req.json();
-      const { slug, name, status, scheduled_at, banner_url, youtube_url, description_md, links, topicIds } = body;
-
-      if (!links || links.length !== 2) {
-        return new Response(JSON.stringify({ error: 'Exactly 2 links required' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
+      const { slug, name, title, logo_url, status, scheduled_at, banner_url, youtube_url, description_md, links, topicIds } = body;
 
       const { data: partner, error: partnerError } = await supabaseClient
         .from('partners')
         .insert({
           slug,
           name,
+          title,
+          logo_url,
           status: status || 'draft',
           scheduled_at,
           banner_url,
@@ -220,16 +215,20 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Insert links
-      const linkData = links.map((link: any, idx: number) => ({
-        partner_id: partner.id,
-        position: idx + 1,
-        label: link.label,
-        url: link.url,
-        utm: link.utm,
-      }));
-
-      await supabaseClient.from('partner_links').insert(linkData);
+      // Insert links (only non-empty)
+      if (links && links.length > 0) {
+        const validLinks = links.filter((l: any) => l.label && l.url);
+        if (validLinks.length > 0) {
+          const linkData = validLinks.map((link: any, idx: number) => ({
+            partner_id: partner.id,
+            position: idx + 1,
+            label: link.label,
+            url: link.url,
+            utm: link.utm || null,
+          }));
+          await supabaseClient.from('partner_links').insert(linkData);
+        }
+      }
 
       // Insert topics
       if (topicIds && topicIds.length > 0) {
@@ -256,13 +255,15 @@ Deno.serve(async (req) => {
       }
 
       const body = await req.json();
-      const { id, slug, name, status, scheduled_at, banner_url, youtube_url, description_md, links, topicIds } = body;
+      const { id, slug, name, title, logo_url, status, scheduled_at, banner_url, youtube_url, description_md, links, topicIds } = body;
 
       const { data: partner, error: partnerError } = await supabaseClient
         .from('partners')
         .update({
           slug,
           name,
+          title,
+          logo_url,
           status,
           scheduled_at,
           banner_url,
@@ -281,16 +282,19 @@ Deno.serve(async (req) => {
         });
       }
 
-      if (links && links.length === 2) {
+      if (links !== undefined) {
         await supabaseClient.from('partner_links').delete().eq('partner_id', id);
-        const linkData = links.map((link: any, idx: number) => ({
-          partner_id: id,
-          position: idx + 1,
-          label: link.label,
-          url: link.url,
-          utm: link.utm,
-        }));
-        await supabaseClient.from('partner_links').insert(linkData);
+        const validLinks = links.filter((l: any) => l.label && l.url);
+        if (validLinks.length > 0) {
+          const linkData = validLinks.map((link: any, idx: number) => ({
+            partner_id: id,
+            position: idx + 1,
+            label: link.label,
+            url: link.url,
+            utm: link.utm || null,
+          }));
+          await supabaseClient.from('partner_links').insert(linkData);
+        }
       }
 
       if (topicIds) {

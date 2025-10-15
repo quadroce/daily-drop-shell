@@ -6,6 +6,8 @@ export interface Partner {
   id: number;
   slug: string;
   name: string;
+  title?: string;
+  logo_url?: string;
   status: 'draft' | 'scheduled' | 'published' | 'archived';
   scheduled_at?: string;
   banner_url?: string;
