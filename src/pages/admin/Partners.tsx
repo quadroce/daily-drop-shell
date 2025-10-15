@@ -23,13 +23,17 @@ export default function Partners() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('Partners component mounted, loading partners...');
     loadPartners();
   }, []);
 
   async function loadPartners() {
     try {
       setLoading(true);
-      console.log('Loading partners...');
+      console.log('🔄 Loading partners from Supabase...');
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log('👤 Current user:', user?.id, user?.email);
       
       const { data: partners, error } = await supabase
         .from('partners')
@@ -37,14 +41,14 @@ export default function Partners() {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error loading partners:', error);
+        console.error('❌ Error loading partners:', error);
         throw error;
       }
 
-      console.log('Loaded partners:', partners);
+      console.log('✅ Loaded partners:', partners);
       setPartners(partners || []);
     } catch (error) {
-      console.error('Error loading partners:', error);
+      console.error('❌ Failed to load partners:', error);
     } finally {
       setLoading(false);
     }
