@@ -1,6 +1,19 @@
 # Meta tags server for social crawlers
 /topics/*    https://qimelntuxquptqqynxzv.supabase.co/functions/v1/topic-meta-server    200
 
+# Exclude known app routes from partner handler
+/feed    /index.html   200
+/pricing    /index.html   200
+/premium    /index.html   200
+/settings    /index.html   200
+/profile    /index.html   200
+/onboarding    /index.html   200
+/auth    /index.html   200
+/admin    /index.html   200
+/admin/*    /index.html   200
+/search    /index.html   200
+/newsletter    /index.html   200
+
 # Partner meta tags server for social crawlers (must be before /* catch-all)
 /:slug    https://qimelntuxquptqqynxzv.supabase.co/functions/v1/partner-meta-server    200!
 

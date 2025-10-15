@@ -123,11 +123,12 @@ Deno.serve(async (req: Request) => {
     console.log('Partner meta request:', { 
       slug, 
       userAgent, 
+      path: url.pathname,
       isCrawler: isSocialCrawler(userAgent) 
     });
 
-    // If not a social crawler or no slug, redirect to main app
-    if (!slug || !isSocialCrawler(userAgent)) {
+    // If no slug, redirect to main app
+    if (!slug) {
       return new Response(null, {
         status: 302,
         headers: {
@@ -139,34 +140,37 @@ Deno.serve(async (req: Request) => {
     // Initialize Supabase client
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Fetch partner data
+    // First check if this slug is actually a partner
     const { data: partner, error } = await supabase
       .from('partners')
-      .select('slug, name, title, description_md, logo_url, banner_url')
+      .select('slug, name, title, description_md, logo_url, banner_url, status, scheduled_at')
       .eq('slug', slug)
-      .eq('is_active', true)
       .single();
 
-    if (error || !partner) {
-      console.error('Partner not found:', { slug, error });
-      // Return fallback HTML
-      return new Response(generatePartnerHtml({
-        slug,
-        name: slug,
-        title: null,
-        description_md: null,
-        logo_url: null,
-        banner_url: null,
-      }), {
-        status: 200,
+    // If not a partner or not published, redirect to React app
+    if (error || !partner || 
+        (partner.status !== 'published' && 
+         !(partner.status === 'scheduled' && partner.scheduled_at && new Date(partner.scheduled_at) <= new Date()))) {
+      console.log('Not a valid partner, redirecting to app:', { slug, error: error?.message });
+      return new Response(null, {
+        status: 302,
         headers: {
-          'Content-Type': 'text/html; charset=utf-8',
-          'Cache-Control': 'public, max-age=300', // 5 minutes
+          'Location': `https://dailydrops.cloud/${slug}`,
         },
       });
     }
 
-    // Generate and return HTML with meta tags
+    // If not a social crawler, redirect to React app (partner exists but show React version)
+    if (!isSocialCrawler(userAgent)) {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          'Location': `https://dailydrops.cloud/${slug}`,
+        },
+      });
+    }
+
+    // Generate and return HTML with meta tags (we know partner exists and is valid)
     const html = generatePartnerHtml(partner);
 
     return new Response(html, {
