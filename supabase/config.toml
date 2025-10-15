@@ -176,3 +176,6 @@ verify_jwt = true
 
 [functions.generate-daily-topic-summary]
 verify_jwt = true
+
+[functions.generate-daily-summaries-batch]
+verify_jwt = false
