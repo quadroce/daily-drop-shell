@@ -61,9 +61,24 @@ serve(async (req) => {
     let skipped = 0;
     const errors: string[] = [];
 
-    // For each topic and date combination
+    // Build all combinations to process
+    const combinations: Array<{ topic: any; date: string }> = [];
     for (const topic of topics || []) {
       for (const date of dates) {
+        combinations.push({ topic, date });
+      }
+    }
+
+    console.log(`Total combinations to check: ${combinations.length}`);
+
+    // Process in parallel batches to stay within timeout limits
+    const BATCH_SIZE = 10; // Process 10 at a time
+    const DELAY_BETWEEN_BATCHES = 2000; // 2 seconds between batches
+
+    for (let i = 0; i < combinations.length; i += BATCH_SIZE) {
+      const batch = combinations.slice(i, i + BATCH_SIZE);
+      
+      await Promise.all(batch.map(async ({ topic, date }) => {
         try {
           // Check if summary already exists
           const { data: existingSummary } = await supabase
@@ -75,7 +90,7 @@ serve(async (req) => {
 
           if (existingSummary) {
             skipped++;
-            continue;
+            return;
           }
 
           // Get descendants
@@ -90,7 +105,7 @@ serve(async (req) => {
           const endDate = new Date(date);
           endDate.setHours(23, 59, 59, 999);
 
-          const { data: articles, count } = await supabase
+          const { count } = await supabase
             .from('drops')
             .select('id, content_topics!inner (topic_id)', { count: 'exact', head: true })
             .in('content_topics.topic_id', topicIds)
@@ -100,7 +115,7 @@ serve(async (req) => {
 
           if (!count || count === 0) {
             skipped++;
-            continue;
+            return;
           }
 
           // Generate summary by calling the generate-daily-topic-summary function
@@ -118,15 +133,18 @@ serve(async (req) => {
             generated++;
             console.log(`Generated summary for ${topic.slug} on ${date}`);
           }
-
-          // Small delay to avoid rate limits
-          await new Promise(resolve => setTimeout(resolve, 1000));
-
         } catch (error) {
           console.error(`Error processing ${topic.slug}/${date}:`, error);
           errors.push(`${topic.slug}/${date}: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
+      }));
+
+      // Delay between batches to avoid overwhelming the system
+      if (i + BATCH_SIZE < combinations.length) {
+        await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
       }
+
+      console.log(`Processed batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(combinations.length / BATCH_SIZE)}`);
     }
 
     console.log(`Batch generation completed: ${generated} generated, ${skipped} skipped`);
