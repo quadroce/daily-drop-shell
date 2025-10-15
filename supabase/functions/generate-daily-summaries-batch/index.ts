@@ -31,11 +31,15 @@ serve(async (req) => {
 
     console.log(`Found ${topics?.length || 0} active topics`);
 
-    // Get all unique dates where we have published content
+    // Get unique dates from the last 90 days where we have published content
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
     const { data: datesData, error: datesError } = await supabase
       .from('drops')
       .select('published_at')
       .not('published_at', 'is', null)
+      .gte('published_at', ninetyDaysAgo.toISOString())
       .eq('tag_done', true)
       .order('published_at', { ascending: false });
 
@@ -51,7 +55,7 @@ serve(async (req) => {
     });
 
     const dates = Array.from(uniqueDates);
-    console.log(`Found ${dates.length} unique dates with content`);
+    console.log(`Found ${dates.length} unique dates with content in last 90 days`);
 
     let generated = 0;
     let skipped = 0;
