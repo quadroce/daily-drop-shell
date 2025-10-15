@@ -26,6 +26,8 @@ Deno.serve(async (req) => {
 
     const url = new URL(req.url);
     const action = url.searchParams.get('action');
+    
+    console.log('[REQUEST] Method:', req.method, 'Action:', action);
 
     // GET /partner-api?action=getBySlug&slug=aws
     if (action === 'getBySlug' && req.method === 'GET') {
