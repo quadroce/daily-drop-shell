@@ -81,6 +81,9 @@ Deno.serve(async (req) => {
       const slug = url.searchParams.get('slug');
       const cursor = url.searchParams.get('cursor');
       const limit = parseInt(url.searchParams.get('limit') || '20');
+      
+      console.log('[feed] Requested slug:', slug);
+      console.log('[feed] Has auth header:', !!authHeader);
 
       if (!slug) {
         return new Response(JSON.stringify({ error: 'Slug required' }), {
@@ -90,11 +93,13 @@ Deno.serve(async (req) => {
       }
 
       // Get partner and topics
-      const { data: partner } = await supabaseClient
+      const { data: partner, error: partnerError } = await supabaseClient
         .from('partners')
         .select('id')
         .eq('slug', slug)
         .single();
+      
+      console.log('[feed] Partner query - found:', !!partner, 'error:', partnerError?.message);
 
       if (!partner) {
         return new Response(JSON.stringify({ error: 'Partner not found' }), {
@@ -103,14 +108,17 @@ Deno.serve(async (req) => {
         });
       }
 
-      const { data: partnerTopics } = await supabaseClient
+      const { data: partnerTopics, error: topicsError } = await supabaseClient
         .from('partner_topics')
         .select('topic_id')
         .eq('partner_id', partner.id);
+      
+      console.log('[feed] Partner topics query - count:', partnerTopics?.length, 'error:', topicsError?.message);
 
       const topicIds = partnerTopics?.map(pt => pt.topic_id) || [];
 
       if (topicIds.length === 0) {
+        console.log('[feed] No topics found for partner');
         return new Response(
           JSON.stringify({ items: [], nextCursor: null }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -147,19 +155,24 @@ Deno.serve(async (req) => {
         .limit(limit + 1);
 
       // Get content topics to filter by partner topics
-      const { data: contentTopics } = await supabaseClient
+      const { data: contentTopics, error: contentTopicsError } = await supabaseClient
         .from('content_topics')
         .select('content_id')
         .in('topic_id', topicIds);
+      
+      console.log('[feed] Content topics query - count:', contentTopics?.length, 'error:', contentTopicsError?.message);
 
       const contentIds = [...new Set(contentTopics?.map(ct => ct.content_id) || [])];
 
       if (contentIds.length === 0) {
+        console.log('[feed] No content found for topics');
         return new Response(
           JSON.stringify({ items: [], nextCursor: null }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+      
+      console.log('[feed] Content IDs to fetch:', contentIds.length);
 
       query = query.in('id', contentIds);
 
@@ -169,9 +182,11 @@ Deno.serve(async (req) => {
       }
 
       const { data: drops, error } = await query;
+      
+      console.log('[feed] Drops query - count:', drops?.length, 'error:', error?.message);
 
       if (error) {
-        console.error('Feed query error:', error);
+        console.error('[feed] Feed query error:', error);
         return new Response(JSON.stringify({ error: error.message }), {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
