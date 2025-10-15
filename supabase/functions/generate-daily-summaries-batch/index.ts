@@ -20,24 +20,38 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get all active level-1 topics
+    // Get all active topics (all levels)
     const { data: topics, error: topicsError } = await supabase
       .from('topics')
-      .select('slug')
+      .select('slug, id')
       .eq('is_active', true)
-      .eq('level', 1);
+      .order('slug');
 
     if (topicsError) throw topicsError;
 
     console.log(`Found ${topics?.length || 0} active topics`);
 
-    // Get dates from last 7 days
-    const dates: string[] = [];
-    for (let i = 0; i < 7; i++) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      dates.push(date.toISOString().split('T')[0]);
-    }
+    // Get all unique dates where we have published content
+    const { data: datesData, error: datesError } = await supabase
+      .from('drops')
+      .select('published_at')
+      .not('published_at', 'is', null)
+      .eq('tag_done', true)
+      .order('published_at', { ascending: false });
+
+    if (datesError) throw datesError;
+
+    // Extract unique dates
+    const uniqueDates = new Set<string>();
+    datesData?.forEach(drop => {
+      if (drop.published_at) {
+        const date = new Date(drop.published_at).toISOString().split('T')[0];
+        uniqueDates.add(date);
+      }
+    });
+
+    const dates = Array.from(uniqueDates);
+    console.log(`Found ${dates.length} unique dates with content`);
 
     let generated = 0;
     let skipped = 0;
@@ -60,20 +74,11 @@ serve(async (req) => {
             continue;
           }
 
-          // Get topic and descendants
-          const { data: topicData } = await supabase
-            .from('topics')
-            .select('id')
-            .eq('slug', topic.slug)
-            .eq('is_active', true)
-            .single();
-
-          if (!topicData) continue;
-
+          // Get descendants
           const { data: descendants } = await supabase
-            .rpc('topic_descendants', { root: topicData.id });
+            .rpc('topic_descendants', { root: topic.id });
           
-          const topicIds = descendants?.map((d: any) => d.id) || [topicData.id];
+          const topicIds = descendants?.map((d: any) => d.id) || [topic.id];
 
           // Check if there are articles for this date
           const startDate = new Date(date);
