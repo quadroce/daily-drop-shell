@@ -461,11 +461,72 @@ serve(async (req) => {
 
     const job = jobs[0] as CommentJob;
 
+    // Check if this video already has a posted comment (prevent duplicates)
+    const { data: existingComments, error: duplicateCheckError } = await supabase
+      .from("social_comment_jobs")
+      .select("id, status")
+      .eq("video_id", job.video_id)
+      .eq("status", "posted")
+      .limit(1);
+
+    if (!duplicateCheckError && existingComments && existingComments.length > 0) {
+      console.log("DUPLICATE_VIDEO_SKIP", {
+        jobId: job.id,
+        videoId: job.video_id,
+        existingJobId: existingComments[0].id,
+      });
+      
+      // Mark this job as failed to prevent retry
+      await supabase
+        .from("social_comment_jobs")
+        .update({
+          status: "failed",
+          last_error: "Video already has a posted comment",
+        })
+        .eq("id", job.id);
+
+      return new Response(
+        JSON.stringify({
+          success: false,
+          reason: "Video already commented",
+          jobId: job.id,
+          existingJobId: existingComments[0].id,
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    console.log("PROCESSING_JOB", {
+      jobId: job.id,
+      videoId: job.video_id,
+      topicSlug: job.topic_slug,
+      tries: job.tries,
+    });
+
     // Mark as processing
-    await supabase
+    const { error: processingError } = await supabase
       .from("social_comment_jobs")
       .update({ status: "processing" })
       .eq("id", job.id);
+
+    if (processingError) {
+      console.error("PROCESSING_UPDATE_ERROR", {
+        jobId: job.id,
+        error: processingError,
+      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Failed to mark job as processing",
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
 
     await logEvent(supabase, job.id, "START", "info", "Processing job", {
       videoId: job.video_id,
@@ -652,7 +713,7 @@ serve(async (req) => {
         }
 
         // Update job as posted with all metadata
-        await supabase
+        const { error: updateError } = await supabase
           .from("social_comment_jobs")
           .update({
             text_original: textOriginal,
@@ -664,6 +725,33 @@ serve(async (req) => {
             tries: job.tries + 1,
           })
           .eq("id", job.id);
+
+        if (updateError) {
+          console.error("UPDATE_ERROR", {
+            jobId: job.id,
+            error: updateError,
+          });
+          await logEvent(
+            supabase,
+            job.id,
+            "UPDATE",
+            "error",
+            "Failed to update job status to posted",
+            { error: updateError },
+          );
+          // Return error so job stays in processing and gets retried
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: "Failed to update job status",
+              details: updateError,
+            }),
+            {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
+        }
 
         console.log("POSTED_SUCCESS", {
           jobId: job.id,
@@ -693,7 +781,7 @@ serve(async (req) => {
         const retryDelay = retryDelays[Math.min(job.tries, retryDelays.length - 1)];
         const nextRetry = new Date(Date.now() + retryDelay);
 
-        await supabase
+        const { error: updateError } = await supabase
           .from("social_comment_jobs")
           .update({
             text_original: textOriginal,
@@ -705,6 +793,13 @@ serve(async (req) => {
             next_retry_at: nextRetry.toISOString(),
           })
           .eq("id", job.id);
+
+        if (updateError) {
+          console.error("UPDATE_ERROR_FAILED_POST", {
+            jobId: job.id,
+            error: updateError,
+          });
+        }
 
         await logEvent(
           supabase,
@@ -731,7 +826,7 @@ serve(async (req) => {
       }
     } else {
       // No OAuth token - mark as ready for manual posting
-      await supabase
+      const { error: updateError } = await supabase
         .from("social_comment_jobs")
         .update({
           text_original: textOriginal,
@@ -742,6 +837,13 @@ serve(async (req) => {
           tries: job.tries + 1,
         })
         .eq("id", job.id);
+
+      if (updateError) {
+        console.error("UPDATE_ERROR_NO_TOKEN", {
+          jobId: job.id,
+          error: updateError,
+        });
+      }
 
       await logEvent(
         supabase,
