@@ -1,5 +1,8 @@
 project_id = "qimelntuxquptqqynxzv"
 
+[functions.partner-api]
+verify_jwt = false
+
 [functions.test-embedding-init]
 verify_jwt = false
 
@@ -170,6 +173,3 @@ verify_jwt = true
 
 [functions.linkedin-shorts-publish]
 verify_jwt = true
-
-[functions.partner-api]
-verify_jwt = false
