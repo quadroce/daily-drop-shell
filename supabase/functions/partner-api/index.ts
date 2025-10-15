@@ -127,6 +127,8 @@ Deno.serve(async (req) => {
           youtube_thumbnail_url,
           youtube_duration_seconds,
           youtube_view_count,
+          l1_topic_id,
+          l2_topic_id,
           sources(name)
         `)
         .eq('tag_done', true)
@@ -167,7 +169,22 @@ Deno.serve(async (req) => {
       }
 
       const hasMore = drops && drops.length > limit;
-      const items = hasMore ? drops.slice(0, limit) : drops || [];
+      const rawItems = hasMore ? drops.slice(0, limit) : drops || [];
+      
+      // Transform items to match FeedItem format
+      const items = rawItems.map((drop: any) => {
+        const publishedDate = new Date(drop.published_at);
+        const daysSincePublished = (Date.now() - publishedDate.getTime()) / (1000 * 60 * 60 * 24);
+        const isFresh = daysSincePublished <= 3;
+        
+        return {
+          ...drop,
+          source_name: drop.sources?.name || 'Unknown Source',
+          reason_for_ranking: isFresh ? 'Fresh content' : 'Relevant content',
+          final_score: 0.5,
+        };
+      });
+      
       const nextCursor = hasMore && items.length > 0
         ? `${items[items.length - 1].published_at}_${items[items.length - 1].id}`
         : null;
