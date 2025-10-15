@@ -337,9 +337,12 @@ Deno.serve(async (req) => {
 
     // PATCH /partner-api?action=update
     if (action === 'update' && req.method === 'PATCH') {
+      console.log('[update] Start update action');
+      
       // For admin operations with verify_jwt=false, create admin client to verify auth
       const authHeader = req.headers.get('Authorization');
       if (!authHeader) {
+        console.error('[update] Missing Authorization header');
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -353,18 +356,24 @@ Deno.serve(async (req) => {
       );
 
       const token = authHeader.replace('Bearer ', '');
+      console.log('[update] Verifying token');
       const { data: { user }, error: authError } = await adminClient.auth.getUser(token);
       
       if (authError || !user) {
+        console.error('[update] Auth error:', authError?.message);
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
+      console.log('[update] User authenticated:', user.id);
       const body = await req.json();
+      console.log('[update] Request body:', JSON.stringify(body));
       const { id, slug, name, title, logo_url, status, scheduled_at, banner_url, youtube_url, description_md, links, topicIds } = body;
 
+      console.log('[update] Partner ID:', id);
+      
       const updateData: any = {
         slug,
         name,
@@ -384,6 +393,7 @@ Deno.serve(async (req) => {
         updateData.scheduled_at = null;
       }
 
+      console.log('[update] Updating partner with data:', JSON.stringify(updateData));
       const { data: partner, error: partnerError } = await adminClient
         .from('partners')
         .update(updateData)
@@ -392,13 +402,17 @@ Deno.serve(async (req) => {
         .single();
 
       if (partnerError) {
+        console.error('[update] Partner update error:', partnerError.message);
         return new Response(JSON.stringify({ error: partnerError.message }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
+      console.log('[update] Partner updated successfully');
+
       if (links !== undefined) {
+        console.log('[update] Updating links:', links);
         await adminClient.from('partner_links').delete().eq('partner_id', id);
         const validLinks = links.filter((l: any) => l.label && l.url);
         if (validLinks.length > 0) {
@@ -409,21 +423,33 @@ Deno.serve(async (req) => {
             url: link.url,
             utm: link.utm || null,
           }));
-          await adminClient.from('partner_links').insert(linkData);
+          const { error: linkError } = await adminClient.from('partner_links').insert(linkData);
+          if (linkError) {
+            console.error('[update] Links insert error:', linkError.message);
+          } else {
+            console.log('[update] Links updated successfully');
+          }
         }
       }
 
-      if (topicIds) {
+      if (topicIds !== undefined) {
+        console.log('[update] Updating topics:', topicIds);
         await adminClient.from('partner_topics').delete().eq('partner_id', id);
         if (topicIds.length > 0) {
           const topicData = topicIds.map((tid: number) => ({
             partner_id: id,
             topic_id: tid,
           }));
-          await adminClient.from('partner_topics').insert(topicData);
+          const { error: topicError } = await adminClient.from('partner_topics').insert(topicData);
+          if (topicError) {
+            console.error('[update] Topics insert error:', topicError.message);
+          } else {
+            console.log('[update] Topics updated successfully');
+          }
         }
       }
 
+      console.log('[update] Update completed successfully');
       return new Response(JSON.stringify({ partner }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
