@@ -41,7 +41,7 @@ export const TopicDailyArchivePage = () => {
   });
 
   const { data: archive } = useQuery({
-    queryKey: ['topic-archive', slug],
+    queryKey: ['topic-archive', slug, isPremium],
     queryFn: () => getTopicArchive(slug!, isPremium),
     enabled: !!slug,
   });
