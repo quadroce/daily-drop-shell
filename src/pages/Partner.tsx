@@ -17,6 +17,8 @@ import {
 } from '@/lib/api/partners';
 import { SimpleFeedList } from '@/components/SimpleFeedList';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAvailableLanguages } from '@/lib/api/profile';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function Partner() {
   const { slug } = useParams<{ slug: string }>();
@@ -32,6 +34,12 @@ export default function Partner() {
   const [hasMore, setHasMore] = useState(true);
   const [following, setFollowing] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('all');
+  const [availableLanguages, setAvailableLanguages] = useState<{ code: string; label: string }[]>([]);
+
+  useEffect(() => {
+    loadLanguages();
+  }, []);
 
   useEffect(() => {
     if (!slug) return;
@@ -42,9 +50,22 @@ export default function Partner() {
 
   useEffect(() => {
     if (partnerData) {
-      loadFeed();
+      // Reset feed when language changes
+      setFeedItems([]);
+      setCursor(null);
+      setHasMore(true);
+      loadFeed(true);
     }
-  }, [partnerData]);
+  }, [partnerData, selectedLanguage]);
+
+  async function loadLanguages() {
+    try {
+      const languages = await fetchAvailableLanguages();
+      setAvailableLanguages(languages);
+    } catch (error) {
+      console.error('Error loading languages:', error);
+    }
+  }
 
   async function loadPartner() {
     if (!slug) return;
@@ -73,15 +94,17 @@ export default function Partner() {
     }
   }
 
-  async function loadFeed() {
-    if (!slug || feedLoading || !hasMore) return;
+  async function loadFeed(reset = false) {
+    if (!slug || feedLoading || (!hasMore && !reset)) return;
     
     try {
       setFeedLoading(true);
-      const response = await getPartnerFeed(slug, cursor);
+      const currentCursor = reset ? null : cursor;
+      const languageCode = selectedLanguage === 'all' ? undefined : selectedLanguage;
+      const response = await getPartnerFeed(slug, currentCursor, 20, languageCode);
       
       const newItems = response.items || [];
-      setFeedItems(prev => [...prev, ...newItems]);
+      setFeedItems(prev => reset ? newItems : [...prev, ...newItems]);
       setCursor(response.nextCursor);
       setHasMore(!!response.nextCursor);
     } catch (error) {
@@ -264,6 +287,26 @@ export default function Partner() {
 
       {/* Feed - Same as /feed */}
       <div className="container mx-auto px-4 pb-12">
+        {/* Language Filter */}
+        <div className="mb-6 flex items-center gap-3">
+          <label htmlFor="language-select" className="text-sm font-medium">
+            Filter by language:
+          </label>
+          <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+            <SelectTrigger id="language-select" className="w-[200px]">
+              <SelectValue placeholder="All languages" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All languages</SelectItem>
+              {availableLanguages.map(lang => (
+                <SelectItem key={lang.code} value={lang.code}>
+                  {lang.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <SimpleFeedList
           items={feedItems}
           load={loadFeed}

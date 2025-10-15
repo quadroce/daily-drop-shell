@@ -116,6 +116,7 @@ Deno.serve(async (req) => {
       const slug = url.searchParams.get('slug');
       const cursor = url.searchParams.get('cursor');
       const limit = parseInt(url.searchParams.get('limit') || '20');
+      const languageCode = url.searchParams.get('languageCode');
       
       console.log('[feed] Requested slug:', slug);
       console.log('[feed] Has auth header:', !!authHeader);
@@ -180,6 +181,7 @@ Deno.serve(async (req) => {
           youtube_view_count,
           l1_topic_id,
           l2_topic_id,
+          language_code,
           sources(name)
         `)
         .eq('tag_done', true)
@@ -188,6 +190,11 @@ Deno.serve(async (req) => {
         .order('published_at', { ascending: false })
         .order('id', { ascending: false })
         .limit(limit + 1);
+
+      // Filter by language if specified
+      if (languageCode) {
+        query = query.eq('language_code', languageCode);
+      }
 
       // Get content topics to filter by partner topics
       const { data: contentTopics, error: contentTopicsError } = await supabaseClient
