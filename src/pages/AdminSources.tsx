@@ -65,11 +65,21 @@ const AdminSources = () => {
   // Fetch sources status for Priority & Run Now
   const fetchSourcesStatus = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('admin-api/sources/status', {
-        body: {},
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+
+      const response = await fetch('https://qimelntuxquptqqynxzv.supabase.co/functions/v1/admin-api/sources/status', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({})
       });
+
+      if (!response.ok) return;
       
-      if (error) throw error;
+      const data = await response.json();
       
       if (data?.status_by_source) {
         const statusMap = new Map();
@@ -302,15 +312,29 @@ const AdminSources = () => {
   const handlePrioritize = async (sourceIds: number[]) => {
     setActionLoading('prioritize');
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No session token');
+      }
+
       const body = sourceIds.length === 1 
         ? { source_id: sourceIds[0] }
         : { source_ids: sourceIds };
         
-      const { data, error } = await supabase.functions.invoke('admin-api/sources/prioritize', {
-        body
+      const response = await fetch('https://qimelntuxquptqqynxzv.supabase.co/functions/v1/admin-api/sources/prioritize', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body)
       });
-      
-      if (error) throw error;
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to prioritize sources');
+      }
       
       toast({
         title: "Success",
@@ -333,15 +357,29 @@ const AdminSources = () => {
   const handleRunNow = async (sourceIds: number[]) => {
     setActionLoading('run-now');
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No session token');
+      }
+
       const body = sourceIds.length === 1 
         ? { source_id: sourceIds[0] }
         : { source_ids: sourceIds };
         
-      const { data, error } = await supabase.functions.invoke('admin-api/sources/run-now', {
-        body
+      const response = await fetch('https://qimelntuxquptqqynxzv.supabase.co/functions/v1/admin-api/sources/run-now', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body)
       });
-      
-      if (error) throw error;
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to start ingestion');
+      }
       
       toast({
         title: "Success",
