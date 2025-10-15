@@ -41,6 +41,9 @@ import { TopicArchiveIndexPage } from "./pages/topics/TopicArchiveIndexPage";
 import { TopicDailyArchivePage } from "./pages/topics/TopicDailyArchivePage";
 import { SitemapPage } from "./pages/SitemapPage";
 import Personalization from "./pages/Personalization";
+import Partners from "./pages/admin/Partners";
+import PartnerForm from "./pages/admin/PartnerForm";
+import Partner from "./pages/Partner";
 
 const queryClient = new QueryClient();
 
@@ -129,12 +132,28 @@ const App = () => (
                       <YouTubeShorts />
                     </ProtectedRoute>
                   } />
+                  <Route path="/admin/partners" element={
+                    <ProtectedRoute>
+                      <Partners />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/admin/partners/new" element={
+                    <ProtectedRoute>
+                      <PartnerForm />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/admin/partners/:id" element={
+                    <ProtectedRoute>
+                      <PartnerForm />
+                    </ProtectedRoute>
+                  } />
                   <Route path="/topics" element={<TopicsIndexPage />} />
                   <Route path="/topics/:slug" element={<TopicLandingPage />} />
                   <Route path="/topics/:slug/archive" element={<TopicArchiveIndexPage />} />
                   <Route path="/topics/:slug/:date" element={<TopicDailyArchivePage />} />
                   <Route path="/admin/sitemap" element={<SitemapPage />} />
                   <Route path="/u/:username" element={<PublicProfile />} />
+                  <Route path="/:slug" element={<Partner />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Layout>

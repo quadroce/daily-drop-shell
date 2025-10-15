@@ -850,6 +850,166 @@ export type Database = {
         }
         Relationships: []
       }
+      partner_events: {
+        Row: {
+          created_at: string
+          id: number
+          meta: Json | null
+          partner_id: number | null
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          meta?: Json | null
+          partner_id?: number | null
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          meta?: Json | null
+          partner_id?: number | null
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_events_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partner_kpi"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_events_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_links: {
+        Row: {
+          label: string
+          partner_id: number
+          position: number
+          url: string
+          utm: string | null
+        }
+        Insert: {
+          label: string
+          partner_id: number
+          position: number
+          url: string
+          utm?: string | null
+        }
+        Update: {
+          label?: string
+          partner_id?: number
+          position?: number
+          url?: string
+          utm?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_links_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partner_kpi"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_links_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_topics: {
+        Row: {
+          partner_id: number
+          topic_id: number
+        }
+        Insert: {
+          partner_id: number
+          topic_id: number
+        }
+        Update: {
+          partner_id?: number
+          topic_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_topics_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partner_kpi"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_topics_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_topics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partners: {
+        Row: {
+          banner_url: string | null
+          created_at: string
+          created_by: string | null
+          description_md: string | null
+          id: number
+          name: string
+          scheduled_at: string | null
+          slug: string
+          status: string
+          updated_at: string
+          youtube_url: string | null
+        }
+        Insert: {
+          banner_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          description_md?: string | null
+          id?: number
+          name: string
+          scheduled_at?: string | null
+          slug: string
+          status?: string
+          updated_at?: string
+          youtube_url?: string | null
+        }
+        Update: {
+          banner_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          description_md?: string | null
+          id?: number
+          name?: string
+          scheduled_at?: string | null
+          slug?: string
+          status?: string
+          updated_at?: string
+          youtube_url?: string | null
+        }
+        Relationships: []
+      }
       preferences: {
         Row: {
           selected_language_ids: number[]
@@ -1731,6 +1891,17 @@ export type Database = {
           type: Database["public"]["Enums"]["drop_type"] | null
           url: string | null
           youtube_video_id: string | null
+        }
+        Relationships: []
+      }
+      partner_kpi: {
+        Row: {
+          follows: number | null
+          id: number | null
+          link_clicks: number | null
+          name: string | null
+          slug: string | null
+          views: number | null
         }
         Relationships: []
       }
