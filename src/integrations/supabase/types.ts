@@ -2131,6 +2131,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      is_partner_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       is_user_following_topic: {
         Args: { _topic_id: number; _user_id: string }
         Returns: boolean
