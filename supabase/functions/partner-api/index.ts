@@ -502,26 +502,38 @@ Deno.serve(async (req) => {
 
       if (topicIds.length > 0) {
         // Get existing preferences
-        const { data: existingPrefs } = await supabaseClient
+        const { data: existingPrefs } = await adminClient
           .from('preferences')
-          .select('selected_topic_ids')
+          .select('selected_topic_ids, selected_language_ids')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         const currentTopics = existingPrefs?.selected_topic_ids || [];
+        const currentLanguages = existingPrefs?.selected_language_ids || [];
         const newTopics = [...new Set([...currentTopics, ...topicIds])];
 
-        await supabaseClient
+        const { error: upsertError } = await adminClient
           .from('preferences')
           .upsert({
             user_id: user.id,
             selected_topic_ids: newTopics,
+            selected_language_ids: currentLanguages,
             updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'user_id'
           });
+
+        if (upsertError) {
+          console.error('[follow] Upsert error:', upsertError);
+          return new Response(JSON.stringify({ error: upsertError.message }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
       }
 
       // Track follow event
-      await supabaseClient
+      await adminClient
         .from('partner_events')
         .insert({
           partner_id: partner.id,
