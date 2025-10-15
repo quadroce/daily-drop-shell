@@ -105,6 +105,23 @@ export default function Partner() {
 
   async function handleFollow() {
     if (!user) {
+      // Save partner topics to localStorage for unauthenticated users
+      if (partnerData?.topics && partnerData.topics.length > 0) {
+        try {
+          const savedTopics = JSON.parse(localStorage.getItem('dailydrops_saved_topics') || '[]');
+          const topicIds = partnerData.topics.map(t => t.id);
+          const updatedTopics = Array.from(new Set([...savedTopics, ...topicIds]));
+          localStorage.setItem('dailydrops_saved_topics', JSON.stringify(updatedTopics));
+          
+          toast({
+            title: 'Topics saved',
+            description: 'Sign up to complete following this partner!',
+          });
+        } catch (error) {
+          console.error('Error saving topics:', error);
+        }
+      }
+      
       navigate(`/auth?next=/${slug}&follow=1`);
       return;
     }
