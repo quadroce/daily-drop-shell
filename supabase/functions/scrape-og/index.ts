@@ -433,6 +433,34 @@ serve(async (req) => {
 
         // Use YouTube thumbnail with fallback
         image_url = await getYouTubeThumbnail(youtubeVideoId);
+        
+        // Extract channel ID from HTML
+        let channelId = null;
+        try {
+          const channelLinkMatch = html.match(/"channelId":"([^"]+)"/);
+          if (channelLinkMatch) {
+            channelId = channelLinkMatch[1];
+          }
+        } catch (e) {
+          console.log('Could not extract channel ID from HTML');
+        }
+        
+        // Create basic metadata object for fallback
+        youtubeMetadata = {
+          youtube_video_id: youtubeVideoId,
+          youtube_channel_id: channelId,
+          youtube_thumbnail_url: image_url,
+          title: title,
+          youtube_published_at: null,
+          youtube_category: null,
+          youtube_duration_seconds: null,
+          youtube_view_count: null,
+        };
+        
+        console.log('[Scrape-OG] Using HTML fallback with extracted data:', {
+          videoId: youtubeVideoId,
+          channelId: channelId || 'not found',
+        });
       }
       
     } else {
