@@ -337,43 +337,39 @@ Deno.serve(async (req) => {
 
     // PATCH /partner-api?action=update
     if (action === 'update' && req.method === 'PATCH') {
-      console.log('[update] Start update action');
+      console.log('[UPDATE] Request received');
       
-      // For admin operations with verify_jwt=false, create admin client to verify auth
       const authHeader = req.headers.get('Authorization');
       if (!authHeader) {
-        console.error('[update] Missing Authorization header');
+        console.error('[UPDATE] No auth header');
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      // Create admin client to verify the JWT
       const adminClient = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       );
 
       const token = authHeader.replace('Bearer ', '');
-      console.log('[update] Verifying token');
       const { data: { user }, error: authError } = await adminClient.auth.getUser(token);
       
       if (authError || !user) {
-        console.error('[update] Auth error:', authError?.message);
+        console.error('[UPDATE] Auth failed:', authError?.message);
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      console.log('[update] User authenticated:', user.id);
+      console.log('[UPDATE] User authenticated:', user.id);
+      
       const body = await req.json();
-      console.log('[update] Request body:', JSON.stringify(body));
+      console.log('[UPDATE] Body received, id:', body.id);
       const { id, slug, name, title, logo_url, status, scheduled_at, banner_url, youtube_url, description_md, links, topicIds } = body;
 
-      console.log('[update] Partner ID:', id);
-      
       const updateData: any = {
         slug,
         name,
@@ -386,14 +382,13 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
       };
 
-      // Only include scheduled_at if status is 'scheduled', otherwise set to null
       if (status === 'scheduled' && scheduled_at) {
         updateData.scheduled_at = scheduled_at;
       } else {
         updateData.scheduled_at = null;
       }
 
-      console.log('[update] Updating partner with data:', JSON.stringify(updateData));
+      console.log('[UPDATE] Updating partner');
       const { data: partner, error: partnerError } = await adminClient
         .from('partners')
         .update(updateData)
@@ -402,14 +397,14 @@ Deno.serve(async (req) => {
         .single();
 
       if (partnerError) {
-        console.error('[update] Partner update error:', partnerError.message);
+        console.error('[UPDATE] Error:', partnerError.message);
         return new Response(JSON.stringify({ error: partnerError.message }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      console.log('[update] Partner updated successfully');
+      console.log('[UPDATE] Partner updated');
 
       if (links !== undefined) {
         console.log('[update] Updating links:', links);
