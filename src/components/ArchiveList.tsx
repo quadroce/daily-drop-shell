@@ -78,9 +78,9 @@ export const ArchiveList = ({ slug, days, premiumLocked }: ArchiveListProps) => 
                   </Button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
                   {items.slice(0, 6).map((item) => (
-                    <Card key={item.id} className="group overflow-hidden hover:shadow-md transition-all bg-background border">
+                    <Card key={item.id} className="group overflow-hidden hover:shadow-md transition-all bg-background border h-full flex flex-col">
                       <div className="aspect-video relative overflow-hidden">
                         {item.imageUrl ? (
                           <img 
@@ -96,8 +96,8 @@ export const ArchiveList = ({ slug, days, premiumLocked }: ArchiveListProps) => 
                         )}
                       </div>
                       
-                      <CardContent className="p-4">
-                        <div className="space-y-3">
+                      <CardContent className="p-4 flex-1 flex flex-col">
+                        <div className="space-y-3 flex-1 flex flex-col justify-between">
                           <div>
                             <h3 className="font-semibold text-sm line-clamp-2 mb-2 group-hover:text-primary transition-colors">
                               {item.title}
