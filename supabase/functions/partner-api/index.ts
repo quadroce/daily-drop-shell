@@ -199,7 +199,7 @@ Deno.serve(async (req) => {
 
     // POST /partner-api?action=create
     if (action === 'create' && req.method === 'POST') {
-      // For admin operations, we need to verify auth manually when verify_jwt=false
+      // For admin operations with verify_jwt=false, create admin client to verify auth
       const authHeader = req.headers.get('Authorization');
       if (!authHeader) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -208,7 +208,15 @@ Deno.serve(async (req) => {
         });
       }
 
-      const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+      // Create admin client to verify the JWT
+      const adminClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user }, error: authError } = await adminClient.auth.getUser(token);
+      
       if (authError || !user) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
           status: 401,
@@ -219,7 +227,7 @@ Deno.serve(async (req) => {
       const body = await req.json();
       const { slug, name, title, logo_url, status, scheduled_at, banner_url, youtube_url, description_md, links, topicIds } = body;
 
-      const { data: partner, error: partnerError } = await supabaseClient
+      const { data: partner, error: partnerError } = await adminClient
         .from('partners')
         .insert({
           slug,
@@ -254,7 +262,7 @@ Deno.serve(async (req) => {
             url: link.url,
             utm: link.utm || null,
           }));
-          await supabaseClient.from('partner_links').insert(linkData);
+          await adminClient.from('partner_links').insert(linkData);
         }
       }
 
@@ -264,7 +272,7 @@ Deno.serve(async (req) => {
           partner_id: partner.id,
           topic_id: tid,
         }));
-        await supabaseClient.from('partner_topics').insert(topicData);
+        await adminClient.from('partner_topics').insert(topicData);
       }
 
       return new Response(JSON.stringify({ partner }), {
@@ -274,7 +282,7 @@ Deno.serve(async (req) => {
 
     // PATCH /partner-api?action=update
     if (action === 'update' && req.method === 'PATCH') {
-      // For admin operations, we need to verify auth manually when verify_jwt=false
+      // For admin operations with verify_jwt=false, create admin client to verify auth
       const authHeader = req.headers.get('Authorization');
       if (!authHeader) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -283,7 +291,15 @@ Deno.serve(async (req) => {
         });
       }
 
-      const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+      // Create admin client to verify the JWT
+      const adminClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user }, error: authError } = await adminClient.auth.getUser(token);
+      
       if (authError || !user) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
           status: 401,
@@ -294,7 +310,7 @@ Deno.serve(async (req) => {
       const body = await req.json();
       const { id, slug, name, title, logo_url, status, scheduled_at, banner_url, youtube_url, description_md, links, topicIds } = body;
 
-      const { data: partner, error: partnerError } = await supabaseClient
+      const { data: partner, error: partnerError } = await adminClient
         .from('partners')
         .update({
           slug,
@@ -320,7 +336,7 @@ Deno.serve(async (req) => {
       }
 
       if (links !== undefined) {
-        await supabaseClient.from('partner_links').delete().eq('partner_id', id);
+        await adminClient.from('partner_links').delete().eq('partner_id', id);
         const validLinks = links.filter((l: any) => l.label && l.url);
         if (validLinks.length > 0) {
           const linkData = validLinks.map((link: any, idx: number) => ({
@@ -330,18 +346,18 @@ Deno.serve(async (req) => {
             url: link.url,
             utm: link.utm || null,
           }));
-          await supabaseClient.from('partner_links').insert(linkData);
+          await adminClient.from('partner_links').insert(linkData);
         }
       }
 
       if (topicIds) {
-        await supabaseClient.from('partner_topics').delete().eq('partner_id', id);
+        await adminClient.from('partner_topics').delete().eq('partner_id', id);
         if (topicIds.length > 0) {
           const topicData = topicIds.map((tid: number) => ({
             partner_id: id,
             topic_id: tid,
           }));
-          await supabaseClient.from('partner_topics').insert(topicData);
+          await adminClient.from('partner_topics').insert(topicData);
         }
       }
 
@@ -352,7 +368,7 @@ Deno.serve(async (req) => {
 
     // POST /partner-api?action=publish
     if (action === 'publish' && req.method === 'POST') {
-      // For admin operations, we need to verify auth manually when verify_jwt=false
+      // For admin operations with verify_jwt=false, create admin client to verify auth
       const authHeader = req.headers.get('Authorization');
       if (!authHeader) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -361,7 +377,15 @@ Deno.serve(async (req) => {
         });
       }
 
-      const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+      // Create admin client to verify the JWT
+      const adminClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user }, error: authError } = await adminClient.auth.getUser(token);
+      
       if (authError || !user) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
           status: 401,
@@ -372,7 +396,7 @@ Deno.serve(async (req) => {
       const body = await req.json();
       const { id, scheduled_at } = body;
 
-      const { data: partner, error } = await supabaseClient
+      const { data: partner, error } = await adminClient
         .from('partners')
         .update({
           status: scheduled_at ? 'scheduled' : 'published',
@@ -397,7 +421,7 @@ Deno.serve(async (req) => {
 
     // POST /partner-api?action=follow
     if (action === 'follow' && req.method === 'POST') {
-      // For user operations, we need to verify auth manually when verify_jwt=false
+      // For user operations with verify_jwt=false, create admin client to verify auth
       const authHeader = req.headers.get('Authorization');
       if (!authHeader) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -406,7 +430,15 @@ Deno.serve(async (req) => {
         });
       }
 
-      const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+      // Create admin client to verify the JWT
+      const adminClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user }, error: authError } = await adminClient.auth.getUser(token);
+      
       if (authError || !user) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
           status: 401,
@@ -508,7 +540,7 @@ Deno.serve(async (req) => {
 
     // GET /partner-api?action=list
     if (action === 'list' && req.method === 'GET') {
-      // For admin operations, we need to verify auth manually when verify_jwt=false
+      // For admin operations with verify_jwt=false, create admin client to verify auth
       const authHeader = req.headers.get('Authorization');
       if (!authHeader) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -517,7 +549,15 @@ Deno.serve(async (req) => {
         });
       }
 
-      const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+      // Create admin client to verify the JWT
+      const adminClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user }, error: authError } = await adminClient.auth.getUser(token);
+      
       if (authError || !user) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
           status: 401,
@@ -525,7 +565,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      const { data: partners, error } = await supabaseClient
+      const { data: partners, error } = await adminClient
         .from('partners')
         .select('*, partner_kpi(*)')
         .order('created_at', { ascending: false });

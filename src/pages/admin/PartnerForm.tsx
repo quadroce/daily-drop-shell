@@ -196,11 +196,17 @@ export default function PartnerForm() {
     try {
       setLoading(true);
       
+      // Clean up scheduled_at if status is published
+      const dataToSend = { ...formData };
+      if (formData.status === 'published') {
+        dataToSend.scheduled_at = '';
+      }
+      
       if (isEdit) {
-        await updatePartner(parseInt(id!), formData);
+        await updatePartner(parseInt(id!), dataToSend);
         toast({ title: 'Success', description: 'Partner updated' });
       } else {
-        await createPartner(formData);
+        await createPartner(dataToSend);
         toast({ title: 'Success', description: 'Partner created' });
       }
       
