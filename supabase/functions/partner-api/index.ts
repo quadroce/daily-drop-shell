@@ -66,11 +66,43 @@ Deno.serve(async (req) => {
         .select('topic_id, topics(id, slug, label)')
         .eq('partner_id', partner.id);
 
+      // Check if user is following this partner
+      let isFollowing = false;
+      if (authHeader) {
+        const adminClient = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        );
+
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user } } = await adminClient.auth.getUser(token);
+
+        if (user) {
+          const partnerTopicIds = topics?.map(t => t.topic_id) || [];
+          
+          if (partnerTopicIds.length > 0) {
+            const { data: userPrefs } = await adminClient
+              .from('preferences')
+              .select('selected_topic_ids')
+              .eq('user_id', user.id)
+              .maybeSingle();
+
+            if (userPrefs?.selected_topic_ids) {
+              // Check if ALL partner topics are in user's preferences
+              isFollowing = partnerTopicIds.every(topicId => 
+                userPrefs.selected_topic_ids.includes(topicId)
+              );
+            }
+          }
+        }
+      }
+
       return new Response(
         JSON.stringify({
           partner,
           links: links || [],
           topics: topics?.map(t => t.topics) || [],
+          is_following: isFollowing,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
