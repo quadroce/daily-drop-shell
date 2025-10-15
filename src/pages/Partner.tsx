@@ -15,7 +15,8 @@ import {
   trackPartnerEvent,
   type PartnerData 
 } from '@/lib/api/partners';
-import { FeedCard } from '@/components/FeedCard';
+import { FeedHeroCarousel } from '@/components/FeedHeroCarousel';
+import { SimpleFeedList } from '@/components/SimpleFeedList';
 import { useEngagementState } from '@/hooks/useEngagementState';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -33,6 +34,15 @@ export default function Partner() {
   const [hasMore, setHasMore] = useState(true);
   const [following, setFollowing] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [topicsMap, setTopicsMap] = useState<{ 
+    l1: Map<number, { label: string; slug: string }>; 
+    l2: Map<number, { label: string; slug: string }>;
+    l3: Map<string, string>;
+  }>({
+    l1: new Map(),
+    l2: new Map(),
+    l3: new Map()
+  });
 
   const { initializeStates, updateEngagement, getState, isLoading: engagementLoading } = useEngagementState();
 
@@ -48,6 +58,39 @@ export default function Partner() {
       loadFeed();
     }
   }, [partnerData]);
+
+  useEffect(() => {
+    const loadTopicsMap = async () => {
+      try {
+        const { data: topics } = await supabase
+          .from('topics')
+          .select('id, label, slug, level')
+          .in('level', [1, 2, 3]);
+        
+        if (topics) {
+          const l1Map = new Map<number, { label: string; slug: string }>();
+          const l2Map = new Map<number, { label: string; slug: string }>();
+          const l3Map = new Map<string, string>();
+          
+          topics.forEach(topic => {
+            if (topic.level === 1) {
+              l1Map.set(topic.id, { label: topic.label, slug: topic.slug });
+            } else if (topic.level === 2) {
+              l2Map.set(topic.id, { label: topic.label, slug: topic.slug });
+            } else if (topic.level === 3) {
+              l3Map.set(topic.label, topic.slug);
+            }
+          });
+          
+          setTopicsMap({ l1: l1Map, l2: l2Map, l3: l3Map });
+        }
+      } catch (error) {
+        console.error('Failed to load topics map:', error);
+      }
+    };
+
+    loadTopicsMap();
+  }, []);
 
   async function loadPartner() {
     if (!slug) return;
@@ -141,10 +184,19 @@ export default function Partner() {
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 
-  async function handleEngagementAction(dropId: string, action: 'like' | 'save' | 'dismiss' | 'dislike') {
-    const success = await updateEngagement(dropId, action);
-    return success;
-  }
+  const handleShare = (id: string) => {
+    const item = feedItems.find(i => i.id.toString() === id);
+    if (!item) return;
+    
+    if (navigator.share) {
+      navigator.share({
+        title: item.title,
+        url: item.url,
+      }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(item.url);
+    }
+  };
 
   if (loading) {
     return (
@@ -172,29 +224,9 @@ export default function Partner() {
         ogImage={partner.banner_url || partner.logo_url}
       />
 
-      {/* Hero Section */}
+      {/* Header Section - Above Hero */}
       <div className="w-full bg-gradient-to-b from-background/50 to-background">
         <div className="container mx-auto px-4 py-8 max-w-6xl">
-          {/* Banner or YouTube */}
-          {partner.youtube_url ? (
-            <div className="aspect-video w-full mb-8 rounded-lg overflow-hidden">
-              <iframe
-                src={partner.youtube_url.replace('watch?v=', 'embed/')}
-                className="w-full h-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
-          ) : partner.banner_url ? (
-            <div className="aspect-video w-full mb-8 rounded-lg overflow-hidden">
-              <img 
-                src={partner.banner_url} 
-                alt={partner.name}
-                className="w-full h-full object-cover"
-              />
-            </div>
-          ) : null}
-
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
             <div className="flex items-start gap-4">
@@ -242,15 +274,14 @@ export default function Partner() {
             </Card>
           )}
 
-          {/* Links */}
+          {/* Links - Red buttons with white text */}
           {links.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
               {links.map(link => (
                 <Button
                   key={link.position}
-                  variant="outline"
                   size="lg"
-                  className="gap-2 justify-center"
+                  className="gap-2 justify-center bg-[hsl(0,84%,60%)] hover:bg-[hsl(0,84%,55%)] text-white"
                   onClick={() => {
                     const url = link.utm ? `${link.url}${link.url.includes('?') ? '&' : '?'}${link.utm}` : link.url;
                     handleLinkClick(link.position, url);
@@ -265,55 +296,58 @@ export default function Partner() {
         </div>
       </div>
 
-      {/* Feed */}
-      <div className="container mx-auto px-4 pb-12 max-w-6xl">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {feedItems.map((item, index) => (
-            <FeedCard
-              key={`${item.id}-${index}`}
-              id={item.id.toString()}
-              type={item.type}
-              title={item.title}
-              summary={item.summary || ''}
-              imageUrl={item.image_url}
-              publishedAt={item.published_at}
-              source={{ name: item.sources?.name || 'Unknown', url: item.url }}
-              tags={item.tags || []}
-              href={item.url}
-              youtubeId={item.youtube_video_id}
-              youtubeDuration={item.youtube_duration_seconds}
-              youtubeViewCount={item.youtube_view_count}
-              user={{ isLoggedIn: !!user, isPremium: false }}
-              position={index}
-            />
-          ))}
+      {/* Banner or YouTube - Hero Section */}
+      {(partner.youtube_url || partner.banner_url) && (
+        <div className="w-full">
+          <div className="container mx-auto px-4 max-w-6xl">
+            {partner.youtube_url ? (
+              <div className="aspect-video w-full mb-8 rounded-lg overflow-hidden">
+                <iframe
+                  src={partner.youtube_url.replace('watch?v=', 'embed/')}
+                  className="w-full h-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            ) : partner.banner_url ? (
+              <div className="aspect-video w-full mb-8 rounded-lg overflow-hidden">
+                <img 
+                  src={partner.banner_url} 
+                  alt={partner.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ) : null}
+          </div>
         </div>
+      )}
 
-        {/* Load More */}
-        {feedLoading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
-            {[1, 2, 3].map(i => (
-              <Card key={i} className="p-4">
-                <Skeleton className="h-48 w-full mb-4" />
-                <Skeleton className="h-4 w-3/4 mb-2" />
-                <Skeleton className="h-4 w-full" />
-              </Card>
-            ))}
-          </div>
+      {/* Feed - Same as /feed */}
+      <div className="container mx-auto px-4 pb-12 max-w-6xl">
+        {/* Hero Carousel - top 5 items */}
+        {feedItems.length > 0 && (
+          <FeedHeroCarousel
+            items={feedItems}
+            onLike={(id) => updateEngagement(id, 'like')}
+            onSave={(id) => updateEngagement(id, 'save')}
+            onDismiss={(id) => updateEngagement(id, 'dismiss')}
+            onShare={handleShare}
+            getState={getState}
+            isLoading={engagementLoading}
+            topicsMap={topicsMap}
+          />
         )}
 
-        {hasMore && !feedLoading && feedItems.length > 0 && (
-          <div className="flex justify-center mt-8">
-            <Button onClick={loadFeed} size="lg">
-              Load More
-            </Button>
-          </div>
-        )}
-
-        {!hasMore && feedItems.length > 0 && (
-          <p className="text-center text-muted-foreground mt-8">
-            You've reached the end of the feed
-          </p>
+        {/* Feed list - remaining items */}
+        {feedItems.length > 0 && (
+          <SimpleFeedList
+            items={feedItems.slice(5)}
+            load={loadFeed}
+            hasMore={hasMore}
+            loading={feedLoading}
+            error={null}
+            onRetry={() => {}}
+          />
         )}
 
         {!feedLoading && feedItems.length === 0 && (
