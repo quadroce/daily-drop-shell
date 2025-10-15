@@ -105,7 +105,7 @@ const Corporate = () => {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="container mx-auto px-4 py-8">
         <div className="space-y-8">
           {/* Analytics Overview */}
           <Card>

@@ -138,7 +138,7 @@ export const TopicDailyArchivePage = () => {
       />
 
       <div className="border-b border-border">
-        <div className="max-w-4xl mx-auto px-4 py-6">
+        <div className="container mx-auto px-4 py-6">
           {/* Breadcrumb */}
           <nav className="mb-6" aria-label="Breadcrumb">
             <ol className="flex items-center space-x-2 text-sm text-muted-foreground">
@@ -190,7 +190,7 @@ export const TopicDailyArchivePage = () => {
       </div>
 
       {isLoading ? (
-        <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
+        <div className="container mx-auto px-4 py-8 space-y-6">
           {[1, 2, 3, 4, 5].map(i => (
             <div key={i} className="flex gap-4 border rounded-lg p-4">
               <Skeleton className="h-32 w-48 flex-shrink-0" />

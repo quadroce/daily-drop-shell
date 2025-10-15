@@ -239,7 +239,6 @@ const Index = () => {
         {/* Topics Section */}
         <section className="bg-muted/20">
           <div className="container mx-auto px-4 py-28">
-            <div className="max-w-6xl mx-auto">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-16 text-center">
                 Explore Topics
               </h2>
@@ -271,7 +270,6 @@ const Index = () => {
                   </Link>
                 </Button>
               </div>
-            </div>
           </div>
         </section>
 

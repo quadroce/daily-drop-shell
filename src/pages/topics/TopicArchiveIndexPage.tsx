@@ -80,7 +80,7 @@ export const TopicArchiveIndexPage = () => {
 
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-background via-muted/20 to-background border-b border-border">
-        <div className="max-w-6xl mx-auto px-4 py-12">
+        <div className="container mx-auto px-4 py-12">
           <div className="max-w-4xl">
             {/* Breadcrumb */}
             <nav className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
@@ -131,7 +131,7 @@ export const TopicArchiveIndexPage = () => {
         />
       )}
 
-      <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-3">
