@@ -179,103 +179,100 @@ export default function Partner() {
         ogImage={partner.banner_url || partner.logo_url}
       />
 
-      {/* Header Section - Above Hero */}
-      <div className="w-full bg-gradient-to-b from-background/50 to-background">
+      {/* Banner 21:9 - Hero Section */}
+      {(partner.youtube_url || partner.banner_url) && (
+        <div className="w-full">
+          {partner.youtube_url ? (
+            <div className="aspect-[21/9] w-full overflow-hidden">
+              <iframe
+                src={partner.youtube_url.replace('watch?v=', 'embed/')}
+                className="w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          ) : partner.banner_url ? (
+            <div className="aspect-[21/9] w-full overflow-hidden">
+              <img 
+                src={partner.banner_url} 
+                alt={partner.name}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {/* Company Info Section */}
+      <div className="w-full bg-background">
         <div className="container mx-auto px-4 py-8">
-          {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-            <div className="flex items-start gap-4">
-              {partner.logo_url && (
-                <img 
-                  src={partner.logo_url} 
-                  alt={`${partner.name} logo`}
-                  className="h-16 w-auto object-contain"
-                />
+          {/* Logo and Name */}
+          <div className="flex items-start gap-4 mb-4">
+            {partner.logo_url && (
+              <img 
+                src={partner.logo_url} 
+                alt={`${partner.name} logo`}
+                className="h-20 w-20 object-contain rounded-lg border"
+              />
+            )}
+            <div className="flex-1">
+              <h1 className="text-3xl font-bold mb-2">{partner.title || partner.name}</h1>
+              {topics.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {topics.map(topic => (
+                    <span 
+                      key={topic.id}
+                      className="text-sm px-3 py-1 bg-primary/10 text-primary rounded-full"
+                    >
+                      {topic.label}
+                    </span>
+                  ))}
+                </div>
               )}
-              <div>
-                <h1 className="text-4xl font-bold mb-2">{partner.title || partner.name}</h1>
-                {topics.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {topics.map(topic => (
-                      <span 
-                        key={topic.id}
-                        className="text-sm px-3 py-1 bg-primary/10 text-primary rounded-full"
-                      >
-                        {topic.label}
-                      </span>
-                    ))}
-                  </div>
-                )}
+            </div>
+          </div>
+
+          {/* Description */}
+          {partner.description_md && (
+            <div className="mb-6">
+              <div className="prose dark:prose-invert max-w-none">
+                <ReactMarkdown>{partner.description_md}</ReactMarkdown>
               </div>
             </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-3">
+            {/* Link Buttons (Red) */}
+            {links.map(link => (
+              <Button
+                key={link.position}
+                size="lg"
+                className="gap-2 bg-[hsl(0,84%,60%)] hover:bg-[hsl(0,84%,55%)] text-white"
+                onClick={() => {
+                  const url = link.utm ? `${link.url}${link.url.includes('?') ? '&' : '?'}${link.utm}` : link.url;
+                  handleLinkClick(link.position, url);
+                }}
+              >
+                {link.label}
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            ))}
             
+            {/* Follow Button (Blue) */}
             <Button 
               onClick={handleFollow}
               disabled={following || isFollowing}
               size="lg"
               className="gap-2"
+              variant="default"
             >
               <Heart className={`h-4 w-4 ${isFollowing ? 'fill-current' : ''}`} />
               {isFollowing ? 'Following' : 'Follow'}
             </Button>
           </div>
-
-          {/* Description */}
-          {partner.description_md && (
-            <Card className="p-6 mb-6">
-              <div className="prose dark:prose-invert max-w-none">
-                <ReactMarkdown>{partner.description_md}</ReactMarkdown>
-              </div>
-            </Card>
-          )}
-
-          {/* Links - Red buttons with white text */}
-          {links.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-              {links.map(link => (
-                <Button
-                  key={link.position}
-                  size="lg"
-                  className="gap-2 justify-center bg-[hsl(0,84%,60%)] hover:bg-[hsl(0,84%,55%)] text-white"
-                  onClick={() => {
-                    const url = link.utm ? `${link.url}${link.url.includes('?') ? '&' : '?'}${link.utm}` : link.url;
-                    handleLinkClick(link.position, url);
-                  }}
-                >
-                  {link.label}
-                  <ExternalLink className="h-4 w-4" />
-                </Button>
-              ))}
-            </div>
-          )}
         </div>
       </div>
-
-      {/* Banner or YouTube - Hero Section */}
-      {(partner.youtube_url || partner.banner_url) && (
-        <div className="w-full">
-          <div className="container mx-auto px-4">
-            {partner.youtube_url ? (
-              <div className="aspect-video w-full mb-8 rounded-lg overflow-hidden">
-                <iframe
-                  src={partner.youtube_url.replace('watch?v=', 'embed/')}
-                  className="w-full h-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
-            ) : partner.banner_url ? (
-              <div className="aspect-video w-full mb-8 rounded-lg overflow-hidden">
-                <img 
-                  src={partner.banner_url} 
-                  alt={partner.name}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            ) : null}
-          </div>
-        </div>
-      )}
 
       {/* Feed - Same as /feed */}
       <div className="container mx-auto px-4 pb-12">
