@@ -165,7 +165,7 @@ export default function Partner() {
       <Seo
         title={`${partner.title || partner.name} | DailyDrops`}
         description={partner.description_md?.substring(0, 160) || `Latest updates from ${partner.name}`}
-        ogImage={partner.banner_url || partner.logo_url}
+        ogImage={partner.logo_url || partner.banner_url}
       />
 
       {/* Banner - Hero Section (reduced height) */}
