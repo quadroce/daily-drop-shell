@@ -538,16 +538,29 @@ Deno.serve(async (req) => {
         });
       }
 
-      const { data: { user } } = await supabaseClient.auth.getUser();
+      // Get user if authenticated, otherwise null
+      let userId = null;
+      try {
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        userId = user?.id || null;
+      } catch (error) {
+        // User not authenticated, continue with null userId
+        console.log('[track] User not authenticated');
+      }
 
-      await supabaseClient
+      // Insert event without selecting result to avoid RLS policy evaluation
+      const { error: insertError } = await supabaseClient
         .from('partner_events')
         .insert({
           partner_id: partner.id,
-          user_id: user?.id || null,
+          user_id: userId,
           type,
           meta,
         });
+
+      if (insertError) {
+        console.error('[track] Insert error:', insertError);
+      }
 
       return new Response(JSON.stringify({ ok: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
