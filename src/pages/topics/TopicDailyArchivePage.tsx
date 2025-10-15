@@ -1,10 +1,11 @@
 import { useParams, Navigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Seo } from "@/components/Seo";
-import { DailyDrop } from "@/components/DailyDrop";
+import { FeedCard } from "@/components/FeedCard";
 import { ArchiveNav } from "@/components/ArchiveNav";
 import { TopicCtaBar } from "@/components/topics/TopicCtaBar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent } from "@/components/ui/card";
 import { getTopicDaily, getTopicArchive, getTopicData } from "@/lib/api/topics";
 import { useAnalytics } from "@/lib/analytics";
 import { useAuth } from "@/hooks/useAuth";
@@ -180,72 +181,30 @@ export const TopicDailyArchivePage = () => {
 
         {/* Content */}
         {isLoading ? (
-          <div className="space-y-6">
-            {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} className="flex gap-4 border rounded-lg p-4">
-                <Skeleton className="h-20 w-20 flex-shrink-0 rounded" />
-                <div className="space-y-2 flex-1">
-                  <Skeleton className="h-5 w-full" />
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
-                </div>
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <Card key={i} className="overflow-hidden">
+                <CardContent className="p-0">
+                  <Skeleton className="aspect-square w-full" />
+                  <div className="p-4 space-y-3">
+                    <Skeleton className="h-5 w-full" />
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
+                  </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
         ) : dailyItems && dailyItems.length > 0 ? (
-          <div className="space-y-3">
-            {dailyItems.map((item) => (
-              <div key={item.id} className="border rounded-lg p-3 bg-background hover:shadow-md transition-shadow">
-                <div className="flex gap-3">
-                  {/* Image */}
-                  <div className="flex-shrink-0 w-20 h-20 bg-muted rounded overflow-hidden">
-                    {item.imageUrl ? (
-                      <img 
-                        src={item.imageUrl} 
-                        alt={item.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-muted to-muted-foreground/20" />
-                    )}
-                  </div>
-                  
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <a 
-                      href={item.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-semibold text-foreground hover:text-primary transition-colors text-sm leading-tight line-clamp-2 block mb-2"
-                    >
-                      {item.title}
-                    </a>
-                    
-                    <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
-                      <span className="truncate">{item.source.name}</span>
-                      <span>•</span>
-                      <time dateTime={item.publishedAt} className="whitespace-nowrap">
-                        {new Date(item.publishedAt).toLocaleDateString('en-US', { 
-                          month: 'short', 
-                          day: 'numeric'
-                        })}
-                      </time>
-                    </div>
-                    
-                    <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
-                      {item.summary}
-                    </p>
-                    
-                    <div className="flex gap-1 flex-wrap">
-                      {item.tags.slice(0, 1).map((tag, index) => (
-                        <span key={index} className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {dailyItems.map((item, index) => (
+              <FeedCard
+                key={item.id}
+                {...item}
+                user={user}
+                onEngage={handleEngage}
+                position={index}
+              />
             ))}
           </div>
         ) : (
