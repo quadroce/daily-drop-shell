@@ -199,7 +199,7 @@ export default function PartnerForm() {
       // Clean up scheduled_at if status is published
       const dataToSend = { ...formData };
       if (formData.status === 'published') {
-        dataToSend.scheduled_at = '';
+        delete dataToSend.scheduled_at;
       }
       
       if (isEdit) {

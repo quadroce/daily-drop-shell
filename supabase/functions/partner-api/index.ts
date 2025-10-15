@@ -310,20 +310,28 @@ Deno.serve(async (req) => {
       const body = await req.json();
       const { id, slug, name, title, logo_url, status, scheduled_at, banner_url, youtube_url, description_md, links, topicIds } = body;
 
+      const updateData: any = {
+        slug,
+        name,
+        title,
+        logo_url,
+        status,
+        banner_url,
+        youtube_url,
+        description_md,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Only include scheduled_at if status is 'scheduled', otherwise set to null
+      if (status === 'scheduled' && scheduled_at) {
+        updateData.scheduled_at = scheduled_at;
+      } else {
+        updateData.scheduled_at = null;
+      }
+
       const { data: partner, error: partnerError } = await adminClient
         .from('partners')
-        .update({
-          slug,
-          name,
-          title,
-          logo_url,
-          status,
-          scheduled_at,
-          banner_url,
-          youtube_url,
-          description_md,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', id)
         .select()
         .single();
