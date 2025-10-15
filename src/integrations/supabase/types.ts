@@ -970,6 +970,7 @@ export type Database = {
       }
       partners: {
         Row: {
+          allowed_language_codes: string[] | null
           banner_url: string | null
           created_at: string
           created_by: string | null
@@ -985,6 +986,7 @@ export type Database = {
           youtube_url: string | null
         }
         Insert: {
+          allowed_language_codes?: string[] | null
           banner_url?: string | null
           created_at?: string
           created_by?: string | null
@@ -1000,6 +1002,7 @@ export type Database = {
           youtube_url?: string | null
         }
         Update: {
+          allowed_language_codes?: string[] | null
           banner_url?: string | null
           created_at?: string
           created_by?: string | null

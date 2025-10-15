@@ -65,7 +65,7 @@ export async function getPartnerBySlug(slug: string): Promise<PartnerData | null
   }
 }
 
-export async function getPartnerFeed(slug: string, cursor?: string | null, limit: number = 20, languageCode?: string) {
+export async function getPartnerFeed(slug: string, cursor?: string | null, limit: number = 20) {
   try {
     const { data: { session } } = await supabase.auth.getSession();
     const headers: Record<string, string> = {
@@ -79,9 +79,6 @@ export async function getPartnerFeed(slug: string, cursor?: string | null, limit
     let url = `${FUNCTION_URL}?action=feed&slug=${encodeURIComponent(slug)}&limit=${limit}`;
     if (cursor) {
       url += `&cursor=${encodeURIComponent(cursor)}`;
-    }
-    if (languageCode) {
-      url += `&languageCode=${encodeURIComponent(languageCode)}`;
     }
 
     const response = await fetch(url, { headers });

@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -14,6 +15,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { createPartner, updatePartner, publishPartner, getPartnerBySlug } from '@/lib/api/partners';
+import { fetchAvailableLanguages } from '@/lib/api/profile';
 import { supabase } from '@/integrations/supabase/client';
 import RequireRole from '@/components/RequireRole';
 import { Seo } from '@/components/Seo';
@@ -28,6 +30,7 @@ export default function PartnerForm() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [topics, setTopics] = useState<any[]>([]);
+  const [languages, setLanguages] = useState<{ code: string; label: string }[]>([]);
   const [formData, setFormData] = useState({
     slug: '',
     name: '',
@@ -43,14 +46,25 @@ export default function PartnerForm() {
       { label: '', url: '', utm: '' as string | undefined },
     ],
     topicIds: [] as number[],
+    allowed_language_codes: [] as string[],
   });
 
   useEffect(() => {
     loadTopics();
+    loadLanguages();
     if (isEdit) {
       loadPartner();
     }
   }, [id]);
+
+  async function loadLanguages() {
+    try {
+      const langs = await fetchAvailableLanguages();
+      setLanguages(langs);
+    } catch (error) {
+      console.error('Error loading languages:', error);
+    }
+  }
 
   async function loadTopics() {
     const { data } = await supabase
@@ -121,6 +135,7 @@ export default function PartnerForm() {
           { label: '', url: '', utm: '' },
         ],
         topicIds: topicIds,
+        allowed_language_codes: partner.allowed_language_codes || [],
       });
     } catch (error) {
       console.error('❌ Failed to load partner:', error);
@@ -452,6 +467,37 @@ export default function PartnerForm() {
                         }}
                       />
                       <span className="text-sm">{topic.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Allowed Languages */}
+              <div>
+                <Label>Allowed Languages</Label>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Select which languages to show for this partner. Leave empty to show all languages.
+                </p>
+                <div className="grid grid-cols-3 gap-3 mt-2">
+                  {languages.map(lang => (
+                    <label key={lang.code} className="flex items-center gap-2">
+                      <Checkbox
+                        checked={formData.allowed_language_codes.includes(lang.code)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setFormData({ 
+                              ...formData, 
+                              allowed_language_codes: [...formData.allowed_language_codes, lang.code] 
+                            });
+                          } else {
+                            setFormData({ 
+                              ...formData, 
+                              allowed_language_codes: formData.allowed_language_codes.filter(code => code !== lang.code) 
+                            });
+                          }
+                        }}
+                      />
+                      <span className="text-sm">{lang.label}</span>
                     </label>
                   ))}
                 </div>

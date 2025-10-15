@@ -116,7 +116,6 @@ Deno.serve(async (req) => {
       const slug = url.searchParams.get('slug');
       const cursor = url.searchParams.get('cursor');
       const limit = parseInt(url.searchParams.get('limit') || '20');
-      const languageCode = url.searchParams.get('languageCode');
       
       console.log('[feed] Requested slug:', slug);
       console.log('[feed] Has auth header:', !!authHeader);
@@ -128,10 +127,10 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Get partner and topics
+      // Get partner with allowed language codes
       const { data: partner, error: partnerError } = await supabaseClient
         .from('partners')
-        .select('id')
+        .select('id, allowed_language_codes')
         .eq('slug', slug)
         .single();
       
@@ -191,9 +190,9 @@ Deno.serve(async (req) => {
         .order('id', { ascending: false })
         .limit(limit + 1);
 
-      // Filter by language if specified
-      if (languageCode) {
-        query = query.eq('language_code', languageCode);
+      // Filter by partner's allowed languages (if configured)
+      if (partner.allowed_language_codes && partner.allowed_language_codes.length > 0) {
+        query = query.in('language_code', partner.allowed_language_codes);
       }
 
       // Get content topics to filter by partner topics
