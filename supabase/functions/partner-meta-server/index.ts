@@ -160,17 +160,9 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // If not a social crawler, redirect to React app (partner exists but show React version)
-    if (!isSocialCrawler(userAgent)) {
-      return new Response(null, {
-        status: 302,
-        headers: {
-          'Location': `https://dailydrops.cloud/${slug}`,
-        },
-      });
-    }
-
-    // Generate and return HTML with meta tags (we know partner exists and is valid)
+    // Generate and return HTML with meta tags for ALL users
+    // Social crawlers will read the meta tags and stop
+    // Regular browsers will execute the script and redirect to the React app
     const html = generatePartnerHtml(partner);
 
     return new Response(html, {
