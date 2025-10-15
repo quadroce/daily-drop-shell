@@ -179,11 +179,11 @@ export default function Partner() {
         ogImage={partner.banner_url || partner.logo_url}
       />
 
-      {/* Banner 21:9 - Hero Section */}
+      {/* Banner - Hero Section (reduced height) */}
       {(partner.youtube_url || partner.banner_url) && (
         <div className="w-full">
           {partner.youtube_url ? (
-            <div className="aspect-[21/9] w-full overflow-hidden">
+            <div className="h-48 w-full overflow-hidden">
               <iframe
                 src={partner.youtube_url.replace('watch?v=', 'embed/')}
                 className="w-full h-full"
@@ -192,11 +192,11 @@ export default function Partner() {
               />
             </div>
           ) : partner.banner_url ? (
-            <div className="aspect-[21/9] w-full overflow-hidden">
+            <div className="h-48 w-full overflow-hidden">
               <img 
                 src={partner.banner_url} 
                 alt={partner.name}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover object-center"
               />
             </div>
           ) : null}
