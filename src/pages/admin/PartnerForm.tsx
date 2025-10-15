@@ -16,7 +16,6 @@ import { useToast } from '@/hooks/use-toast';
 import { createPartner, updatePartner, publishPartner, getPartnerBySlug } from '@/lib/api/partners';
 import { supabase } from '@/integrations/supabase/client';
 import RequireRole from '@/components/RequireRole';
-import Layout from '@/components/Layout';
 import { Seo } from '@/components/Seo';
 import { ArrowLeft, Save, Send } from 'lucide-react';
 
@@ -150,10 +149,9 @@ export default function PartnerForm() {
 
   return (
     <RequireRole minRole="editor">
-      <Layout>
-        <Seo title={`${isEdit ? 'Edit' : 'New'} Partner | Admin`} />
-        
-        <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <Seo title={`${isEdit ? 'Edit' : 'New'} Partner | Admin`} />
+      
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
           <Button
             variant="ghost"
             onClick={() => navigate('/admin/partners')}
@@ -339,7 +337,7 @@ export default function PartnerForm() {
             </Card>
           </form>
         </div>
-      </Layout>
-    </RequireRole>
-  );
-}
+      </RequireRole>
+    );
+  }
+  

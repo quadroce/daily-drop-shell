@@ -5,7 +5,6 @@ import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import Layout from '@/components/Layout';
 import { Seo } from '@/components/Seo';
 import ReactMarkdown from 'react-markdown';
 import { ExternalLink, Heart } from 'lucide-react';
@@ -149,15 +148,13 @@ export default function Partner() {
 
   if (loading) {
     return (
-      <Layout>
-        <div className="container mx-auto px-4 py-8">
-          <Skeleton className="w-full h-[400px] mb-8" />
-          <Skeleton className="h-12 w-3/4 mb-4" />
-          <Skeleton className="h-4 w-full mb-2" />
-          <Skeleton className="h-4 w-full mb-2" />
-          <Skeleton className="h-4 w-2/3 mb-8" />
-        </div>
-      </Layout>
+      <div className="container mx-auto px-4 py-8">
+        <Skeleton className="w-full h-[400px] mb-8" />
+        <Skeleton className="h-12 w-3/4 mb-4" />
+        <Skeleton className="h-4 w-full mb-2" />
+        <Skeleton className="h-4 w-full mb-2" />
+        <Skeleton className="h-4 w-2/3 mb-8" />
+      </div>
     );
   }
 
@@ -168,7 +165,7 @@ export default function Partner() {
   const { partner, links, topics } = partnerData;
 
   return (
-    <Layout>
+    <>
       <Seo
         title={`${partner.name} | DailyDrops`}
         description={partner.description_md?.substring(0, 160) || `Latest updates from ${partner.name}`}
@@ -316,6 +313,6 @@ export default function Partner() {
           </Card>
         )}
       </div>
-    </Layout>
+    </>
   );
 }

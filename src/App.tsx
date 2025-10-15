@@ -58,21 +58,21 @@ const App = () => (
             <AnalyticsProvider>
               <Layout>
                 <Routes>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/auth" element={<Auth />} />
-                  <Route path="/reset-password" element={<ResetPassword />} />
-                  <Route path="/feed" element={
-                    <ProtectedRoute>
-                      <Feed />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/search" element={<Search />} />
-                  <Route path="/preferences" element={
-                    <ProtectedRoute>
-                      <Preferences />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/profile" element={
+                <Route path="/" element={<Index />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/feed" element={
+                  <ProtectedRoute>
+                    <Feed />
+                  </ProtectedRoute>
+                } />
+                <Route path="/search" element={<Search />} />
+                <Route path="/preferences" element={
+                  <ProtectedRoute>
+                    <Preferences />
+                  </ProtectedRoute>
+                } />
+                <Route path="/profile" element={
                     <ProtectedRoute>
                       <Profile />
                     </ProtectedRoute>
@@ -166,3 +166,4 @@ const App = () => (
 );
 
 export default App;
+

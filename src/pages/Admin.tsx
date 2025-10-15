@@ -762,6 +762,16 @@ const Admin = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <Link to="/admin/partners" className="block">
+              <Button variant="outline" className="w-full justify-start gap-2 h-auto py-4">
+                <Globe className="h-5 w-5" />
+                <div className="text-left">
+                  <div className="font-medium">Partners</div>
+                  <div className="text-xs text-muted-foreground">Manage partner pages</div>
+                </div>
+              </Button>
+            </Link>
+
             <Link to="/admin/sources" className="block">
               <Button variant="outline" className="w-full justify-start gap-2 h-auto py-4">
                 <Database className="h-5 w-5" />
