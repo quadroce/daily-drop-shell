@@ -311,6 +311,36 @@ export type Database = {
           },
         ]
       }
+      daily_topic_summaries: {
+        Row: {
+          article_count: number
+          created_at: string
+          date: string
+          id: number
+          summary_en: string
+          topic_slug: string
+          updated_at: string
+        }
+        Insert: {
+          article_count?: number
+          created_at?: string
+          date: string
+          id?: number
+          summary_en: string
+          topic_slug: string
+          updated_at?: string
+        }
+        Update: {
+          article_count?: number
+          created_at?: string
+          date?: string
+          id?: number
+          summary_en?: string
+          topic_slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       delivery_log: {
         Row: {
           channel: string

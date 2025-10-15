@@ -15,6 +15,7 @@ import { CacheRegenerationTrigger } from "@/components/admin/CacheRegenerationTr
 import { ServiceStatusIndicators } from "@/components/admin/ServiceStatusIndicators";
 import { YouTubeCommentTestPanel } from "@/components/admin/YouTubeCommentTestPanel";
 import { YouTubeOAuthTestPanel } from "@/components/admin/YouTubeOAuthTestPanel";
+import { GenerateSummaryPanel } from "@/components/admin/GenerateSummaryPanel";
 import { Loader2, Users, Database, List, ArrowLeft, Rss, Cog, Tags, Monitor, Map, Globe, Youtube, Settings, Mail } from "lucide-react";
 
 interface Profile {
@@ -1143,6 +1144,7 @@ const Admin = () => {
           <CardDescription>Testing and development utilities</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <GenerateSummaryPanel />
           <NewsletterTestPanel />
           <YouTubeOAuthTestPanel />
           <YouTubeCommentTestPanel />

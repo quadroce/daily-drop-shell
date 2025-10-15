@@ -7,6 +7,7 @@ import { TopicCtaBar } from "@/components/topics/TopicCtaBar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { getTopicDaily, getTopicArchive, getTopicData } from "@/lib/api/topics";
+import { getDailyTopicSummary } from "@/lib/api/dailySummaries";
 import { useAnalytics } from "@/lib/analytics";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserProfile } from "@/hooks/useUserProfile";
@@ -50,6 +51,12 @@ export const TopicDailyArchivePage = () => {
   const { data: dailyItems, isLoading, error } = useQuery({
     queryKey: ['topic-daily', slug, date],
     queryFn: () => getTopicDaily(slug!, date!),
+    enabled: !!slug && !!date,
+  });
+
+  const { data: dailySummary } = useQuery({
+    queryKey: ['daily-topic-summary', slug, date],
+    queryFn: () => getDailyTopicSummary(slug!, date!),
     enabled: !!slug && !!date,
   });
 
@@ -158,6 +165,14 @@ export const TopicDailyArchivePage = () => {
           <h1 className="text-4xl font-bold text-foreground mb-4">
             Daily Drop on {topic?.title}
           </h1>
+          
+          {/* AI-Generated Summary */}
+          {dailySummary && (
+            <p className="text-base text-muted-foreground leading-relaxed mb-4 max-w-3xl">
+              {dailySummary.summary_en}
+            </p>
+          )}
+          
           {articleCount > 0 && (
             <div className="text-sm text-muted-foreground">
               {articleCount} article{articleCount !== 1 ? 's' : ''}

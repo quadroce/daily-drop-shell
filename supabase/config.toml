@@ -173,3 +173,6 @@ verify_jwt = true
 
 [functions.linkedin-shorts-publish]
 verify_jwt = true
+
+[functions.generate-daily-topic-summary]
+verify_jwt = true
