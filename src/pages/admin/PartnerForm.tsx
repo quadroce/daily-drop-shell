@@ -65,26 +65,69 @@ export default function PartnerForm() {
   }
 
   async function loadPartner() {
-    // In edit mode, fetch via admin API (would need to add this endpoint)
-    // For now, use public getBySlug
-    const slug = id; // Assuming id is slug for simplicity
-    const data = await getPartnerBySlug(slug!);
-    if (data) {
+    try {
+      console.log('🔄 Loading partner with ID:', id);
+      
+      // Load partner by ID (not slug)
+      const { data: partner, error: partnerError } = await supabase
+        .from('partners')
+        .select('*')
+        .eq('id', parseInt(id!))
+        .single();
+
+      if (partnerError || !partner) {
+        console.error('❌ Error loading partner:', partnerError);
+        toast({
+          title: 'Error',
+          description: 'Failed to load partner',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Load links
+      const { data: links } = await supabase
+        .from('partner_links')
+        .select('*')
+        .eq('partner_id', partner.id)
+        .order('position');
+
+      // Load topics
+      const { data: partnerTopics } = await supabase
+        .from('partner_topics')
+        .select('topic_id')
+        .eq('partner_id', partner.id);
+
+      const topicIds = partnerTopics?.map(pt => pt.topic_id) || [];
+
+      console.log('✅ Loaded partner:', partner);
+      
       setFormData({
-        slug: data.partner.slug,
-        name: data.partner.name,
-        title: data.partner.title || '',
-        logo_url: data.partner.logo_url || '',
-        status: data.partner.status,
-        scheduled_at: data.partner.scheduled_at || '',
-        banner_url: data.partner.banner_url || '',
-        youtube_url: data.partner.youtube_url || '',
-        description_md: data.partner.description_md || '',
-        links: data.links.length > 0 ? data.links.map(l => ({ ...l, utm: l.utm || '' })) : [
+        slug: partner.slug,
+        name: partner.name,
+        title: partner.title || '',
+        logo_url: partner.logo_url || '',
+        status: partner.status,
+        scheduled_at: partner.scheduled_at || '',
+        banner_url: partner.banner_url || '',
+        youtube_url: partner.youtube_url || '',
+        description_md: partner.description_md || '',
+        links: links && links.length > 0 ? links.map(l => ({ 
+          label: l.label, 
+          url: l.url, 
+          utm: l.utm || '' 
+        })) : [
           { label: '', url: '', utm: '' },
           { label: '', url: '', utm: '' },
         ],
-        topicIds: data.topics.map(t => t.id),
+        topicIds: topicIds,
+      });
+    } catch (error) {
+      console.error('❌ Failed to load partner:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load partner data',
+        variant: 'destructive',
       });
     }
   }
