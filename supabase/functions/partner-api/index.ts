@@ -180,7 +180,7 @@ Deno.serve(async (req) => {
           youtube_view_count,
           l1_topic_id,
           l2_topic_id,
-          language_code,
+          lang_code,
           sources(name)
         `)
         .eq('tag_done', true)
@@ -192,7 +192,7 @@ Deno.serve(async (req) => {
 
       // Filter by partner's allowed languages (if configured)
       if (partner.allowed_language_codes && partner.allowed_language_codes.length > 0) {
-        query = query.in('language_code', partner.allowed_language_codes);
+        query = query.in('lang_code', partner.allowed_language_codes);
       }
 
       // Get content topics to filter by partner topics
