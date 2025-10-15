@@ -199,8 +199,17 @@ Deno.serve(async (req) => {
 
     // POST /partner-api?action=create
     if (action === 'create' && req.method === 'POST') {
-      const { data: { user } } = await supabaseClient.auth.getUser();
-      if (!user) {
+      // For admin operations, we need to verify auth manually when verify_jwt=false
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+      if (authError || !user) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -265,8 +274,17 @@ Deno.serve(async (req) => {
 
     // PATCH /partner-api?action=update
     if (action === 'update' && req.method === 'PATCH') {
-      const { data: { user } } = await supabaseClient.auth.getUser();
-      if (!user) {
+      // For admin operations, we need to verify auth manually when verify_jwt=false
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+      if (authError || !user) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -334,8 +352,17 @@ Deno.serve(async (req) => {
 
     // POST /partner-api?action=publish
     if (action === 'publish' && req.method === 'POST') {
-      const { data: { user } } = await supabaseClient.auth.getUser();
-      if (!user) {
+      // For admin operations, we need to verify auth manually when verify_jwt=false
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+      if (authError || !user) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -370,8 +397,17 @@ Deno.serve(async (req) => {
 
     // POST /partner-api?action=follow
     if (action === 'follow' && req.method === 'POST') {
-      const { data: { user } } = await supabaseClient.auth.getUser();
-      if (!user) {
+      // For user operations, we need to verify auth manually when verify_jwt=false
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+      if (authError || !user) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -472,6 +508,23 @@ Deno.serve(async (req) => {
 
     // GET /partner-api?action=list
     if (action === 'list' && req.method === 'GET') {
+      // For admin operations, we need to verify auth manually when verify_jwt=false
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+      if (authError || !user) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       const { data: partners, error } = await supabaseClient
         .from('partners')
         .select('*, partner_kpi(*)')
