@@ -59,20 +59,8 @@ export default function Partner() {
       
       setPartnerData(data);
       
-      // Check if user is following
-      if (user && data.topics.length > 0) {
-        const { data: prefs } = await supabase
-          .from('preferences')
-          .select('selected_topic_ids')
-          .eq('user_id', user.id)
-          .single();
-        
-        if (prefs?.selected_topic_ids) {
-          const topicIds = data.topics.map(t => t.id);
-          const isFollowingAll = topicIds.every(id => prefs.selected_topic_ids.includes(id));
-          setIsFollowing(isFollowingAll);
-        }
-      }
+      // Use is_following from backend response
+      setIsFollowing(data.is_following || false);
     } catch (error) {
       console.error('Error loading partner:', error);
       toast({

@@ -36,6 +36,7 @@ export interface PartnerData {
   partner: Partner;
   links: PartnerLink[];
   topics: PartnerTopic[];
+  is_following?: boolean;
 }
 
 export async function getPartnerBySlug(slug: string): Promise<PartnerData | null> {
