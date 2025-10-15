@@ -35,18 +35,34 @@ export default function Partners() {
       const { data: { user } } = await supabase.auth.getUser();
       console.log('👤 Current user:', user?.id, user?.email);
       
-      const { data: partners, error } = await supabase
+      // Load partners
+      const { data: partnersData, error: partnersError } = await supabase
         .from('partners')
-        .select('*, partner_kpi(*)')
+        .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('❌ Error loading partners:', error);
-        throw error;
+      if (partnersError) {
+        console.error('❌ Error loading partners:', partnersError);
+        throw partnersError;
       }
 
-      console.log('✅ Loaded partners:', partners);
-      setPartners(partners || []);
+      // Load KPIs separately (it's a view, not a table with FK)
+      const { data: kpiData, error: kpiError } = await supabase
+        .from('partner_kpi')
+        .select('*');
+
+      if (kpiError) {
+        console.error('❌ Error loading KPIs:', kpiError);
+      }
+
+      // Merge KPIs with partners
+      const partnersWithKpi = partnersData?.map(partner => ({
+        ...partner,
+        partner_kpi: kpiData?.filter(kpi => kpi.id === partner.id) || []
+      })) || [];
+
+      console.log('✅ Loaded partners with KPIs:', partnersWithKpi);
+      setPartners(partnersWithKpi);
     } catch (error) {
       console.error('❌ Failed to load partners:', error);
     } finally {
