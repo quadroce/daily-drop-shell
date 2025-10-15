@@ -183,26 +183,22 @@ export const TopicDailyArchivePage = () => {
           <div className="space-y-6">
             {[1, 2, 3, 4, 5].map(i => (
               <div key={i} className="flex gap-4 border rounded-lg p-4">
-                <Skeleton className="h-32 w-48 flex-shrink-0" />
+                <Skeleton className="h-20 w-20 flex-shrink-0 rounded" />
                 <div className="space-y-2 flex-1">
-                  <Skeleton className="h-6 w-full" />
+                  <Skeleton className="h-5 w-full" />
                   <Skeleton className="h-4 w-3/4" />
                   <Skeleton className="h-4 w-1/2" />
-                  <div className="flex gap-2 mt-4">
-                    <Skeleton className="h-6 w-16" />
-                    <Skeleton className="h-6 w-20" />
-                  </div>
                 </div>
               </div>
             ))}
           </div>
         ) : dailyItems && dailyItems.length > 0 ? (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {dailyItems.map((item) => (
-              <div key={item.id} className="border rounded-lg p-4 bg-background hover:shadow-md transition-shadow">
-                <div className="flex gap-4">
+              <div key={item.id} className="border rounded-lg p-3 bg-background hover:shadow-md transition-shadow">
+                <div className="flex gap-3">
                   {/* Image */}
-                  <div className="flex-shrink-0 w-20 h-20 bg-muted rounded-md overflow-hidden">
+                  <div className="flex-shrink-0 w-20 h-20 bg-muted rounded overflow-hidden">
                     {item.imageUrl ? (
                       <img 
                         src={item.imageUrl} 
@@ -210,59 +206,42 @@ export const TopicDailyArchivePage = () => {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-muted to-muted-foreground/20 flex items-center justify-center">
-                        <span className="text-xs text-muted-foreground">No img</span>
-                      </div>
+                      <div className="w-full h-full bg-gradient-to-br from-muted to-muted-foreground/20" />
                     )}
                   </div>
                   
                   {/* Content */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <a 
-                        href={item.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-semibold text-foreground hover:text-primary transition-colors text-base leading-tight line-clamp-2"
-                      >
-                        {item.title}
-                      </a>
-                    </div>
+                    <a 
+                      href={item.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-foreground hover:text-primary transition-colors text-sm leading-tight line-clamp-2 block mb-2"
+                    >
+                      {item.title}
+                    </a>
                     
-                    <div className="flex items-center gap-2 mb-2 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
                       <span className="truncate">{item.source.name}</span>
                       <span>•</span>
                       <time dateTime={item.publishedAt} className="whitespace-nowrap">
                         {new Date(item.publishedAt).toLocaleDateString('en-US', { 
                           month: 'short', 
-                          day: 'numeric',
-                          year: 'numeric'
+                          day: 'numeric'
                         })}
                       </time>
                     </div>
                     
-                    <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                    <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
                       {item.summary}
                     </p>
                     
-                    <div className="flex items-center justify-between">
-                      <div className="flex gap-1 flex-wrap">
-                        {item.l1Topic && (
-                          <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
-                            {item.l1Topic}
-                          </span>
-                        )}
-                        {item.l2Topic && (
-                          <span className="text-xs bg-secondary/10 text-secondary-foreground px-2 py-1 rounded">
-                            {item.l2Topic}
-                          </span>
-                        )}
-                        {item.tags.slice(0, 2).map((tag, index) => (
-                          <span key={index} className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded">
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
+                    <div className="flex gap-1 flex-wrap">
+                      {item.tags.slice(0, 1).map((tag, index) => (
+                        <span key={index} className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">
+                          {tag}
+                        </span>
+                      ))}
                     </div>
                   </div>
                 </div>
