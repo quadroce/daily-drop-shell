@@ -132,6 +132,7 @@ Deno.serve(async (req) => {
           sources(name)
         `)
         .eq('tag_done', true)
+        .not('published_at', 'is', null)
         .order('published_at', { ascending: false })
         .order('id', { ascending: false })
         .limit(limit + 1);
