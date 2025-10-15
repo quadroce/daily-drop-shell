@@ -127,98 +127,154 @@ export const TopicDailyArchivePage = () => {
         />
       )}
 
-      {/* Sticky CTA Bar for mobile */}
-      <TopicCtaBar
-        topicId={1}
-        topicSlug={slug}
-        topicTitle={topic?.title || ''}
-        pageTitle={title}
-        pageUrl={canonical}
-        sticky={true}
-      />
-
-      <div className="border-b border-border">
-        <div className="container mx-auto px-4 py-6">
-          {/* Breadcrumb */}
-          <nav className="mb-6" aria-label="Breadcrumb">
-            <ol className="flex items-center space-x-2 text-sm text-muted-foreground">
-              <li>
-                <Link to="/topics" className="hover:text-foreground transition-colors">Topics</Link>
-              </li>
-              <li>/</li>
-              <li>
-                <Link to={`/topics/${slug}`} className="hover:text-foreground transition-colors">{topic?.title}</Link>
-              </li>
-              <li>/</li>
-              <li>
-                <Link to={`/topics/${slug}/archive`} className="hover:text-foreground transition-colors">Archive</Link>
-              </li>
-              <li>/</li>
-              <li className="text-foreground font-medium">{formattedDate}</li>
-            </ol>
-          </nav>
-          
-          {/* Header */}
-          <div className="mb-6">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-              <span>{topic?.title}</span>
-              <span>•</span>
-              <span>{formattedDate}</span>
-            </div>
-            <h1 className="text-3xl font-bold text-foreground mb-4">
-              Daily Drop on {topic?.title}
-            </h1>
-            {articleCount > 0 && (
-              <div className="text-sm text-muted-foreground bg-muted px-3 py-1 rounded-full inline-block">
-                {articleCount} article{articleCount !== 1 ? 's' : ''}
-                {videoCount > 0 && ` • ${videoCount} video${videoCount !== 1 ? 's' : ''}`}
-              </div>
-            )}
+      <div className="container mx-auto px-4 py-8">
+        {/* Breadcrumb */}
+        <nav className="mb-6" aria-label="Breadcrumb">
+          <ol className="flex items-center space-x-2 text-sm text-muted-foreground">
+            <li>
+              <Link to="/topics" className="hover:text-foreground transition-colors">Topics</Link>
+            </li>
+            <li>/</li>
+            <li>
+              <Link to={`/topics/${slug}`} className="hover:text-foreground transition-colors">{topic?.title}</Link>
+            </li>
+            <li>/</li>
+            <li>
+              <Link to={`/topics/${slug}/archive`} className="hover:text-foreground transition-colors">Archive</Link>
+            </li>
+            <li>/</li>
+            <li className="text-foreground font-medium">{formattedDate}</li>
+          </ol>
+        </nav>
+        
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+            <span>{topic?.title}</span>
+            <span>•</span>
+            <span>{formattedDate}</span>
           </div>
+          <h1 className="text-4xl font-bold text-foreground mb-4">
+            Daily Drop on {topic?.title}
+          </h1>
+          {articleCount > 0 && (
+            <div className="text-sm text-muted-foreground">
+              {articleCount} article{articleCount !== 1 ? 's' : ''}
+              {videoCount > 0 && ` • ${videoCount} video${videoCount !== 1 ? 's' : ''}`}
+            </div>
+          )}
+        </div>
 
-          {/* Desktop CTA Bar */}
-          <div className="hidden sm:block">
+        {/* CTA Buttons */}
+        {topic && (
+          <div className="mb-8">
             <TopicCtaBar
               topicId={1}
               topicSlug={slug}
-              topicTitle={topic?.title || ''}
+              topicTitle={topic.title}
               pageTitle={title}
               pageUrl={canonical}
             />
           </div>
-        </div>
-      </div>
+        )}
 
-      {isLoading ? (
-        <div className="container mx-auto px-4 py-8 space-y-6">
-          {[1, 2, 3, 4, 5].map(i => (
-            <div key={i} className="flex gap-4 border rounded-lg p-4">
-              <Skeleton className="h-32 w-48 flex-shrink-0" />
-              <div className="space-y-2 flex-1">
-                <Skeleton className="h-6 w-full" />
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
-                <div className="flex gap-2 mt-4">
-                  <Skeleton className="h-6 w-16" />
-                  <Skeleton className="h-6 w-20" />
+        {/* Content */}
+        {isLoading ? (
+          <div className="space-y-6">
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} className="flex gap-4 border rounded-lg p-4">
+                <Skeleton className="h-32 w-48 flex-shrink-0" />
+                <div className="space-y-2 flex-1">
+                  <Skeleton className="h-6 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-4 w-1/2" />
+                  <div className="flex gap-2 mt-4">
+                    <Skeleton className="h-6 w-16" />
+                    <Skeleton className="h-6 w-20" />
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      ) : dailyItems && (
-        <DailyDrop
-          items={dailyItems}
-          constraints={{
-            minYoutube: 1,
-            maxPerSource: 2,
-            maxSponsored: 1
-          }}
-          user={user}
-          onEngage={handleEngage}
-          hideConstraintAlert={true}
-        />
-      )}
+            ))}
+          </div>
+        ) : dailyItems && dailyItems.length > 0 ? (
+          <div className="space-y-4">
+            {dailyItems.map((item) => (
+              <div key={item.id} className="border rounded-lg p-4 bg-background hover:shadow-md transition-shadow">
+                <div className="flex gap-4">
+                  {/* Image */}
+                  <div className="flex-shrink-0 w-20 h-20 bg-muted rounded-md overflow-hidden">
+                    {item.imageUrl ? (
+                      <img 
+                        src={item.imageUrl} 
+                        alt={item.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-muted to-muted-foreground/20 flex items-center justify-center">
+                        <span className="text-xs text-muted-foreground">No img</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <a 
+                        href={item.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold text-foreground hover:text-primary transition-colors text-base leading-tight line-clamp-2"
+                      >
+                        {item.title}
+                      </a>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 mb-2 text-sm text-muted-foreground">
+                      <span className="truncate">{item.source.name}</span>
+                      <span>•</span>
+                      <time dateTime={item.publishedAt} className="whitespace-nowrap">
+                        {new Date(item.publishedAt).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
+                      </time>
+                    </div>
+                    
+                    <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                      {item.summary}
+                    </p>
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="flex gap-1 flex-wrap">
+                        {item.l1Topic && (
+                          <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+                            {item.l1Topic}
+                          </span>
+                        )}
+                        {item.l2Topic && (
+                          <span className="text-xs bg-secondary/10 text-secondary-foreground px-2 py-1 rounded">
+                            {item.l2Topic}
+                          </span>
+                        )}
+                        {item.tags.slice(0, 2).map((tag, index) => (
+                          <span key={index} className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">No content available for this date.</p>
+          </div>
+        )}
+      </div>
     </>
   );
 };
