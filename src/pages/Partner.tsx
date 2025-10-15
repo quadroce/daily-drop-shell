@@ -17,6 +17,7 @@ import {
 } from '@/lib/api/partners';
 import { SimpleFeedList } from '@/components/SimpleFeedList';
 import { supabase } from '@/integrations/supabase/client';
+import { ChipLink } from '@/components/ChipLink';
 
 export default function Partner() {
   const { slug } = useParams<{ slug: string }>();
@@ -207,13 +208,15 @@ export default function Partner() {
               <h1 className="text-3xl font-bold mb-2">{partner.title || partner.name}</h1>
               {topics.length > 0 && (
                 <div className="flex flex-wrap gap-2">
-                  {topics.map(topic => (
-                    <span 
+                  {topics.map((topic, index) => (
+                    <ChipLink
                       key={topic.id}
-                      className="text-sm px-3 py-1 bg-primary/10 text-primary rounded-full"
+                      to={`/topics/${topic.slug}`}
+                      variant="secondary"
+                      position={index}
                     >
                       {topic.label}
-                    </span>
+                    </ChipLink>
                   ))}
                 </div>
               )}
