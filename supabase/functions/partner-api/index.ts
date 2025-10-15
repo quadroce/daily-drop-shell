@@ -289,7 +289,7 @@ Deno.serve(async (req) => {
       }
 
       const body = await req.json();
-      const { slug, name, title, logo_url, status, scheduled_at, banner_url, youtube_url, description_md, links, topicIds } = body;
+      const { slug, name, title, logo_url, status, scheduled_at, banner_url, youtube_url, description_md, links, topicIds, allowed_language_codes } = body;
 
       const { data: partner, error: partnerError } = await adminClient
         .from('partners')
@@ -303,6 +303,7 @@ Deno.serve(async (req) => {
           banner_url,
           youtube_url,
           description_md,
+          allowed_language_codes: allowed_language_codes || [],
           created_by: user.id,
         })
         .select()
@@ -377,7 +378,7 @@ Deno.serve(async (req) => {
       
       const body = await req.json();
       console.log('[UPDATE] Body received, id:', body.id);
-      const { id, slug, name, title, logo_url, status, scheduled_at, banner_url, youtube_url, description_md, links, topicIds } = body;
+      const { id, slug, name, title, logo_url, status, scheduled_at, banner_url, youtube_url, description_md, links, topicIds, allowed_language_codes } = body;
 
       const updateData: any = {
         slug,
@@ -388,6 +389,7 @@ Deno.serve(async (req) => {
         banner_url,
         youtube_url,
         description_md,
+        allowed_language_codes: allowed_language_codes || [],
         updated_at: new Date().toISOString(),
       };
 
