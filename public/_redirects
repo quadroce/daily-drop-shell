@@ -1,5 +1,8 @@
-# Topic meta tags server for social crawlers
+# Meta tags server for social crawlers
 /topics/*    https://qimelntuxquptqqynxzv.supabase.co/functions/v1/topic-meta-server    200
+
+# Partner meta tags server for social crawlers (must be before /* catch-all)
+/:slug    https://qimelntuxquptqqynxzv.supabase.co/functions/v1/partner-meta-server    200!
 
 # Sitemap redirects to Supabase functions
 /sitemap.xml    https://qimelntuxquptqqynxzv.supabase.co/functions/v1/serve-sitemap    200
