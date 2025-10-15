@@ -27,6 +27,9 @@ Deno.serve(async (req) => {
     // GET /partner-api?action=getBySlug&slug=aws
     if (action === 'getBySlug' && req.method === 'GET') {
       const slug = url.searchParams.get('slug');
+      console.log('[getBySlug] Requested slug:', slug);
+      console.log('[getBySlug] Has auth header:', !!req.headers.get('Authorization'));
+      
       if (!slug) {
         return new Response(JSON.stringify({ error: 'Slug required' }), {
           status: 400,
@@ -39,6 +42,9 @@ Deno.serve(async (req) => {
         .select('*')
         .eq('slug', slug)
         .single();
+      
+      console.log('[getBySlug] Partner found:', !!partner);
+      console.log('[getBySlug] Error:', partnerError?.message);
 
       if (partnerError || !partner) {
         return new Response(JSON.stringify({ error: 'Partner not found' }), {
