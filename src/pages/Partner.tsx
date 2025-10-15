@@ -15,9 +15,7 @@ import {
   trackPartnerEvent,
   type PartnerData 
 } from '@/lib/api/partners';
-import { FeedHeroCarousel } from '@/components/FeedHeroCarousel';
 import { SimpleFeedList } from '@/components/SimpleFeedList';
-import { useEngagementState } from '@/hooks/useEngagementState';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function Partner() {
@@ -34,17 +32,6 @@ export default function Partner() {
   const [hasMore, setHasMore] = useState(true);
   const [following, setFollowing] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
-  const [topicsMap, setTopicsMap] = useState<{ 
-    l1: Map<number, { label: string; slug: string }>; 
-    l2: Map<number, { label: string; slug: string }>;
-    l3: Map<string, string>;
-  }>({
-    l1: new Map(),
-    l2: new Map(),
-    l3: new Map()
-  });
-
-  const { initializeStates, updateEngagement, getState, isLoading: engagementLoading } = useEngagementState();
 
   useEffect(() => {
     if (!slug) return;
@@ -58,39 +45,6 @@ export default function Partner() {
       loadFeed();
     }
   }, [partnerData]);
-
-  useEffect(() => {
-    const loadTopicsMap = async () => {
-      try {
-        const { data: topics } = await supabase
-          .from('topics')
-          .select('id, label, slug, level')
-          .in('level', [1, 2, 3]);
-        
-        if (topics) {
-          const l1Map = new Map<number, { label: string; slug: string }>();
-          const l2Map = new Map<number, { label: string; slug: string }>();
-          const l3Map = new Map<string, string>();
-          
-          topics.forEach(topic => {
-            if (topic.level === 1) {
-              l1Map.set(topic.id, { label: topic.label, slug: topic.slug });
-            } else if (topic.level === 2) {
-              l2Map.set(topic.id, { label: topic.label, slug: topic.slug });
-            } else if (topic.level === 3) {
-              l3Map.set(topic.label, topic.slug);
-            }
-          });
-          
-          setTopicsMap({ l1: l1Map, l2: l2Map, l3: l3Map });
-        }
-      } catch (error) {
-        console.error('Failed to load topics map:', error);
-      }
-    };
-
-    loadTopicsMap();
-  }, []);
 
   async function loadPartner() {
     if (!slug) return;
@@ -142,8 +96,6 @@ export default function Partner() {
       setFeedItems(prev => [...prev, ...newItems]);
       setCursor(response.nextCursor);
       setHasMore(!!response.nextCursor);
-      
-      initializeStates(newItems.map((item: any) => item.id.toString()));
     } catch (error) {
       console.error('Error loading feed:', error);
     } finally {
@@ -183,20 +135,6 @@ export default function Partner() {
     trackPartnerEvent(slug!, 'link_click', { position });
     window.open(url, '_blank', 'noopener,noreferrer');
   }
-
-  const handleShare = (id: string) => {
-    const item = feedItems.find(i => i.id.toString() === id);
-    if (!item) return;
-    
-    if (navigator.share) {
-      navigator.share({
-        title: item.title,
-        url: item.url,
-      }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(item.url);
-    }
-  };
 
   if (loading) {
     return (
@@ -324,31 +262,14 @@ export default function Partner() {
 
       {/* Feed - Same as /feed */}
       <div className="container mx-auto px-4 pb-12 max-w-6xl">
-        {/* Hero Carousel - top 5 items */}
-        {feedItems.length > 0 && (
-          <FeedHeroCarousel
-            items={feedItems}
-            onLike={(id) => updateEngagement(id, 'like')}
-            onSave={(id) => updateEngagement(id, 'save')}
-            onDismiss={(id) => updateEngagement(id, 'dismiss')}
-            onShare={handleShare}
-            getState={getState}
-            isLoading={engagementLoading}
-            topicsMap={topicsMap}
-          />
-        )}
-
-        {/* Feed list - remaining items */}
-        {feedItems.length > 0 && (
-          <SimpleFeedList
-            items={feedItems.slice(5)}
-            load={loadFeed}
-            hasMore={hasMore}
-            loading={feedLoading}
-            error={null}
-            onRetry={() => {}}
-          />
-        )}
+        <SimpleFeedList
+          items={feedItems}
+          load={loadFeed}
+          hasMore={hasMore}
+          loading={feedLoading}
+          error={null}
+          onRetry={() => {}}
+        />
 
         {!feedLoading && feedItems.length === 0 && (
           <Card className="p-12 text-center">
