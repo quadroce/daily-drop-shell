@@ -133,6 +133,7 @@ Deno.serve(async (req) => {
         `)
         .eq('tag_done', true)
         .not('published_at', 'is', null)
+        .gte('published_at', '2020-01-01T00:00:00Z')
         .order('published_at', { ascending: false })
         .order('id', { ascending: false })
         .limit(limit + 1);
