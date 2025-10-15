@@ -164,7 +164,7 @@ export default function Partner() {
 
       {/* Header Section - Above Hero */}
       <div className="w-full bg-gradient-to-b from-background/50 to-background">
-        <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <div className="container mx-auto px-4 py-8">
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
             <div className="flex items-start gap-4">
@@ -237,7 +237,7 @@ export default function Partner() {
       {/* Banner or YouTube - Hero Section */}
       {(partner.youtube_url || partner.banner_url) && (
         <div className="w-full">
-          <div className="container mx-auto px-4 max-w-6xl">
+          <div className="container mx-auto px-4">
             {partner.youtube_url ? (
               <div className="aspect-video w-full mb-8 rounded-lg overflow-hidden">
                 <iframe
@@ -261,7 +261,7 @@ export default function Partner() {
       )}
 
       {/* Feed - Same as /feed */}
-      <div className="container mx-auto px-4 pb-12 max-w-6xl">
+      <div className="container mx-auto px-4 pb-12">
         <SimpleFeedList
           items={feedItems}
           load={loadFeed}

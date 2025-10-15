@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Eye, BarChart3 } from 'lucide-react';
-import { listPartners } from '@/lib/api/partners';
+import { supabase } from '@/integrations/supabase/client';
 import RequireRole from '@/components/RequireRole';
 import Layout from '@/components/Layout';
 import { Seo } from '@/components/Seo';
@@ -28,7 +28,20 @@ export default function Partners() {
 
   async function loadPartners() {
     try {
-      const { partners } = await listPartners();
+      setLoading(true);
+      console.log('Loading partners...');
+      
+      const { data: partners, error } = await supabase
+        .from('partners')
+        .select('*, partner_kpi(*)')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading partners:', error);
+        throw error;
+      }
+
+      console.log('Loaded partners:', partners);
       setPartners(partners || []);
     } catch (error) {
       console.error('Error loading partners:', error);
