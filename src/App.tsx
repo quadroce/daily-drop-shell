@@ -28,6 +28,7 @@ import AdminUsers from "./pages/AdminUsers";
 import YouTubeAdmin from "./pages/admin/YouTubeAdmin";
 import YouTubeComments from "./pages/admin/YouTubeComments";
 import YouTubeShorts from "./pages/admin/YouTubeShorts";
+import LinkedInArchive from "./pages/admin/LinkedInArchive";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Unsubscribe from "./pages/Unsubscribe";
 import { TopicsIndexPage } from "./pages/topics/TopicsIndexPage";
@@ -120,6 +121,11 @@ const App = () => (
                   <Route path="/admin/youtube/shorts" element={
                     <ProtectedRoute>
                       <YouTubeShorts />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/admin/linkedin" element={
+                    <ProtectedRoute>
+                      <LinkedInArchive />
                     </ProtectedRoute>
                   } />
                   <Route path="/admin/partners" element={

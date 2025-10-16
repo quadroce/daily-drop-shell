@@ -153,8 +153,8 @@ verify_jwt = false
 [functions.youtube-shorts-processor]
 verify_jwt = false
 
-[functions.linkedin-shorts-publish]
-verify_jwt = true
+[functions.linkedin-archive-share]
+verify_jwt = false
 
 [functions.generate-daily-topic-summary]
 verify_jwt = true

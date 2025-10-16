@@ -16,7 +16,7 @@ import { ServiceStatusIndicators } from "@/components/admin/ServiceStatusIndicat
 import { YouTubeCommentTestPanel } from "@/components/admin/YouTubeCommentTestPanel";
 import { YouTubeOAuthTestPanel } from "@/components/admin/YouTubeOAuthTestPanel";
 import { GenerateSummaryPanel } from "@/components/admin/GenerateSummaryPanel";
-import { Loader2, Users, Database, List, ArrowLeft, Rss, Cog, Tags, Monitor, Map, Globe, Youtube, Settings, Mail } from "lucide-react";
+import { Loader2, Users, Database, List, ArrowLeft, Rss, Cog, Tags, Monitor, Map, Globe, Youtube, Settings, Mail, Linkedin } from "lucide-react";
 
 interface Profile {
   id: string;
@@ -807,6 +807,16 @@ const Admin = () => {
                 <div className="text-left">
                   <div className="font-medium">YouTube</div>
                   <div className="text-xs text-muted-foreground">OAuth, automation & logs</div>
+                </div>
+              </Button>
+            </Link>
+
+            <Link to="/admin/linkedin" className="block">
+              <Button variant="outline" className="w-full justify-start gap-2 h-auto py-4">
+                <Linkedin className="h-5 w-5" />
+                <div className="text-left">
+                  <div className="font-medium">LinkedIn Archive</div>
+                  <div className="text-xs text-muted-foreground">Daily topic shares</div>
                 </div>
               </Button>
             </Link>

@@ -1399,6 +1399,121 @@ export type Database = {
           },
         ]
       }
+      social_post_events: {
+        Row: {
+          created_at: string | null
+          data: Json | null
+          id: number
+          message: string | null
+          phase: string
+          post_id: number | null
+          status: string
+        }
+        Insert: {
+          created_at?: string | null
+          data?: Json | null
+          id?: number
+          message?: string | null
+          phase: string
+          post_id?: number | null
+          status: string
+        }
+        Update: {
+          created_at?: string | null
+          data?: Json | null
+          id?: number
+          message?: string | null
+          phase?: string
+          post_id?: number | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_post_events_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "social_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_posts: {
+        Row: {
+          article_count: number
+          created_at: string
+          date_key: string
+          error_message: string | null
+          external_id: string | null
+          id: number
+          kind: string
+          payload_snapshot: Json | null
+          platform: string
+          post_text: string | null
+          post_url: string | null
+          posted_at: string | null
+          slot_time: string
+          status: string
+          topic_id: number | null
+          topic_slug: string
+          updated_at: string
+          utm_params: Json | null
+          window_end: string
+          window_start: string
+        }
+        Insert: {
+          article_count?: number
+          created_at?: string
+          date_key: string
+          error_message?: string | null
+          external_id?: string | null
+          id?: number
+          kind: string
+          payload_snapshot?: Json | null
+          platform: string
+          post_text?: string | null
+          post_url?: string | null
+          posted_at?: string | null
+          slot_time: string
+          status?: string
+          topic_id?: number | null
+          topic_slug: string
+          updated_at?: string
+          utm_params?: Json | null
+          window_end: string
+          window_start: string
+        }
+        Update: {
+          article_count?: number
+          created_at?: string
+          date_key?: string
+          error_message?: string | null
+          external_id?: string | null
+          id?: number
+          kind?: string
+          payload_snapshot?: Json | null
+          platform?: string
+          post_text?: string | null
+          post_url?: string | null
+          posted_at?: string | null
+          slot_time?: string
+          status?: string
+          topic_id?: number | null
+          topic_slug?: string
+          updated_at?: string
+          utm_params?: Json | null
+          window_end?: string
+          window_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_posts_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       source_health: {
         Row: {
           consecutive_errors: number | null
@@ -2113,6 +2228,16 @@ export type Database = {
           title: string
           type: Database["public"]["Enums"]["drop_type"]
           url: string
+        }[]
+      }
+      get_top_topics_by_date: {
+        Args: { p_end_date: string; p_limit?: number; p_start_date: string }
+        Returns: {
+          article_count: number
+          latest_published: string
+          topic_id: number
+          topic_label: string
+          topic_slug: string
         }[]
       }
       get_user_feedback_score: {
