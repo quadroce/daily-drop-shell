@@ -9,59 +9,20 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
+  console.log("🎬 YouTube Shorts Publish: Function invoked");
+  
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log("Publishing YouTube Shorts video with TTS audio...");
+    console.log("📝 Publishing YouTube Shorts video with TTS audio...");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Verify admin access or service_role
-    const authHeader = req.headers.get("Authorization");
-    
-    // Check if it's a service_role call
-    const isServiceRole = authHeader?.includes(Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || '');
-    
-    if (!isServiceRole) {
-      // If not service role, verify user is admin
-      if (!authHeader) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const token = authHeader.replace("Bearer ", "");
-      const { data: { user }, error: authError } = await supabase.auth.getUser(
-        token,
-      );
-
-      if (authError || !user) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-
-      if (!profile || !["admin", "superadmin"].includes(profile.role)) {
-        return new Response(JSON.stringify({ error: "Admin access required" }), {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-    }
-
-    console.log("✅ Authorization verified");
+    console.log("✅ Supabase client initialized");
 
     // Parse request - support both drop-based and topic-based digest
     const requestBody = await req.json();

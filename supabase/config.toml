@@ -171,6 +171,9 @@ verify_jwt = true
 [functions.youtube-shorts-publish]
 verify_jwt = false
 
+[functions.youtube-shorts-processor]
+verify_jwt = false
+
 [functions.linkedin-shorts-publish]
 verify_jwt = true
 
