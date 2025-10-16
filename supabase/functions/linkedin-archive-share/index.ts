@@ -236,41 +236,42 @@ Read the full archive: ${trackingUrl}
       throw new Error(errMsg);
     }
 
-    // Create UGC post
-    const ugcPayload = {
+    // Create post using new Posts API (not deprecated UGC API)
+    const postsPayload = {
       author: linkedinPageUrn,
-      lifecycleState: 'PUBLISHED',
-      specificContent: {
-        'com.linkedin.ugc.ShareContent': {
-          shareCommentary: {
-            text: postText
-          },
-          shareMediaCategory: 'ARTICLE',
-          media: [
-            {
-              status: 'READY',
-              originalUrl: trackingUrl
-            }
-          ]
+      commentary: postText,
+      visibility: 'PUBLIC',
+      distribution: {
+        feedDistribution: 'MAIN_FEED',
+        targetEntities: [],
+        thirdPartyDistributionChannels: []
+      },
+      content: {
+        article: {
+          source: trackingUrl,
+          title: selectedTopic.topic_label,
+          description: summary.substring(0, 200) // LinkedIn max 200 chars for article description
         }
       },
-      visibility: {
-        'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC'
-      }
+      lifecycleState: 'PUBLISHED',
+      isReshareDisabledByAuthor: false
     };
 
-    console.log('[LinkedIn API] Posting UGC...', {
-      author: ugcPayload.author,
-      textLength: postText.length
+    console.log('[LinkedIn API] Posting via Posts API...', {
+      author: postsPayload.author,
+      commentaryLength: postText.length,
+      articleUrl: trackingUrl
     });
-    const postResponse = await fetch('https://api.linkedin.com/v2/ugcPosts', {
+    
+    const postResponse = await fetch('https://api.linkedin.com/rest/posts', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${linkedinAccessToken}`,
         'Content-Type': 'application/json',
-        'X-Restli-Protocol-Version': '2.0.0'
+        'X-Restli-Protocol-Version': '2.0.0',
+        'LinkedIn-Version': '202501' // Format: YYYYMM
       },
-      body: JSON.stringify(ugcPayload)
+      body: JSON.stringify(postsPayload)
     });
 
     if (!postResponse.ok) {
@@ -285,8 +286,13 @@ Read the full archive: ${trackingUrl}
       throw new Error(`LinkedIn API error: ${postResponse.status} ${errorText}`);
     }
 
-    const postData = await postResponse.json();
-    const linkedinUrn = postData.id;
+    // Posts API returns 201 with post URN in x-restli-id header
+    const linkedinUrn = postResponse.headers.get('x-restli-id');
+    if (!linkedinUrn) {
+      console.error('[LinkedIn API] No x-restli-id in response headers');
+      throw new Error('LinkedIn API did not return post URN');
+    }
+    
     const linkedinUrl = `https://www.linkedin.com/feed/update/${linkedinUrn}`;
 
     console.log('[Posted Successfully]', linkedinUrn);
@@ -299,7 +305,7 @@ Read the full archive: ${trackingUrl}
       post_text: postText,
       post_url: linkedinUrl,
       utm_params: utmParams,
-      payload_snapshot: ugcPayload,
+      payload_snapshot: postsPayload,
       posted_at: now.toISOString(),
       updated_at: now.toISOString()
     }).eq('id', post.id);
