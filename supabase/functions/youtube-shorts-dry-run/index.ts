@@ -50,21 +50,45 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Parse request
-    const { dropId, style = 'recap' } = await req.json();
+    // Parse request - dropId is optional, we'll use a test drop if not provided
+    let requestBody: any = {};
+    try {
+      requestBody = await req.json();
+    } catch (e) {
+      // No body or empty body is fine, we'll use test data
+      console.log('No request body, using test data');
+    }
+    
+    const { dropId, style = 'recap' } = requestBody;
 
-    if (!dropId) {
-      return new Response(JSON.stringify({ error: 'dropId is required' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    // If no dropId provided, fetch a recent drop for testing
+    let testDropId = dropId;
+    if (!testDropId) {
+      console.log('No dropId provided, fetching a recent drop for testing...');
+      const { data: recentDrop } = await supabase
+        .from('drops')
+        .select('id')
+        .eq('tag_done', true)
+        .order('published_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (recentDrop) {
+        testDropId = recentDrop.id;
+        console.log(`Using test dropId: ${testDropId}`);
+      } else {
+        return new Response(JSON.stringify({ error: 'No drops available for testing' }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
     }
 
     // Fetch drop data
     const { data: drop, error: dropError } = await supabase
       .from('drops')
       .select('*, sources(name)')
-      .eq('id', dropId)
+      .eq('id', testDropId)
       .single();
 
     if (dropError || !drop) {
