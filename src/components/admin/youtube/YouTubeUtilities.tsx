@@ -19,6 +19,7 @@ export function YouTubeUtilities() {
   const [isCreatingTestJob, setIsCreatingTestJob] = useState(false);
   const [isTestingScheduler, setIsTestingScheduler] = useState(false);
   const [isTestingWorker, setIsTestingWorker] = useState(false);
+  const [isTestingShortsProcessor, setIsTestingShortsProcessor] = useState(false);
   const [quotaStatus, setQuotaStatus] = useState<any>(null);
   const [testResult, setTestResult] = useState<any>(null);
 
@@ -147,6 +148,26 @@ export function YouTubeUtilities() {
     }
   };
 
+  const testShortsProcessor = async () => {
+    setIsTestingShortsProcessor(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "youtube-shorts-processor",
+        { body: { trigger: "manual_test" } }
+      );
+
+      if (error) throw error;
+
+      toast.success(`Shorts processor completed: ${data?.processed || 0} shorts processed`);
+      console.log("Shorts processor result:", data);
+    } catch (error: any) {
+      console.error("Shorts processor error:", error);
+      toast.error(`Shorts processor failed: ${error.message}`);
+    } finally {
+      setIsTestingShortsProcessor(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -221,6 +242,18 @@ export function YouTubeUtilities() {
                 ? <Loader2 className="h-4 w-4 animate-spin" />
                 : <Play className="h-4 w-4" />}
               Test Worker Now
+            </Button>
+
+            <Button
+              onClick={testShortsProcessor}
+              disabled={isTestingShortsProcessor}
+              variant="secondary"
+              className="gap-2"
+            >
+              {isTestingShortsProcessor
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <Film className="h-4 w-4" />}
+              Test Shorts Processor
             </Button>
           </div>
         </div>
@@ -345,6 +378,10 @@ export function YouTubeUtilities() {
           <p>
             ▶️ <strong>Test Worker:</strong>{" "}
             Runs the comment worker to process due jobs
+          </p>
+          <p>
+            🎬 <strong>Test Shorts Processor:</strong>{" "}
+            Processes queued YouTube Shorts and publishes them
           </p>
           <p>
             ⚠️ Quota limits: 10,000 units/day (1 upload = ~1600 units, 1 comment
