@@ -64,10 +64,10 @@ Deno.serve(async (req) => {
     for (const job of jobsToProcess) {
       console.log(`Processing job ${job.id}: ${job.kind} for topic ${job.topic_slug} at slot ${job.slot}`);
 
-      // Update status to 'processing'
+      // Update status to 'running'
       await supabase
         .from('short_jobs')
-        .update({ status: 'processing' })
+        .update({ status: 'running' })
         .eq('id', job.id);
 
       try {
@@ -91,11 +91,11 @@ Deno.serve(async (req) => {
 
         console.log(`✅ Job ${job.id} completed successfully`);
 
-        // Update job status to 'completed'
+        // Update job status to 'done'
         await supabase
           .from('short_jobs')
           .update({
-            status: 'completed',
+            status: 'done',
             external_id: publishResult.video_id || null
           })
           .eq('id', job.id);
@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
         await supabase
           .from('short_jobs')
           .update({
-            status: 'failed',
+            status: 'error',
             error_message: error.message,
             tries: job.tries + 1
           })
