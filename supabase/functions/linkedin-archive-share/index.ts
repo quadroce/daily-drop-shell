@@ -206,9 +206,9 @@ Read the full archive: ${trackingUrl}
 
     // 9. Publish to LinkedIn (UGC text post)
     const linkedinAccessToken = Deno.env.get('LINKEDIN_ACCESS_TOKEN');
-    const linkedinOrgUrn = Deno.env.get('LINKEDIN_ORG_URN');
+    const linkedinPageUrn = Deno.env.get('LINKEDIN_PAGE_URN');
 
-    if (!linkedinAccessToken || !linkedinOrgUrn) {
+    if (!linkedinAccessToken || !linkedinPageUrn) {
       await logEvent('posting', 'error', 'LinkedIn credentials not configured');
       await supabase.from('social_posts').update({
         status: 'failed',
@@ -220,7 +220,7 @@ Read the full archive: ${trackingUrl}
 
     // Create UGC post
     const ugcPayload = {
-      author: linkedinOrgUrn,
+      author: linkedinPageUrn,
       lifecycleState: 'PUBLISHED',
       specificContent: {
         'com.linkedin.ugc.ShareContent': {
