@@ -208,6 +208,11 @@ Read the full archive: ${trackingUrl}
     const linkedinAccessToken = Deno.env.get('LINKEDIN_ACCESS_TOKEN');
     const linkedinPageUrn = Deno.env.get('LINKEDIN_PAGE_URN');
 
+    console.log('[LinkedIn Config]', { 
+      hasToken: !!linkedinAccessToken, 
+      urnFormat: linkedinPageUrn?.substring(0, 30) + '...' 
+    });
+
     if (!linkedinAccessToken || !linkedinPageUrn) {
       await logEvent('posting', 'error', 'LinkedIn credentials not configured');
       await supabase.from('social_posts').update({
@@ -216,6 +221,19 @@ Read the full archive: ${trackingUrl}
       }).eq('id', post.id);
       
       throw new Error('LinkedIn credentials not configured');
+    }
+
+    // Validate URN format (must be urn:li:organization:ID)
+    if (!linkedinPageUrn.startsWith('urn:li:organization:')) {
+      const errMsg = `Invalid URN format. Expected 'urn:li:organization:ID', got: ${linkedinPageUrn.substring(0, 50)}`;
+      console.error('[URN Format Error]', errMsg);
+      await logEvent('posting', 'error', errMsg);
+      await supabase.from('social_posts').update({
+        status: 'failed',
+        error_message: errMsg
+      }).eq('id', post.id);
+      
+      throw new Error(errMsg);
     }
 
     // Create UGC post
@@ -241,7 +259,10 @@ Read the full archive: ${trackingUrl}
       }
     };
 
-    console.log('[LinkedIn API] Posting UGC...');
+    console.log('[LinkedIn API] Posting UGC...', {
+      author: ugcPayload.author,
+      textLength: postText.length
+    });
     const postResponse = await fetch('https://api.linkedin.com/v2/ugcPosts', {
       method: 'POST',
       headers: {
