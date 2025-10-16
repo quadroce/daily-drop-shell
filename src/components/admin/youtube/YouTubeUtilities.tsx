@@ -36,7 +36,7 @@ export function YouTubeUtilities() {
 
       setQuotaStatus(data);
 
-      if (data.quotaAvailable) {
+      if (data.available) {
         toast.success("Quota available for uploads");
       } else {
         toast.error(`Quota exceeded: ${data.error || "quota_exceeded"}`);
@@ -46,7 +46,7 @@ export function YouTubeUtilities() {
       toast.error(
         `Quota Check Error: ${error.message || "quota_check_failed"}`,
       );
-      setQuotaStatus({ quotaAvailable: false, error: error.message });
+      setQuotaStatus({ available: false, error: error.message });
     } finally {
       setIsCheckingQuota(false);
     }
@@ -309,7 +309,7 @@ export function YouTubeUtilities() {
         {/* Quota Status Display */}
         {quotaStatus && (
           <Alert
-            variant={quotaStatus.quotaAvailable ? "default" : "destructive"}
+            variant={quotaStatus.available ? "default" : "destructive"}
           >
             <Gauge className="h-4 w-4" />
             <AlertDescription>
@@ -317,29 +317,35 @@ export function YouTubeUtilities() {
                 <div className="flex items-center gap-2">
                   <strong>Quota Status:</strong>
                   <Badge
-                    variant={quotaStatus.quotaAvailable
+                    variant={quotaStatus.available
                       ? "default"
                       : "destructive"}
                   >
-                    {quotaStatus.quotaAvailable ? "Available" : "Exceeded"}
+                    {quotaStatus.available ? "Available" : "Exceeded"}
                   </Badge>
                 </div>
 
-                {quotaStatus.estimatedUsage !== undefined && (
+                {quotaStatus.quotaInfo?.estimatedUsed !== undefined && (
                   <p className="text-sm">
-                    Estimated Usage: {quotaStatus.estimatedUsage} units
+                    Estimated Usage: {quotaStatus.quotaInfo.estimatedUsed} units
                   </p>
                 )}
 
-                {quotaStatus.remainingUploads !== undefined && (
+                {quotaStatus.quotaInfo?.estimatedUploadsRemaining !== undefined && (
                   <p className="text-sm">
-                    Remaining Uploads (est.): {quotaStatus.remainingUploads}
+                    Remaining Uploads (est.): {quotaStatus.quotaInfo.estimatedUploadsRemaining}
                   </p>
                 )}
 
-                {quotaStatus.remainingComments !== undefined && (
+                {quotaStatus.quotaInfo?.estimatedCommentsRemaining !== undefined && (
                   <p className="text-sm">
-                    Remaining Comments (est.): {quotaStatus.remainingComments}
+                    Remaining Comments (est.): {quotaStatus.quotaInfo.estimatedCommentsRemaining}
+                  </p>
+                )}
+
+                {quotaStatus.channelInfo?.found && (
+                  <p className="text-sm text-green-600 dark:text-green-400">
+                    ✓ Channel connected: {quotaStatus.channelInfo.channelId}
                   </p>
                 )}
 
