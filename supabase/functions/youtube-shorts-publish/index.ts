@@ -351,8 +351,8 @@ Return only the script text, one sentence per line.`;
 
     const metadata = {
       title: isTopicDigest
-        ? `Today in ${topicData.label} #Shorts`
-        : (title || `${drop.title.substring(0, 80)} #Shorts`),
+        ? `Dailydrops: Today in ${topicData.label} #Shorts`
+        : (title || `Dailydrops: ${drop.title.substring(0, 70)} #Shorts`),
       description: isTopicDigest
         ? `Quick highlights from ${topicData.label}\n\n${script}\n\nLearn more at ${ctaUrl}\n\n#tech #${topicSlug}`
         : (description || `${drop.summary?.substring(0, 200) || drop.title}\n\n${script}\n\nLearn more at ${ctaUrl}\n\n#tech #innovation`),
