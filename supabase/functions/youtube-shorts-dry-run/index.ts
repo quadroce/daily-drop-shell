@@ -51,15 +51,23 @@ Deno.serve(async (req) => {
     }
 
     // Parse request - dropId is optional, we'll use a test drop if not provided
-    let requestBody: any = {};
-    try {
-      requestBody = await req.json();
-    } catch (e) {
-      // No body or empty body is fine, we'll use test data
-      console.log('No request body, using test data');
-    }
+    let dropId = null;
+    let style = 'recap';
     
-    const { dropId, style = 'recap' } = requestBody;
+    // Check if there's a body to parse
+    const contentType = req.headers.get('content-type');
+    if (contentType?.includes('application/json')) {
+      try {
+        const body = await req.text();
+        if (body && body.trim() !== '') {
+          const requestBody = JSON.parse(body);
+          dropId = requestBody.dropId;
+          style = requestBody.style || 'recap';
+        }
+      } catch (e) {
+        console.log('Error parsing JSON body, using defaults:', e);
+      }
+    }
 
     // If no dropId provided, fetch a recent drop for testing
     let testDropId = dropId;

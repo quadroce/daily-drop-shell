@@ -64,10 +64,24 @@ Deno.serve(async (req) => {
     console.log("✅ Authorization verified");
 
     // Parse request - support both drop-based and topic-based digest
-    const { dropId, topicSlug, style = "recap", title, description } = await req.json();
+    const requestBody = await req.json();
+    const { 
+      dropId, 
+      topicSlug: topicSlugParam, 
+      topic_slug,  // Accept both snake_case and camelCase
+      style = "recap", 
+      title, 
+      description,
+      mode,
+      slot,
+      job_id
+    } = requestBody;
+
+    // Use whichever topic slug was provided
+    const topicSlug = topicSlugParam || topic_slug;
 
     // Determine mode
-    const isTopicDigest = !!topicSlug;
+    const isTopicDigest = !!topicSlug || mode === 'topic-digest';
 
     if (!dropId && !topicSlug) {
       return new Response(JSON.stringify({ error: "Either dropId or topicSlug is required" }), {

@@ -169,7 +169,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.youtube-shorts-publish]
-verify_jwt = true
+verify_jwt = false
 
 [functions.linkedin-shorts-publish]
 verify_jwt = true
