@@ -51,12 +51,37 @@ Deno.serve(async (req) => {
 
     console.log(`📌 Tomorrow is day ${dayOfWeek}, topics: ${topics.join(', ')}`);
 
+    // Validate topics exist in database
+    const { data: validTopics, error: topicsError } = await supabase
+      .from('topics')
+      .select('slug')
+      .in('slug', topics)
+      .eq('is_active', true);
+
+    if (topicsError) {
+      throw new Error(`Failed to validate topics: ${topicsError.message}`);
+    }
+
+    const validTopicSlugs = new Set(validTopics?.map(t => t.slug) || []);
+    const invalidTopics = topics.filter(t => !validTopicSlugs.has(t));
+
+    if (invalidTopics.length > 0) {
+      console.warn(`⚠️ Invalid topics found in rotation: ${invalidTopics.join(', ')}`);
+      console.warn(`Valid topics from DB: ${Array.from(validTopicSlugs).join(', ')}`);
+    }
+
     // Create jobs for both slots
     const jobsToCreate = [];
     
     for (let i = 0; i < rotation.slots.length; i++) {
       const slot = rotation.slots[i];
       const topicSlug = topics[i];
+      
+      // Skip invalid topics
+      if (!validTopicSlugs.has(topicSlug)) {
+        console.warn(`⚠️ Skipping job for invalid topic: ${topicSlug}`);
+        continue;
+      }
       
       // Parse time (e.g., "11:15")
       const [hours, minutes] = slot.time.split(':').map(Number);
