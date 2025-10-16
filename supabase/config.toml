@@ -3,9 +3,6 @@ project_id = "qimelntuxquptqqynxzv"
 [functions.partner-api]
 verify_jwt = false
 
-[functions.test-embedding-init]
-verify_jwt = false
-
 [functions.automated-embeddings]
 verify_jwt = false
 
@@ -24,9 +21,6 @@ verify_jwt = false
 [functions.youtube-metadata]
 verify_jwt = false
 
-[functions.test-youtube-integration]
-verify_jwt = false
-
 [functions.scrape-og]
 verify_jwt = false
 
@@ -37,9 +31,6 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.tag-drops]
-verify_jwt = false
-
-[functions.tag-drops-test]
 verify_jwt = false
 
 [functions.background-feed-ranking]
@@ -81,22 +72,10 @@ verify_jwt = false
 [functions.serve-topics-archive-sitemap]
 verify_jwt = false
 
-[functions.cleanup-failed-queue]
-verify_jwt = false
-
-[functions.validate-queue-urls]
-verify_jwt = false
-
-[functions.manual-health-fix]
-verify_jwt = false
-
 [functions.generate-sitemap]
 verify_jwt = false
 
 [functions.indexnow-integration]
-verify_jwt = false
-
-[functions.test-sitemap-submissions]
 verify_jwt = false
 
 [functions.embed-drops]

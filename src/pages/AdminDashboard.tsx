@@ -29,7 +29,6 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { requireSession } from "@/lib/auth";
-import { SitemapTestPanel } from "@/components/SitemapTestPanel";
 
 interface IngestionLog {
   id: number;
@@ -1177,7 +1176,38 @@ const AdminDashboard = () => {
         {/* Sitemaps & SEO */}
         <TabsContent value="sitemaps">
           <div className="space-y-6">
-            <SitemapTestPanel />
+            <Card>
+              <CardHeader>
+                <CardTitle>Sitemap Generation</CardTitle>
+                <CardDescription>
+                  Sitemap generation and SEO optimization tools
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Sitemap generation is handled automatically. Check the system logs for generation status.
+                </p>
+                <Button
+                  onClick={async () => {
+                    const { data, error } = await supabase.functions.invoke('generate-sitemap');
+                    if (error) {
+                      toast({
+                        title: "Error",
+                        description: error.message,
+                        variant: "destructive",
+                      });
+                    } else {
+                      toast({
+                        title: "Success",
+                        description: "Sitemap generation initiated",
+                      });
+                    }
+                  }}
+                >
+                  Generate Sitemap Now
+                </Button>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
 

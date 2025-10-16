@@ -13,12 +13,7 @@ import Feed from "./pages/Feed";
 import Search from "./pages/Search";
 import Preferences from "./pages/Preferences";
 import Profile from "./pages/Profile";
-import Newsletter from "./pages/Newsletter";
 import Settings from "./pages/Settings";
-import Pricing from "./pages/Pricing";
-import Premium from "./pages/Premium";
-import Corporate from "./pages/Corporate";
-import Sponsor from "./pages/Sponsor";
 import Privacy from "./pages/Privacy";
 import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
@@ -77,12 +72,7 @@ const App = () => (
                       <Profile />
                     </ProtectedRoute>
                   } />
-                  <Route path="/newsletter" element={<Newsletter />} />
                   <Route path="/settings" element={<Settings />} />
-                  <Route path="/pricing" element={<Pricing />} />
-                  <Route path="/premium" element={<Premium />} />
-                  <Route path="/corporate" element={<Corporate />} />
-                  <Route path="/sponsor" element={<Sponsor />} />
                   <Route path="/privacy" element={<Privacy />} />
                   <Route path="/personalization" element={<Personalization />} />
                   <Route path="/unsubscribe" element={<Unsubscribe />} />

@@ -418,19 +418,9 @@ const Admin = () => {
   const fixPipeline = async () => {
     setActionLoading('fix-pipeline');
     try {
-      // Step 1: Fix SQL ambiguity issues
+      // Clean ingestion queue
       toast({
-        title: "Phase 1/4",
-        description: "Fixing SQL ambiguity issues...",
-      });
-      
-      const { data: sqlFix, error: sqlError } = await supabase.functions.invoke('fix-sql-ambiguity');
-      if (sqlError) throw sqlError;
-      console.log('SQL fix result:', sqlFix);
-      
-      // Step 2: Clean ingestion queue
-      toast({
-        title: "Phase 2/4", 
+        title: "Phase 1/2", 
         description: "Cleaning problematic queue items...",
       });
       
@@ -438,21 +428,9 @@ const Admin = () => {
       if (queueError) throw queueError;
       console.log('Queue cleanup result:', queueClean);
       
-      // Step 3: Optimize RSS feeds
+      // System health check
       toast({
-        title: "Phase 3/4",
-        description: "Analyzing RSS feed performance...",
-      });
-      
-      const { data: rssAnalysis, error: rssError } = await supabase.functions.invoke('optimize-rss-feeds', {
-        body: { action: 'analyze' }
-      });
-      if (rssError) throw rssError;
-      console.log('RSS analysis result:', rssAnalysis);
-      
-      // Step 4: System health check
-      toast({
-        title: "Phase 4/4",
+        title: "Phase 2/2",
         description: "Running system health check...",
       });
       
@@ -462,7 +440,7 @@ const Admin = () => {
       
       toast({
         title: "✅ Pipeline Corrected!",
-        description: `Fixed ${sqlFix?.fixed || 0} SQL issues, cleaned ${queueClean?.cleaned || 0} queue items`,
+        description: `Cleaned ${queueClean?.cleaned || 0} queue items`,
       });
       
       // Refresh stats
