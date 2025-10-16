@@ -7,11 +7,11 @@ const corsHeaders = {
 };
 
 const TIMEZONE = "Europe/Rome";
-const DAILY_CAP = 50;
+const DAILY_CAP = 15; // Reduced from 50 to preserve YouTube API quota (15 comments = 750 units/day)
 const MIN_SPACING_MINUTES = 20; // Average minimum spacing between comments
 
 /**
- * Daily scheduler that distributes up to 50 comments across 24 hours
+ * Daily scheduler that distributes up to 15 comments across 24 hours
  * Runs at 00:05 Europe/Rome
  */
 serve(async (req) => {
