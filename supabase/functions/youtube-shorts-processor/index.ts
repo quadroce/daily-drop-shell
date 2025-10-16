@@ -22,12 +22,12 @@ Deno.serve(async (req) => {
     const now = new Date();
     console.log(`Current time: ${now.toISOString()}`);
 
-    // Find jobs that should be published now (scheduled_for <= now AND status = 'queued')
+    // Find jobs that should be published now (scheduled_for <= now AND (status = 'queued' OR (status = 'error' AND tries < 3)))
     const { data: jobsToProcess, error: queryError } = await supabase
       .from('short_jobs')
       .select('*')
       .eq('platform', 'youtube')
-      .eq('status', 'queued')
+      .or('status.eq.queued,and(status.eq.error,tries.lt.3)')
       .lte('scheduled_for', now.toISOString())
       .order('scheduled_for', { ascending: true })
       .limit(5); // Process max 5 at a time
