@@ -20,6 +20,7 @@ export function YouTubeUtilities() {
   const [isTestingScheduler, setIsTestingScheduler] = useState(false);
   const [isTestingWorker, setIsTestingWorker] = useState(false);
   const [isTestingShortsProcessor, setIsTestingShortsProcessor] = useState(false);
+  const [isReschedulingShorts, setIsReschedulingShorts] = useState(false);
   const [quotaStatus, setQuotaStatus] = useState<any>(null);
   const [testResult, setTestResult] = useState<any>(null);
 
@@ -168,6 +169,41 @@ export function YouTubeUtilities() {
     }
   };
 
+  const rescheduleQueuedShorts = async () => {
+    setIsReschedulingShorts(true);
+    try {
+      // Update all queued shorts to be scheduled for now
+      const { data: jobs, error: fetchError } = await supabase
+        .from("short_jobs")
+        .select("id")
+        .eq("status", "queued");
+
+      if (fetchError) throw fetchError;
+
+      if (!jobs || jobs.length === 0) {
+        toast.info("No queued shorts to reschedule");
+        return;
+      }
+
+      const { error: updateError } = await supabase
+        .from("short_jobs")
+        .update({ scheduled_for: new Date().toISOString() })
+        .eq("status", "queued");
+
+      if (updateError) throw updateError;
+
+      toast.success(`${jobs.length} shorts rescheduled for immediate processing`);
+      
+      // Trigger processor
+      await testShortsProcessor();
+    } catch (error: any) {
+      console.error("Reschedule error:", error);
+      toast.error(`Failed to reschedule: ${error.message}`);
+    } finally {
+      setIsReschedulingShorts(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -254,6 +290,18 @@ export function YouTubeUtilities() {
                 ? <Loader2 className="h-4 w-4 animate-spin" />
                 : <Film className="h-4 w-4" />}
               Test Shorts Processor
+            </Button>
+
+            <Button
+              onClick={rescheduleQueuedShorts}
+              disabled={isReschedulingShorts}
+              variant="outline"
+              className="gap-2"
+            >
+              {isReschedulingShorts
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <Calendar className="h-4 w-4" />}
+              Reschedule Shorts NOW
             </Button>
           </div>
         </div>
@@ -382,6 +430,10 @@ export function YouTubeUtilities() {
           <p>
             🎬 <strong>Test Shorts Processor:</strong>{" "}
             Processes queued YouTube Shorts and publishes them
+          </p>
+          <p>
+            📅 <strong>Reschedule Shorts NOW:</strong>{" "}
+            Re-schedules all queued shorts for immediate processing and triggers processor
           </p>
           <p>
             ⚠️ Quota limits: 10,000 units/day (1 upload = ~1600 units, 1 comment
