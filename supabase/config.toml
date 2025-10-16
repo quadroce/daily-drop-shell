@@ -182,3 +182,6 @@ verify_jwt = true
 
 [functions.generate-daily-summaries-batch]
 verify_jwt = false
+
+[functions.trigger-youtube-reprocess]
+verify_jwt = false
