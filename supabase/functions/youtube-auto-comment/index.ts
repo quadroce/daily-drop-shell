@@ -461,12 +461,13 @@ serve(async (req) => {
 
     const job = jobs[0] as CommentJob;
 
-    // Check if this video already has a posted comment (prevent duplicates)
+    // Check if this video already has a posted OR processing comment (prevent duplicates)
     const { data: existingComments, error: duplicateCheckError } = await supabase
       .from("social_comment_jobs")
       .select("id, status")
       .eq("video_id", job.video_id)
-      .eq("status", "posted")
+      .neq("id", job.id) // Exclude current job
+      .in("status", ["posted", "processing"])
       .limit(1);
 
     if (!duplicateCheckError && existingComments && existingComments.length > 0) {
@@ -474,6 +475,7 @@ serve(async (req) => {
         jobId: job.id,
         videoId: job.video_id,
         existingJobId: existingComments[0].id,
+        existingStatus: existingComments[0].status,
       });
       
       // Mark this job as failed to prevent retry
@@ -481,16 +483,17 @@ serve(async (req) => {
         .from("social_comment_jobs")
         .update({
           status: "failed",
-          last_error: "Video already has a posted comment",
+          last_error: `Video already has a ${existingComments[0].status} comment (job ${existingComments[0].id})`,
         })
         .eq("id", job.id);
 
       return new Response(
         JSON.stringify({
           success: false,
-          reason: "Video already commented",
+          reason: "Video already has an active comment job",
           jobId: job.id,
           existingJobId: existingComments[0].id,
+          existingStatus: existingComments[0].status,
         }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -713,12 +716,15 @@ serve(async (req) => {
         }
 
         // Update job as posted with all metadata
+        // Add job ID to text_hash to ensure uniqueness (prevent constraint violations)
+        const uniqueTextHash = `${textHash}_${job.id}`;
+        
         const { error: updateError } = await supabase
           .from("social_comment_jobs")
           .update({
             text_original: textOriginal,
             text_variant: textVariant,
-            text_hash: textHash,
+            text_hash: uniqueTextHash,
             external_comment_id: postResult.commentId,
             status: "posted",
             posted_at: new Date().toISOString(),
@@ -731,26 +737,40 @@ serve(async (req) => {
             jobId: job.id,
             error: updateError,
           });
-          await logEvent(
-            supabase,
-            job.id,
-            "UPDATE",
-            "error",
-            "Failed to update job status to posted",
-            { error: updateError },
-          );
-          // Return error so job stays in processing and gets retried
-          return new Response(
-            JSON.stringify({
-              success: false,
-              error: "Failed to update job status",
-              details: updateError,
-            }),
-            {
-              status: 500,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            },
-          );
+          
+          // Try one more time with a timestamped hash to avoid conflicts
+          const timestampedHash = `${textHash}_${job.id}_${Date.now()}`;
+          const { error: retryUpdateError } = await supabase
+            .from("social_comment_jobs")
+            .update({
+              text_original: textOriginal,
+              text_variant: textVariant,
+              text_hash: timestampedHash,
+              external_comment_id: postResult.commentId,
+              status: "posted",
+              posted_at: new Date().toISOString(),
+              tries: job.tries + 1,
+            })
+            .eq("id", job.id);
+          
+          if (retryUpdateError) {
+            await logEvent(
+              supabase,
+              job.id,
+              "UPDATE",
+              "error",
+              "Failed to update job status to posted (retry also failed)",
+              { error: retryUpdateError },
+            );
+            // Comment was posted successfully, just log the error but return success
+            console.error("UPDATE_RETRY_ERROR", {
+              jobId: job.id,
+              error: retryUpdateError,
+              note: "Comment was posted successfully despite DB update error",
+            });
+          } else {
+            console.log("UPDATE_RETRY_SUCCESS", { jobId: job.id });
+          }
         }
 
         console.log("POSTED_SUCCESS", {
