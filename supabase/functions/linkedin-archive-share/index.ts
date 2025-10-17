@@ -24,7 +24,68 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    const { slot, trigger } = await req.json();
+    const { slot, trigger, test } = await req.json();
+    
+    // Handle token test request
+    if (test) {
+      console.log('[LinkedIn Token Test] Testing token and permissions...');
+      
+      const linkedinAccessToken = Deno.env.get('LINKEDIN_ACCESS_TOKEN');
+      const linkedinPageUrn = Deno.env.get('LINKEDIN_PAGE_URN');
+      
+      if (!linkedinAccessToken || !linkedinPageUrn) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'LinkedIn credentials not configured (LINKEDIN_ACCESS_TOKEN or LINKEDIN_PAGE_URN missing)'
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      
+      // Validate URN format
+      if (!linkedinPageUrn.startsWith('urn:li:organization:')) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: `Invalid URN format. Expected 'urn:li:organization:ID', got: ${linkedinPageUrn.substring(0, 50)}`
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      
+      // Test token by fetching organization info
+      const testResponse = await fetch(`https://api.linkedin.com/rest/organizations/${linkedinPageUrn.replace('urn:li:organization:', '')}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${linkedinAccessToken}`,
+          'X-Restli-Protocol-Version': '2.0.0',
+          'LinkedIn-Version': '202501'
+        }
+      });
+      
+      if (!testResponse.ok) {
+        const errorText = await testResponse.text();
+        return new Response(JSON.stringify({
+          success: false,
+          error: `Token test failed: ${testResponse.status} - ${errorText.substring(0, 200)}`
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      
+      console.log('[Token Test] Success - Token is valid');
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'Token is valid and has correct permissions. Organization access confirmed.',
+        urn: linkedinPageUrn
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    
     console.log(`[LinkedIn Archive Share] Started: slot=${slot}, trigger=${trigger}`);
 
     // 1. Check if feature is enabled

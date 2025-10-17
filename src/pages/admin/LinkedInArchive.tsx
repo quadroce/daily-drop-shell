@@ -32,6 +32,8 @@ const LinkedInArchive = () => {
   const [enabled, setEnabled] = useState(false);
   const [isToggling, setIsToggling] = useState(false);
   const [isRunningNow, setIsRunningNow] = useState(false);
+  const [isTestingToken, setIsTestingToken] = useState(false);
+  const [tokenTestResult, setTokenTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [posts, setPosts] = useState<SocialPost[]>([]);
   const [nextRun, setNextRun] = useState<{ morning: string; afternoon: string } | null>(null);
 
@@ -128,6 +130,45 @@ const LinkedInArchive = () => {
       });
     } finally {
       setIsToggling(false);
+    }
+  };
+
+  const handleTestToken = async () => {
+    setIsTestingToken(true);
+    setTokenTestResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('linkedin-archive-share', {
+        body: { test: true }
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        setTokenTestResult({
+          success: true,
+          message: data.message || 'Token is valid and has correct permissions!'
+        });
+        toast({
+          title: 'Token Valid',
+          description: 'LinkedIn token has correct permissions'
+        });
+      } else {
+        throw new Error(data?.error || 'Token test failed');
+      }
+    } catch (error) {
+      console.error('Token test error:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Token test failed';
+      setTokenTestResult({
+        success: false,
+        message: errorMsg
+      });
+      toast({
+        title: 'Token Test Failed',
+        description: errorMsg,
+        variant: 'destructive'
+      });
+    } finally {
+      setIsTestingToken(false);
     }
   };
 
@@ -252,26 +293,69 @@ const LinkedInArchive = () => {
             )}
           </div>
 
-          <Button
-            onClick={handleRunNow}
-            disabled={isRunningNow}
-            className="w-full md:w-auto"
-          >
-            {isRunningNow ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Running...
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 mr-2" />
-                Run Now
-              </>
-            )}
-          </Button>
-          <p className="text-xs text-muted-foreground">
-            Triggers both morning and afternoon slots immediately using current rules
-          </p>
+          <div className="flex flex-col md:flex-row gap-3">
+            <Button
+              onClick={handleTestToken}
+              disabled={isTestingToken}
+              variant="outline"
+              className="w-full md:w-auto"
+            >
+              {isTestingToken ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Testing...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Test Token
+                </>
+              )}
+            </Button>
+
+            <Button
+              onClick={handleRunNow}
+              disabled={isRunningNow}
+              className="w-full md:w-auto"
+            >
+              {isRunningNow ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Running...
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 mr-2" />
+                  Run Now
+                </>
+              )}
+            </Button>
+          </div>
+
+          {tokenTestResult && (
+            <div className={`p-4 rounded-lg border ${tokenTestResult.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+              <div className="flex items-start gap-2">
+                {tokenTestResult.success ? (
+                  <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                ) : (
+                  <XCircle className="w-5 h-5 text-red-600 mt-0.5" />
+                )}
+                <div>
+                  <h4 className={`font-medium ${tokenTestResult.success ? 'text-green-900' : 'text-red-900'}`}>
+                    {tokenTestResult.success ? 'Token Valid' : 'Token Invalid'}
+                  </h4>
+                  <p className={`text-sm ${tokenTestResult.success ? 'text-green-700' : 'text-red-700'}`}>
+                    {tokenTestResult.message}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p><strong>Test Token:</strong> Verifies LinkedIn API access and permissions</p>
+            <p><strong>Run Now:</strong> Triggers both morning and afternoon slots immediately using current rules</p>
+          </div>
         </CardContent>
       </Card>
 
