@@ -21,6 +21,7 @@ import PublicProfile from "./pages/PublicProfile";
 import ResetPassword from "./pages/ResetPassword";
 import Admin from "./pages/Admin";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminCron from "./pages/admin/AdminCron";
 import AdminSources from "./pages/AdminSources";
 import AdminArticles from "./pages/admin/AdminArticles";
 import AdminManualIngest from "./pages/admin/AdminManualIngest";
@@ -86,6 +87,11 @@ const App = () => (
                   <Route path="/admin/dashboard" element={
                     <ProtectedRoute>
                       <AdminDashboard />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/admin/cron" element={
+                    <ProtectedRoute>
+                      <AdminCron />
                     </ProtectedRoute>
                   } />
                   <Route path="/admin/sources" element={
