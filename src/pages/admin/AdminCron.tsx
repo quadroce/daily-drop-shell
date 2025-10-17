@@ -260,14 +260,14 @@ export default function AdminCron() {
   };
 
   const formatRomeTime = (dateStr: string | null) => {
-    if (!dateStr) return '—';
+    if (!dateStr) return null;
     try {
       // Add 1 hour for Rome time (UTC+1, or UTC+2 during DST)
       const date = new Date(dateStr);
       date.setHours(date.getHours() + 1);
       return format(date, 'dd/MM/yyyy HH:mm');
     } catch {
-      return '—';
+      return null;
     }
   };
 
@@ -349,7 +349,11 @@ export default function AdminCron() {
                     />
                   </TableCell>
                   <TableCell>
-                    <div className="text-sm">{formatRomeTime(job.last_run)}</div>
+                    {formatRomeTime(job.last_run) ? (
+                      <div className="text-sm">{formatRomeTime(job.last_run)}</div>
+                    ) : (
+                      <div className="text-sm text-muted-foreground italic">Never run</div>
+                    )}
                     {job.last_error && (
                       <div className="text-xs text-red-600 truncate max-w-xs" title={job.last_error}>
                         {job.last_error}
