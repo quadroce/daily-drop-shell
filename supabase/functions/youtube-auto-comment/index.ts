@@ -508,11 +508,15 @@ serve(async (req) => {
       tries: job.tries,
     });
 
-    // Mark as processing
+    // CRITICAL: Mark as processing ONLY IF still queued (prevents race conditions)
     const { error: processingError } = await supabase
       .from("social_comment_jobs")
-      .update({ status: "processing" })
-      .eq("id", job.id);
+      .update({ 
+        status: "processing",
+        tries: job.tries + 1
+      })
+      .eq("id", job.id)
+      .eq("status", "queued"); // Only update if still queued
 
     if (processingError) {
       console.error("PROCESSING_UPDATE_ERROR", {
@@ -526,6 +530,49 @@ serve(async (req) => {
         }),
         {
           status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    // Verify we got the lock by checking if status changed to processing
+    const { data: verifyData, error: verifyError } = await supabase
+      .from("social_comment_jobs")
+      .select("status, external_comment_id")
+      .eq("id", job.id)
+      .single();
+
+    if (verifyError || !verifyData || verifyData.status !== "processing") {
+      console.log("LOCK_FAILED - Another instance is processing this job", {
+        jobId: job.id,
+        currentStatus: verifyData?.status,
+      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: "Job already being processed by another instance",
+        }),
+        {
+          status: 409,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    // CRITICAL: Check if comment was already posted (prevents double-posting)
+    if (verifyData.external_comment_id) {
+      console.error("ALREADY_POSTED", {
+        jobId: job.id,
+        commentId: verifyData.external_comment_id,
+      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Comment already posted",
+          commentId: verifyData.external_comment_id,
+        }),
+        {
+          status: 409,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         },
       );
