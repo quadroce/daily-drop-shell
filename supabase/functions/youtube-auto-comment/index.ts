@@ -23,6 +23,7 @@ const STATIC_TEMPLATES = [
 ];
 
 const DAILY_CAP = 50;
+const MAX_RETRIES = 5; // Maximum retry attempts before giving up
 const USE_AI_COMMENTS = true;
 const COMMENTS_MODEL = Deno.env.get("OPENAI_COMMENTS_MODEL") || "gpt-5";
 const COMMENTS_TEMPERATURE = parseFloat(Deno.env.get("OPENAI_COMMENTS_TEMPERATURE") || "0.9");
@@ -843,7 +844,61 @@ serve(async (req) => {
           },
         );
       } else {
-        // Failed to post - calculate exponential backoff
+        // Failed to post - check if max retries exceeded
+        if (job.tries >= MAX_RETRIES) {
+          console.error("MAX_RETRIES_EXCEEDED", {
+            jobId: job.id,
+            tries: job.tries,
+            maxRetries: MAX_RETRIES,
+          });
+
+          // Mark as permanently failed
+          const { error: updateError } = await supabase
+            .from("social_comment_jobs")
+            .update({
+              text_original: textOriginal,
+              text_variant: textVariant,
+              text_hash: textHash,
+              status: "failed",
+              last_error: `Max retries (${MAX_RETRIES}) exceeded. Last error: ${postResult.error}`,
+              tries: job.tries + 1,
+            })
+            .eq("id", job.id);
+
+          if (updateError) {
+            console.error("UPDATE_ERROR_MAX_RETRIES", {
+              jobId: job.id,
+              error: updateError,
+            });
+          }
+
+          await logEvent(
+            supabase,
+            job.id,
+            "POST",
+            "error",
+            `Failed permanently after ${MAX_RETRIES} retries`,
+            {
+              error: postResult.error,
+              tries: job.tries,
+            },
+          );
+
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Max retries exceeded: ${postResult.error}`,
+              jobId: job.id,
+              tries: job.tries,
+            }),
+            {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        // Calculate exponential backoff for retry
         const retryDelays = [15 * 60 * 1000, 60 * 60 * 1000, 4 * 60 * 60 * 1000]; // 15m, 1h, 4h
         const retryDelay = retryDelays[Math.min(job.tries, retryDelays.length - 1)];
         const nextRetry = new Date(Date.now() + retryDelay);
@@ -873,9 +928,10 @@ serve(async (req) => {
           job.id,
           "POST",
           "error",
-          "Failed to post to YouTube",
+          `Failed to post to YouTube (attempt ${job.tries + 1}/${MAX_RETRIES})`,
           {
             error: postResult.error,
+            nextRetry: nextRetry.toISOString(),
           },
         );
 
@@ -884,6 +940,9 @@ serve(async (req) => {
             success: false,
             error: postResult.error,
             jobId: job.id,
+            tries: job.tries + 1,
+            maxRetries: MAX_RETRIES,
+            nextRetry: nextRetry.toISOString(),
           }),
           {
             status: 500,
